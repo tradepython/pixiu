@@ -25,16 +25,21 @@ tests_require = [
 
 setup(
     name='pixiu',
-    version='0.30.0.20210529',
+    version='0.30.0',
     description='PiXiu - A trading backtesting tool similar to MT4/MT5',
     long_description=README + '\n\n' + CHANGES,
+    long_description_content_type="text/markdown",
     classifiers=[
-        'Programming Language :: Python',
+        'Programming Language :: Python :: 3',
+        'License :: OSI Approved :: Apache Software License'
     ],
     author='tradepython',
     author_email='tradepython@icloud.com',
-    url='http://www.tradepython.com',
-    keywords='',
+    url='https://github.com/tradepython/pixiu',
+    project_urls={
+        "Bug Tracker": "https://github.com/tradepython/pixiu/issues",
+    },
+    keywords='Trading Backtest Forex Stocks MT4 MT5 MetaTrade',
     packages=find_packages(),
     include_package_data=True,
     zip_safe=False,
@@ -45,4 +50,5 @@ setup(
     entry_points={
         'console_scripts': ['pixiu=pixiu.main:main'],
     },
+    python_requires=">=3.8",
 )
