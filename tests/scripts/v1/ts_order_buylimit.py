@@ -1,0 +1,100 @@
+ood = GetOpenedOrderUIDs()
+if len(ood) == 0:
+    pod = GetPendingOrderUIDs()
+    assertIsNotNone(pod)
+    if len(pod) == 0:
+        #
+        point = SymbolInfo("point")
+        volume = 0.01
+
+        # Buy all params
+        stop_loss = Bid() - 15 * point
+        take_profit = Ask() + 30 * point
+        comment = "test buylimit"
+        magic_number = 4301250
+        # failed
+        price = Close()
+        errid, order_uid = Buy(volume=0.01, type=OrderType.LIMIT, price=price, stop_loss=stop_loss,
+                            take_profit=take_profit, magic_number=magic_number,
+                            symbol=Symbol(), slippage=3, arrow_color="white")
+        assertEqual(errid, EID_EAT_INVALID_LIMIT_ORDER_OPEN_PRICE)
+
+        # failed
+        price = Close() - 10 * point
+        errid, order_uid = Buy(volume=0.01, type=OrderType.LIMIT, price=price, stop_loss=stop_loss,
+                            take_profit=take_profit, magic_number=magic_number,
+                            symbol=Symbol(), slippage=3, arrow_color="white")
+        assertEqual(errid, EID_EAT_INVALID_LIMIT_ORDER_OPEN_PRICE)
+
+        #test open, modify, close
+        price = valid_buylimit_price
+        errid, order_uid = Buy(volume=0.01, type=OrderType.LIMIT, price=price, stop_loss=stop_loss,
+                            take_profit=take_profit, magic_number=magic_number,
+                            symbol=Symbol(), slippage=3, arrow_color="white")
+        assertEqual(errid, 0)
+        errid = exec_command()
+        assertEqual(errid, 0)
+        oo = GetPendingOrderUIDs()
+        assertTrue(order_uid in oo)
+
+        #modify
+        stop_loss = stop_loss - 15 * point
+        take_profit = take_profit + 30 * point
+        errid, order_uid = ModifyOrder(order_uid, price=Close()-1*point, stop_loss=stop_loss, take_profit=take_profit)
+        assertEqual(errid, EID_EAT_INVALID_LIMIT_ORDER_OPEN_PRICE)
+        errid, order_uid = ModifyOrder(order_uid, price=Close()+1*point, stop_loss=stop_loss, take_profit=take_profit)
+        assertEqual(errid, 0)
+        errid = exec_command()
+        assertEqual(errid, 0)
+        #
+        order = GetOrder(order_uid)
+        assertEqual(order.symbol, Symbol())
+        assertEqual(order.uid, order_uid)
+        assertEqual(order.volume, volume)
+        assertEqual(order.stop_loss, stop_loss)
+        assertEqual(order.take_profit, take_profit)
+        assertIsNone(order.close_time)
+        assertIsNone(order.close_price)
+
+        #close
+        errid, ct = CloseOrder(order_uid, volume=volume, price=Ask())
+        assertEqual(errid, 0)
+        assertEqual(ct, order_uid)
+        errid = exec_command()
+        assertEqual(errid, 0)
+
+        # The order was closed ?
+        oo = GetPendingOrderUIDs()
+        assertFalse(order_uid in oo)
+
+        #
+        price = valid_buylimit_price
+        errid, order_uid = Buy(volume=0.01, type=OrderType.LIMIT, price=price, stop_loss=stop_loss,
+                            take_profit=take_profit, magic_number=magic_number,
+                            symbol=Symbol(), slippage=3, arrow_color="white")
+        assertEqual(errid, 0)
+        assertIsNotNone(order_uid)
+        errid = exec_command()
+        assertEqual(errid, 0)
+
+else:
+    pass
+ctime = Time()
+if ctime == valid_buylimit_time:
+    pod = GetPendingOrderUIDs()
+    assertEqual(len(pod), 0)
+    assertEqual(len(ood), 1)
+    # order = GetOrder(order_uid)
+    # assertEqual(order.symbol, Symbol())
+    # assertEqual(order.uid, order_uid)
+    # assertEqual(order.open_time, ctime)
+    # assertEqual(order.volume, volume)
+    # assertEqual(order.stop_loss, stop_loss)
+    # assertEqual(order.take_profit, take_profit)
+    # assertEqual(order.magic_number, magic_number)
+    # assertIsNone(order.close_time)
+    # assertEqual(order.close_price, nan)
+
+    set_test_result("OK")
+    StopTester()
+

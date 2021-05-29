@@ -1,0 +1,92 @@
+{
+  "accounts": {
+    "default": {
+      "balance": 10000.0,
+      "equity": 10000.0,
+      "margin": 0,
+      "free_margin": 10000.0,
+      "credit": 0.0,
+      "profit": 0.0,
+      "margin_level": 0,
+      "leverage": 100,
+      "currency": "USD",
+      "free_margin_mode": 0,
+      "stop_out_level": 0,
+      "stop_out_mode": 0,
+      "company": "TradePython.com",
+      "name": "PXTester",
+      "number": "000",
+      "server": "PXTester",
+      "trade_mode": 0,
+      "limit_orders": 500,
+      "margin_so_mode": 0,
+      "trade_allowed": true,
+      "trade_expert": 1,
+      "margin_so_call": 0.0,
+      "margin_so_so": 0.0,
+      "commission": 0.0
+    }
+  },
+  "symbols": {
+    "USDCHF": {
+      "symbol": "USDCHF",
+      "spread": 2,
+      "digits": 5,
+      "stop_level": 0,
+      "volume_min": 0.01,
+      "trade_contract_size": 100000,
+      "point": 0.00001,
+      "currency_profit": "CHF",
+      "currency_base": "USD",
+      "currency_margin": "USD"
+    }
+  },
+  "tests": {
+    "testUSDCHF": {
+      "symbol": "USDCHF",
+      "tick_data": "../tests/usdchf_m1_20210315-0415.csv",
+      "start_time": "2021-03-15",
+      "end_time": "2021-04-16",
+      "max_tick": 100,
+      "balance": 10000,
+      "leverage": 100,
+      "currency": "USD",
+      "account": "default",
+      "spread_point": 15
+    },
+    "testUSDCHF_TP_YourAccount": {
+      "symbol": "USDCHF",
+      "tick_data": {
+         "channel": "tradepython.com",
+         "api_token": "Your-API-Token",
+         "source": "account@server",
+         "format": "json",
+         "period": 30,
+         "timeframe": "m1"
+      },
+      "max_tick": 100,
+      "balance": 10000,
+      "leverage": 100,
+      "currency": "USD",
+      "account": "default",
+      "spread_point": 15
+    },
+    "testUSDCHF_TP_Demo1": {
+      "symbol": "USDCHF",
+      "tick_data": {
+         "channel": "tradepython.com",
+         "api_token": "Your-API-Token",
+         "source": {"type": "public", "name": "Demo1"},
+         "format": "json",
+         "period": 30,
+         "timeframe": "m1"
+      },
+      "max_tick": 100,
+      "balance": 10000,
+      "leverage": 100,
+      "currency": "USD",
+      "account": "default",
+      "spread_point": 15
+    }
+  }
+}

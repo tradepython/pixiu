@@ -1,0 +1,5 @@
+include *.txt *.ini *.cfg *.rst
+recursive-include pixiu *.ico *.png *.css *.gif *.jpg *.pt *.txt *.mak *.mako *.js *.html *.xml *.lang *.json
+recursive-include pixiu *.eot *.svg *.ttf *.woff *.woff2
+recursive-include pixiu *.pem *.csv *.plist *.ipa *.mobileprofile
+recursive-include pixiu *.ex4
