@@ -1,4 +1,12 @@
 
+### [2021-05-30]
+#### Version:
+#####   Package:
+#####    pixiu: 0.31.0.20210530
+#####
+#### **Descriptions：**
+    1. get_url_data add headers
+
 ### [2021-05-29]
 #### Version:
 #####   Package:

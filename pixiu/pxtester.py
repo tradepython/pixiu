@@ -69,7 +69,10 @@ class PXTester(EATester):
 
     def get_url_data(self, url, timeout=90):
         try:
-            req = Request(url)
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
+            }
+            req = Request(url, headers=headers)
             r = urlopen(req, timeout=timeout)
             content_type = r.headers.get('Content-Type', None)
             return r.code, content_type, r.read()
