@@ -38,9 +38,7 @@ class EATesterPrintCollector(object):
             kwargs['file'] = self
         else:
             self._getattr_(kwargs['file'], 'write')
-        if self.write_log:
-            self.write_log(*objects)
-        else:
+        if not self.write_log(*objects):
             print(*objects, **kwargs)
 
 
@@ -171,6 +169,7 @@ class EATester(EABase):
         if self.log_file:
             self.log_file.write(log_str)
             self.log_file.write('\n')
+        return True
 
 
     def get_account_data(self, timeframe):

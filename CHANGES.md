@@ -1,4 +1,12 @@
 
+### [2021-05-31]
+#### Version:
+#####   Package:
+#####    pixiu: 0.32.0.20210531
+#####
+#### **Descriptions：**
+    1.fix EATesterPrintCollector._call_print write_log bug
+
 ### [2021-05-30]
 #### Version:
 #####   Package:
