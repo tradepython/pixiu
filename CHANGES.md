@@ -1,4 +1,16 @@
 
+### [2021-06-01]
+#### Version:
+#####   Package:
+#####    pixiu: 0.33.0.20210601
+#####
+#### **Descriptions：**
+    1.add APIs:
+      WaitCommand
+    2.modify APIs:
+      Buy, Sell, CloseOrder, ModifyOrder return order_uid -> OrderResult
+
+
 ### [2021-05-31]
 #### Version:
 #####   Package:

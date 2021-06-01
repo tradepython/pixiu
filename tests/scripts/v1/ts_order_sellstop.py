@@ -12,45 +12,45 @@ if len(ood) == 0:
         magic_number = 4301250
         # failed
         price = Close()
-        errid, order_uid = Sell(volume=0.01, type=OrderType.STOP, price=price, stop_loss=stop_loss,
+        errid, result = Sell(volume=0.01, type=OrderType.STOP, price=price, stop_loss=stop_loss,
                             take_profit=take_profit, magic_number=magic_number,
                             symbol=Symbol(), slippage=3, arrow_color="white")
         assertEqual(errid, EID_EAT_INVALID_STOP_ORDER_OPEN_PRICE)
 
         # failed
         price = Close() - 10 * point
-        errid, order_uid = Sell(volume=0.01, type=OrderType.STOP, price=price, stop_loss=stop_loss,
+        errid, result = Sell(volume=0.01, type=OrderType.STOP, price=price, stop_loss=stop_loss,
                             take_profit=take_profit, magic_number=magic_number,
                             symbol=Symbol(), slippage=3, arrow_color="white")
         assertEqual(errid, EID_EAT_INVALID_STOP_ORDER_OPEN_PRICE)
         #test open, modify, close
         price = valid_sellstop_price
-        errid, order_uid = Sell(volume=0.01, type=OrderType.STOP, price=price, stop_loss=stop_loss,
+        errid, result = Sell(volume=0.01, type=OrderType.STOP, price=price, stop_loss=stop_loss,
                             take_profit=take_profit, magic_number=magic_number,
                             symbol=Symbol(), slippage=3, arrow_color="white")
         assertEqual(errid, 0)
-        assertIsNotNone(order_uid)
+        assertIsNotNone(result)
         errid = exec_command()
         assertEqual(errid, 0)
 
         oo = GetPendingOrderUIDs()
-        assertTrue(order_uid in oo)
+        assertTrue(result['order_uid'] in oo)
 
         # modify
         stop_loss = stop_loss + 15 * point
         take_profit = take_profit - 30 * point
-        errid, order_uid = ModifyOrder(order_uid, price=Close()-1*point, stop_loss=stop_loss, take_profit=take_profit)
+        errid, result = ModifyOrder(result['order_uid'], price=Close()-1*point, stop_loss=stop_loss, take_profit=take_profit)
         assertEqual(errid, EID_EAT_INVALID_STOP_ORDER_OPEN_PRICE)
-        errid, order_uid = ModifyOrder(order_uid, price=Close()+1*point, stop_loss=stop_loss, take_profit=take_profit)
+        errid, result = ModifyOrder(result['order_uid'], price=Close()+1*point, stop_loss=stop_loss, take_profit=take_profit)
         assertEqual(errid, 0)
-        assertIsNotNone(order_uid)
+        assertIsNotNone(result)
         errid = exec_command()
         assertEqual(errid, 0)
 
         #
-        order = GetOrder(order_uid)
+        order = GetOrder(result['order_uid'])
         assertEqual(order.symbol, Symbol())
-        assertEqual(order.uid, order_uid)
+        assertEqual(order.uid, result['order_uid'])
         assertEqual(order.volume, volume)
         assertEqual(order.stop_loss, stop_loss)
         assertEqual(order.take_profit, take_profit)
@@ -58,23 +58,23 @@ if len(ood) == 0:
         assertIsNone(order.close_price)
 
         #close
-        errid, ct = CloseOrder(order_uid, volume=volume, price=Bid())
+        errid, close_result = CloseOrder(result['order_uid'], volume=volume, price=Bid())
         assertEqual(errid, 0)
-        assertEqual(ct, order_uid)
+        assertEqual(close_result['order_uid'], result['order_uid'])
         errid = exec_command()
         assertEqual(errid, 0)
 
         # The order was closed ?
         oo = GetPendingOrderUIDs()
-        assertFalse(order_uid in oo)
+        assertFalse(result['order_uid'] in oo)
 
         #
         price = valid_sellstop_price
-        errid, order_uid = Sell(volume=0.01, type=OrderType.STOP, price=price, stop_loss=stop_loss,
+        errid, result = Sell(volume=0.01, type=OrderType.STOP, price=price, stop_loss=stop_loss,
                             take_profit=take_profit, magic_number=magic_number,
                             symbol=Symbol(), slippage=3, arrow_color="white")
         assertEqual(errid, 0)
-        assertIsNotNone(order_uid)
+        assertIsNotNone(result)
         errid = exec_command()
         assertEqual(errid, 0)
 

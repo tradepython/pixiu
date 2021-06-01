@@ -28,8 +28,11 @@ class IndicatiorID():
     WPR = 18000
 
 ErrorID = NewType('ErrorID', int)
+Result = NewType('Result', dict)
 UID = NewType('UID', str)
 OrderUID = NewType('OrderUID', UID)
+OrderResult = NewType('OrderResult', Result)
+CommandResult = NewType('CommandResult', Result)
 
 
 class APIStub(abc.ABC):
@@ -52,7 +55,7 @@ class APIStub(abc.ABC):
 
     @abc.abstractmethod
     def Buy(self, volume: float, type=OrderType.MARKET, price=None, stop_loss=None, take_profit=None,
-            magic_number=None, symbol=None, slippage=None, arrow_color=None, expiration=None) -> (ErrorID, OrderUID):
+            magic_number=None, symbol=None, slippage=None, arrow_color=None, expiration=None) -> (ErrorID, OrderResult):
         '''
         Open a buy order.
 
@@ -69,13 +72,13 @@ class APIStub(abc.ABC):
                         expiration (float): Order expiration time (for pending order only)
                 Returns:
                         ErrorID: If 0 success.
-                        OrderUID: The order UID.
+                        OrderResult: The order result.
         '''
         raise NotImplementedError
 
     @abc.abstractmethod
     def Sell(self, volume: float, type=OrderType.MARKET, price=None, stop_loss=None, take_profit=None,
-             magic_number=None, symbol=None, slippage=None, arrow_color=None, expiration=None) -> (ErrorID, OrderUID):
+             magic_number=None, symbol=None, slippage=None, arrow_color=None, expiration=None) -> (ErrorID, OrderResult):
         '''
         Open a sell order.
 
@@ -92,13 +95,13 @@ class APIStub(abc.ABC):
                         expiration (float): Order expiration time (for pending order only)
                 Returns:
                         ErrorID: If 0 success.
-                        OrderUID: The order UID.
+                        OrderResult: The order result.
         '''
         raise NotImplementedError
 
     @abc.abstractmethod
     def ModifyOrder(self, uid, price=None, stop_loss=None, take_profit=None,
-                     arrow_color=None, expiration=None) -> (ErrorID, OrderUID):
+                     arrow_color=None, expiration=None) -> (ErrorID, OrderResult):
         '''
         Modify a order.
 
@@ -111,12 +114,12 @@ class APIStub(abc.ABC):
                         expiration (float): New order expiration time (for pending order only)
                 Returns:
                         ErrorID: If 0 success.
-                        OrderUID: The order UID.
+                        OrderResult: The order result.
         '''
         raise NotImplementedError
 
     @abc.abstractmethod
-    def CloseOrder(self, uid, price, volume: float, slippage=None, arrow_color=None) -> (ErrorID, OrderUID):
+    def CloseOrder(self, uid, price, volume: float, slippage=None, arrow_color=None) -> (ErrorID, OrderResult):
         '''
         Close a order.
 
@@ -128,7 +131,7 @@ class APIStub(abc.ABC):
                         arrow_color (float): New color of the opening arrow on the MT4/5 chart.
                 Returns:
                         ErrorID: If 0 success.
-                        OrderUID: The order UID.
+                        OrderResult: The order result.
         '''
         raise NotImplementedError
 
@@ -387,7 +390,9 @@ class APIStub(abc.ABC):
         Returns the UIDs of current opened orders.
 
                 Parameters:
-                        The symbol name.
+                        symbol: The symbol name.
+                                If None returns current symbol.
+                                If '*' returns all symbols.
 
                 Returns:
                         The uid list.
@@ -400,7 +405,9 @@ class APIStub(abc.ABC):
         Returns the UIDs of current pending orders.
 
                 Parameters:
-                        The symbol name.
+                        symbol: The symbol name.
+                                If None returns current symbol.
+                                If '*' returns all symbols.
 
                 Returns:
                         The uid list.
@@ -413,7 +420,9 @@ class APIStub(abc.ABC):
         Returns the UIDs of current closed orders.
 
                 Parameters:
-                        The symbol name.
+                        symbol: The symbol name.
+                                If None returns current symbol.
+                                If '*' returns all symbols.
 
                 Returns:
                         The uid list.
@@ -720,3 +729,20 @@ class APIStub(abc.ABC):
                         Williams' %R
         '''
         raise NotImplementedError
+
+    #
+    @abc.abstractmethod
+    def WaitCommand(self, uid, timeout=120) -> (ErrorID, CommandResult):
+        '''
+        Waiting for a asynchronous command execution。
+
+                Parameters:
+                        uid : The command UID.
+                        timeout : Timeout （seconds）
+                Returns:
+                        ErrorID: If 0 success.
+                        CommandResult: If failed returns None.
+        '''
+        raise NotImplementedError
+
+

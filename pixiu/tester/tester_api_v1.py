@@ -70,6 +70,9 @@ class TesterAPI_V1(API_V1_Base):
         return self.tester.close_order(uid, price, volume, slippage=slippage,
                               arrow_color=arrow_color)
 
+    def WaitCommand(self, uid, timeout=120):
+        return self.tester.wait_command(uid, timeout)
+
     def DefaultTimeFrame(self):
         return self.tester.tick_timeframe
 
