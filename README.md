@@ -274,7 +274,7 @@ Buy(self, volume: float, type=0, price=None, stop_loss=None, take_profit=None, m
                    expiration (float): Order expiration time (for pending order only)
            Returns:
                    ErrorID: If 0 success.
-                   OrderUID: The order UID.
+                   OrderResult: The order result.
 
 Close(self, shift=0) -> float
    Returns Close price value for the default symbol with default timeframe and shift.
@@ -297,7 +297,7 @@ CloseOrder(self, uid, price, volume: float, slippage=None, arrow_color=None) -> 
                    arrow_color (float): New color of the opening arrow on the MT4/5 chart.
            Returns:
                    ErrorID: If 0 success.
-                   OrderUID: The order UID.
+                   OrderResult: The order result.
 
 DefaultTimeFrame(self)
    Returns the default time frame.
@@ -312,7 +312,9 @@ GetClosedOrderUIDs(self, symbol: str = None)
    Returns the UIDs of current closed orders.
 
            Parameters:
-                   The symbol name.
+                   symbol: The symbol name.
+                           If None returns current symbol.
+                           If '*' returns all symbols.
 
            Returns:
                    The uid list.
@@ -321,7 +323,9 @@ GetOpenedOrderUIDs(self, symbol: str = None)
    Returns the UIDs of current opened orders.
 
            Parameters:
-                   The symbol name.
+                   symbol: The symbol name.
+                           If None returns current symbol.
+                           If '*' returns all symbols.
 
            Returns:
                    The uid list.
@@ -349,7 +353,9 @@ GetPendingOrderUIDs(self, symbol: str = None)
    Returns the UIDs of current pending orders.
 
            Parameters:
-                   The symbol name.
+                   symbol: The symbol name.
+                           If None returns current symbol.
+                           If '*' returns all symbols.
 
            Returns:
                    The uid list.
@@ -406,7 +412,7 @@ ModifyOrder(self, uid, price=None, stop_loss=None, take_profit=None, arrow_color
                    expiration (float): New order expiration time (for pending order only)
            Returns:
                    ErrorID: If 0 success.
-                   OrderUID: The order UID.
+                   OrderResult: The order result.
 
 Open(self, shift=0) -> float
    Returns Open price value for the default symbol with default timeframe and shift.
@@ -443,7 +449,7 @@ Sell(self, volume: float, type=0, price=None, stop_loss=None, take_profit=None, 
                    expiration (float): Order expiration time (for pending order only)
            Returns:
                    ErrorID: If 0 success.
-                   OrderUID: The order UID.
+                   OrderResult: The order result.
 
 StopTester(self, code: int = 0, message: str = None)
    Stop the EA tester. (For tester only.)
@@ -721,4 +727,15 @@ iWPR(self, symbol_data, timeperiod, shift=0)
 
            Returns:
                    Williams' %R
+
+WaitCommand(self, uid, timeout=120)
+   Waiting for a asynchronous command execution。
+
+          Parameters:
+                  uid : The command UID.
+                  timeout : Timeout （seconds）
+          Returns:
+                  ErrorID: If 0 success.
+                  CommandResult: If failed returns None.
+                   
 ```
