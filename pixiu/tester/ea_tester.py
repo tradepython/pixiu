@@ -167,7 +167,7 @@ class EATester(EABase):
             print(log_str)
         #
         if self.log_file:
-            self.log_file.write(log_str)
+            self.log_file.write(str(log_str))
             self.log_file.write('\n')
         return True
 
@@ -175,11 +175,11 @@ class EATester(EABase):
     def get_account_data(self, timeframe):
         """"""
         data = None
-        data = self.account_info.get('ds', None)
+        data = self.account_info.get('__ds__', None)
         if data:
             data = data.get(timeframe, None)
         else:
-            self.account_info['ds'] = {}
+            self.account_info['__ds__'] = {}
         if data is None:
             new_a = np.array([(0.0, )*33]*self.tick_info.size,
                              dtype=[('t', float), ('credit', float),
@@ -237,9 +237,9 @@ class EATester(EABase):
             new_a['margin_so_call'] = self.account['margin_so_call']
             new_a['margin_so_so'] = self.account['margin_so_so']
 
-            self.account_info['ds'][timeframe] = new_a
+            self.account_info['__ds__'][timeframe] = new_a
 
-        return self.account_info['ds'][timeframe]
+        return self.account_info['__ds__'][timeframe]
     #
 
     def get_data_info(self, symbol, timeframe,  start_time=None, end_time=None, last_count=None):
@@ -318,13 +318,13 @@ class EATester(EABase):
         sp = self.get_symbol_properties(new_order['symbol'])
         tcs = sp['trade_contract_size']
         #
-        ds = self.orders['pending'].get('ds', None)
+        ds = self.orders['pending'].get('__ds__', None)
 
         new_a = self.order_to_ndarray(new_order)
         if ds is not None and ds.size > 0:
-            self.orders['pending']['ds'] = np.concatenate([ds, new_a])
+            self.orders['pending']['__ds__'] = np.concatenate([ds, new_a])
         else:
-            self.orders['pending']['ds'] = new_a
+            self.orders['pending']['__ds__'] = new_a
 
         #
         return EID_OK, new_order['uid']
@@ -362,12 +362,12 @@ class EATester(EABase):
         self.orders['opened_counter'] = self.orders['opened_counter'] + 1
 
         #
-        ds = self.orders['opened'].get('ds', None)
+        ds = self.orders['opened'].get('__ds__', None)
         new_a = self.order_to_ndarray(new_order)
         if ds is not None and ds.size > 0:
-            self.orders['opened']['ds'] = np.concatenate([ds, new_a])
+            self.orders['opened']['__ds__'] = np.concatenate([ds, new_a])
         else:
-            self.orders['opened']['ds'] = new_a
+            self.orders['opened']['__ds__'] = new_a
         #update account
         self.account['margin'] = self.account['margin'] + new_order['margin']
         self.account['commission'] = self.account['commission'] + new_order['commission']
@@ -412,9 +412,9 @@ class EATester(EABase):
 
     def __modify_order__(self, order):
         if order_is_market(order['cmd']):
-            ds = self.orders['opened']['ds']
+            ds = self.orders['opened']['__ds__']
         else:
-            ds = self.orders['pending']['ds']
+            ds = self.orders['pending']['__ds__']
         #
         oid = int(order['uid'])
         modify_a = ds[ds['oid'] == oid]
@@ -432,9 +432,9 @@ class EATester(EABase):
         order_list.pop(order['uid'])
         #
         oid = int(order['uid'])
-        ds = self.orders['pending']['ds']
+        ds = self.orders['pending']['__ds__']
         closed_a = ds[ds['oid'] == oid]
-        self.orders['pending']['ds'] = ds[ds['oid'] != oid]
+        self.orders['pending']['__ds__'] = ds[ds['oid'] != oid]
         #
         self.orders['pending_counter'] = self.orders['pending_counter'] - 1
         #
@@ -446,10 +446,10 @@ class EATester(EABase):
         order_list.pop(order['uid'])
         #
         oid = int(order['uid'])
-        ds = self.orders['opened']['ds']
+        ds = self.orders['opened']['__ds__']
         # closed_a = ds[ds['oid'] == oid]
         closed_a = ds[ds['oid'] == oid][0]
-        self.orders['opened']['ds'] = ds[ds['oid'] != oid]
+        self.orders['opened']['__ds__'] = ds[ds['oid'] != oid]
         #
         order['profit'] = closed_a['pf']
         if add_closed:
@@ -466,7 +466,7 @@ class EATester(EABase):
     def __calculate_profit__(self, price):
         ''''''
         profit = 0
-        ds = self.orders['opened'].get('ds', None)
+        ds = self.orders['opened'].get('__ds__', None)
         if ds is not None:
             pips = self.__calculate_pip__(price)
             ds['pf'] = pips * (price - ds['o']) * ds['v'] * ds['tcs'] * ds['pf_f']
@@ -481,7 +481,7 @@ class EATester(EABase):
         ret = self.orders['data'].get(order_uid, None)
         #update order data
         oid = int(order_uid)
-        ds = self.orders['opened'].get('ds', None)
+        ds = self.orders['opened'].get('__ds__', None)
         if ds is not None:
             the_a = ds[ds['oid'] == oid]
             if the_a.size > 0:
@@ -493,8 +493,21 @@ class EATester(EABase):
         """"""
         symbol = self.symbol if symbol is None else symbol
         order_list = self.orders.get(status, {})
-        return order_list.get(symbol, {})
+        if symbol == '*':
+            ret = {}
+            for s in order_list:
+                if not s.startswith('__'):
+                    ret.update(order_list[s])
+            return ret
+        else:
+            return order_list.get(symbol, {})
 
+    # def get_order_dict(self, symbol, status="opened", script_name=None):
+    #     """"""
+    #     symbol = self.symbol if symbol is None else symbol
+    #     order_list = self.orders.get(status, {})
+    #     return order_list.get(symbol, {})
+    #
     def set_order_list(self, symbol, status, value):
         """"""
         self.orders[status][symbol] = value
@@ -506,10 +519,10 @@ class EATester(EABase):
     def set_account(self, account, expiration=None):
         """"""
         self.account_info['data_raw'].append(account)
-        if self.account_info['ds'] is None or self.account_info['ds'].get(self.tick_timeframe, None) is None:
+        if self.account_info['__ds__'] is None or self.account_info['__ds__'].get(self.tick_timeframe, None) is None:
             self.get_account_data(self.tick_timeframe)
         #
-        account_data = self.account_info['ds'][self.tick_timeframe][self.current_tick_index]
+        account_data = self.account_info['__ds__'][self.tick_timeframe][self.current_tick_index]
         account_data['credit'] = account['credit']
         account_data['balance'] = account['balance']
         account_data['equity'] = account['equity']
@@ -858,7 +871,7 @@ class EATester(EABase):
         #
         #clear print collection
         self.print_collection = None
-        self.account_info = {'data_raw': [], 'ds': None}
+        self.account_info = {'data_raw': [], '__ds__': None}
         self.price_info = {}
         self.symbol_data = {}
         self.current_tick_index = 0
@@ -875,7 +888,7 @@ class EATester(EABase):
         self.tick_info = None
         self.orders = {'opened': {}, 'closed': {}, 'pending': {},
                        'counter': 0, 'opened_counter': 0, 'pending_counter': 0,
-                       'ds': {},
+                       '__ds__': {},
                        'stop_loss': {True: {self.symbol: {'data': {}, 'min': 0, 'max': 0}},
                                      False: {self.symbol: {'data': {}, 'min': 0, 'max': 0}}},
                        'take_profit': {True: {self.symbol: {'data': {}, 'min': 0, 'max': 0}},
@@ -929,7 +942,7 @@ class EATester(EABase):
             return dead
 
         #update pending orders
-        ds = self.orders['pending'].get('ds', None)
+        ds = self.orders['pending'].get('__ds__', None)
         if ds is not None:
             # if last_price is not None:
             result = ds[((ds['cid'] == 110) & (ds['o'] > last_price) & (ds['o'] <= price)) |
@@ -948,7 +961,7 @@ class EATester(EABase):
             order_report[is_long]['profit'] += profit
             order_report[is_long]['trades'] += trades
 
-        ds = self.orders['opened'].get('ds', None)
+        ds = self.orders['opened'].get('__ds__', None)
         if ds is not None:
             # result = ds[(ds['sl_p'] <= 0) | (ds['tp_p'] >= 0)]
             result = ds[((ds['sl'] > 0) & (ds['sl_p'] <= 0)) | ((ds['tp'] > 0) & (ds['tp_p'] >= 0))]

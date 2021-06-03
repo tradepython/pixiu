@@ -2,7 +2,7 @@
 import math
 import json
 from datetime import (datetime, timedelta)
-from ta import (trend, volatility)
+import random
 import numpy as np
 import pandas as pd
 import time
@@ -27,8 +27,8 @@ class API_V1_Base(API_V1):
     def dict_to_order(self, order_dict):
         return Order(order_dict)
 
-    def datetime_(self, *args, **kwargs):
-        return datetime(*args, **kwargs)
+    # def datetime_(self, *args, **kwargs):
+    #     return datetime(*args, **kwargs)
 
     #
     def default_guarded_getitem(self, ob, index):
@@ -72,7 +72,9 @@ class API_V1_Base(API_V1):
         env_dict['nan'] = np.nan
         env_dict['isnan'] = np.isnan
         env_dict['isnull'] = pd.isnull
-        env_dict["datetime"] = self.datetime_
+        env_dict["datetime"] = datetime
+        env_dict["timedelta"] = timedelta
+        env_dict["random"] = random
         env_dict["time"] = time
         env_dict["pandas"] = pd
         env_dict["numpy"] = np

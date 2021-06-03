@@ -1,4 +1,17 @@
 
+### [2021-06-03]
+#### Version:
+#####   Package:
+#####    pixiu: 0.34.0.20210603
+#####
+#### **Descriptions：**
+    1.fix bugs GetSymbolData('*') 
+    2. 
+      self.orders['ds'] -> order['__ds__']
+      self.account_info['ds'] -> self.account_info['__ds__']
+    3.Add build-in :
+      datetime, timedelta, random
+
 ### [2021-06-01]
 #### Version:
 #####   Package:
@@ -9,7 +22,6 @@
       WaitCommand
     2.modify APIs:
       Buy, Sell, CloseOrder, ModifyOrder return order_uid -> OrderResult
-
 
 ### [2021-05-31]
 #### Version:
