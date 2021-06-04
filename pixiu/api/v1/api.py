@@ -119,14 +119,15 @@ class APIStub(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def CloseOrder(self, uid, price, volume: float, slippage=None, arrow_color=None) -> (ErrorID, OrderResult):
+    # def CloseOrder(self, uid, price, volume: float, slippage=None, arrow_color=None) -> (ErrorID, OrderResult):
+    def CloseOrder(self, uid, volume=None, price=None, slippage=None, arrow_color=None) -> (ErrorID, OrderResult):
         '''
         Close a order.
 
                 Parameters:
                         uid : The order UID.
-                        price (float): Close price.
-                        volume (float): Number of lots.
+                        volume (float): Number of lots. If volume is None or zero, volume = order.volume
+                        price (float): Close price. If price is None or zero, price = OrderClosePrice(MT4/MT5)
                         slippage (float): Maximum price slippage for trading.
                         arrow_color (float): New color of the opening arrow on the MT4/5 chart.
                 Returns:

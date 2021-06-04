@@ -563,8 +563,9 @@ class EATester(EABase):
 
             #close
             elif stage == 2:
-                if price is not None and price > self.Ask():
-                    return EID_EAT_INVALID_ORDER_CLOSE_PRICE
+                if price is not None:
+                    if price > 0 and price > self.Bid():
+                        return EID_EAT_INVALID_ORDER_CLOSE_PRICE
 
             if stage != 2:
                 if stop_loss > 0 and take_profit > 0 and stop_loss > take_profit:
@@ -590,8 +591,9 @@ class EATester(EABase):
                     return EID_EAT_INVALID_ORDER_TYPE
             #close
             elif stage == 2:
-                if price is not None and price < self.Bid():
-                    return EID_EAT_INVALID_ORDER_CLOSE_PRICE
+                if price is not None:
+                    if price > 0 and price < self.Ask():
+                        return EID_EAT_INVALID_ORDER_CLOSE_PRICE
 
             #
             if stage != 2:
@@ -693,14 +695,26 @@ class EATester(EABase):
                                  comment=comment))
         return EID_OK, dict(order_uid=order_uid, command_uid=None, sync=True)
 
-    def close_order(self, order_uid, price, volume, slippage=None, comment=None, arrow_color=None,
+    def __order_close_price__(self, order_dict):
+        if order_is_market(order_dict['cmd']):
+            return self.Bid() if order_is_long(order_dict['cmd']) else self.Ask()
+        else:
+            return 0
+
+
+    def close_order(self, order_uid, volume, price, slippage=None, comment=None, arrow_color=None,
                     update_report_func=None):
-        """"""
+        """Close order"""
         order_dict = self.get_order(order_uid=order_uid)
         if order_dict is None:
             return EID_EAT_INVALID_ORDER_TICKET, dict(order_uid=order_uid, command_uid=None, sync=True)
-        if volume is None:
-            return EID_EAT_INVALID_ORDER_VOLUME, dict(order_uid=order_uid, command_uid=None, sync=True)
+        # if volume is None:
+        #     return EID_EAT_INVALID_ORDER_VOLUME, dict(order_uid=order_uid, command_uid=None, sync=True)
+        if volume is None or volume <= 0:
+            volume = float(order_dict['volume'])
+        if price is None or price <= 0:
+            price = self.__order_close_price__(order_dict)
+        #
         close_time = self.current_time()
         if order_is_market(order_dict['cmd']):
             symbol = order_dict['symbol']
@@ -728,10 +742,10 @@ class EATester(EABase):
 
             #
             if new_volume > 0:
-                new_order_dict = dict(ticket=self.__new_ticket__(), symbol=symbol, cmd=order.cmd, open_price=price,
+                new_order_dict = dict(ticket=self.__new_ticket__(), symbol=symbol, cmd=order_dict['cmd'], open_price=price,
                                   volume=new_volume, stop_loss=order_dict['stop_loss'],
                                   take_profit=order_dict['take_profit'], margin=new_margin,
-                                  comment=f"close by#{ticket}",
+                                  comment=f"close by#{order_dict['ticket']}",
                                   open_time=close_time)
                 errid, order_uid = self.__add_market_order__(new_order_dict)
                 if errid != EID_OK:

@@ -4,8 +4,8 @@ import numpy as np
 import talib
 import logging
 from datetime import datetime
-from ..api.v1 import (TimeFrame, OrderCommand, OrderType, IndicatiorID, SymbolIndicator, SymbolPrice, SymbolData,
-                      Order, Account, Symbol, AccountData)
+from pixiu.api.v1 import (TimeFrame, OrderCommand, OrderType, IndicatiorID, SymbolIndicator, SymbolPrice, SymbolData,
+                      Order, Account, Symbol, AccountData, ErrorID, OrderResult)
 log = logging.getLogger(__name__)
 
 
@@ -66,8 +66,8 @@ class TesterAPI_V1(API_V1_Base):
                               comment=comment, arrow_color=arrow_color, expiration=expiration)
 
     #
-    def CloseOrder(self, uid, price, volume, slippage=None, arrow_color=None):
-        return self.tester.close_order(uid, price, volume, slippage=slippage,
+    def CloseOrder(self, uid, volume: float=None, price=None,  slippage=None, arrow_color=None):
+        return self.tester.close_order(uid, volume, price, slippage=slippage,
                               arrow_color=arrow_color)
 
     def WaitCommand(self, uid, timeout=120):

@@ -83,7 +83,8 @@ assertIsNone(order.close_time)
 assertIsNone(order.close_price)
 
 #close order
-errid, result = CloseOrder(result['order_uid'], price=Ask(), volume=volume)
+# errid, result = CloseOrder(result['order_uid'], price=Ask(), volume=volume)
+errid, result = CloseOrder(result['order_uid'])
 assertEqual(errid, 0)
 assertNotEqual(result['order_uid'], None)
 errid = exec_command()
@@ -92,7 +93,7 @@ order = GetOrder(result['order_uid'])
 assertIsNotNone(order)
 assertEqual(order.symbol, Symbol())
 assertIsNotNone(order.close_time)
-assertEqual(order.close_price, Ask())
+assertEqual(order.close_price, Bid())
 
 #The order was closed ?
 oo = GetOpenedOrderUIDs()
@@ -173,7 +174,8 @@ assertEqual(order.take_profit, take_profit)
 assertIsNone(order.close_time)
 assertIsNone(order.close_price)
 #close order
-errid, result = CloseOrder(result['order_uid'], price=Bid(), volume=volume)
+# errid, result = CloseOrder(result['order_uid'], price=Bid(), volume=volume)
+errid, result = CloseOrder(result['order_uid'])
 assertEqual(errid, 0)
 assertNotEqual(result['order_uid'], None)
 errid = exec_command()
@@ -182,7 +184,7 @@ order = GetOrder(result['order_uid'])
 assertIsNotNone(order)
 assertEqual(order.symbol, Symbol())
 assertIsNotNone(order.close_time)
-assertEqual(order.close_price, Bid())
+assertEqual(order.close_price, Ask())
 
 #The order was closed ?
 oo = GetOpenedOrderUIDs()

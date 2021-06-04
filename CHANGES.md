@@ -1,4 +1,21 @@
 
+### [2021-06-04]
+#### Version:
+#####   Package:
+#####    pixiu: 0.35.0.20210604
+#####
+#### **Descriptions：**
+    1.Modify API:
+     1) 
+       def CloseOrder(self, uid, price, volume: float, slippage=None, arrow_color=None) -> (ErrorID, OrderResult)
+       ->
+       def CloseOrder(self, uid, volume=None, price=None, slippage=None, arrow_color=None) -> (ErrorID, OrderResult)
+    2.fix:
+      __valid_order__: EID_EAT_INVALID_ORDER_CLOSE_PRICE 
+    3.Add:
+      __order_close_price__
+
+
 ### [2021-06-03]
 #### Version:
 #####   Package:
