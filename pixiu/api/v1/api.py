@@ -746,4 +746,27 @@ class APIStub(abc.ABC):
         '''
         raise NotImplementedError
 
+    @abc.abstractmethod
+    def AcquireLock(self, name, timeout=60) -> bool:
+        '''
+        Acquire a lock
+
+                Parameters:
+                        name : The lock name
+                        timeout : Lock timeout （seconds）
+                Returns:
+                        If True success.
+        '''
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def ReleaseLock(self, name):
+        '''
+        Release a lock。
+
+                Parameters:
+                        name : The lock name
+        '''
+        raise NotImplementedError
+
 

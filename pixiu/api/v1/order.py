@@ -2,7 +2,7 @@ from datetime import datetime
 
 import numpy as np
 from pixiu.api.defines import (OrderCommand)
-from oeoeweb.base.core.utilities import (parse_datetime_string)
+from pixiu.api.utils import (parse_datetime_string)
 
 
 

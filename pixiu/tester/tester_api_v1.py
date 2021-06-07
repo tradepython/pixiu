@@ -73,6 +73,12 @@ class TesterAPI_V1(API_V1_Base):
     def WaitCommand(self, uid, timeout=120):
         return self.tester.wait_command(uid, timeout)
 
+    def AcquireLock(self, name, timeout=60):
+        return self.tester.acquire_lock(name, timeout)
+
+    def ReleaseLock(self, name):
+        return self.tester.release_lock(name)
+
     def DefaultTimeFrame(self):
         return self.tester.tick_timeframe
 

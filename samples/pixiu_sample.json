@@ -44,7 +44,7 @@
   "tests": {
     "testUSDCHF": {
       "symbol": "USDCHF",
-      "tick_data": "../tests/usdchf_m1_20210315-0415.csv",
+      "tick_data": "usdchf_m1_20210315-0415.csv",
       "start_time": "2021-03-15",
       "end_time": "2021-04-16",
       "max_tick": 100,

@@ -1,6 +1,11 @@
 #
 point = SymbolInfo("point")
 volume = 0.01
+
+assertEqual(AcquireLock("test"), True)
+ReleaseLock("test")
+
+
 errid, result = Buy(volume=volume)
 assertEqual(errid, 0)
 assertNotEqual(result['order_uid'], None)

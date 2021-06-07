@@ -770,6 +770,12 @@ class EATester(EABase):
     def wait_command(self, uid, timeout=120):
         return 0, {}
 
+    def acquire_lock(self, name, timeout=60):
+        return True
+
+    def release_lock(self, name):
+        pass
+
     #
     def Ask(self, shift=0):
         ask = self.tick_info['a'][self.current_tick_index - shift]

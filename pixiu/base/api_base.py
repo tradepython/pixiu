@@ -9,7 +9,7 @@ import time
 from RestrictedPython.Guards import (guarded_unpack_sequence, )
 from RestrictedPython.Eval import (default_guarded_getiter, )
 import inspect
-from oeoeweb.base.core.utilities import (makeUUIDKey, currentTimeString, parse_datetime_string, load_json, dump_json)
+from pixiu.api.utils import (load_json, dump_json)
 
 from ..api.v1 import (TimeFrame, OrderCommand, Order, APIStub as API_V1)
 
@@ -50,6 +50,8 @@ class API_V1_Base(API_V1):
         # return args.__iter__()
         return default_guarded_getiter(*args, **kwargs)
 
+    def lock_object(self):
+        return LockObject
     #
     def set_fun(self, env_dict):
         #BuildIn
@@ -78,6 +80,8 @@ class API_V1_Base(API_V1):
         env_dict["time"] = time
         env_dict["pandas"] = pd
         env_dict["numpy"] = np
+        #
+        env_dict["LockObject"] = self.lock_object
 
         #
         members = inspect.getmembers(API_V1)

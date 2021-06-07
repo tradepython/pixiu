@@ -1,3 +1,7 @@
+import json
+from bson import json_util
+from datetime import datetime, date
+from dateutil.parser import parse
 from pixiu.api.defines import OrderCommand
 # ----------------------------------------------------------------------------------------------------------------------
 #    UTILS
@@ -69,3 +73,25 @@ def timeframe_to_seconds(timeframe):
     '''Timeframe to seconds'''
     t_unit, t_count = parse_timeframe(timeframe)
     return calculate_second_intervals(t_unit, t_count)
+
+def parse_datetime_string(time_str, ignoretz=True):
+    ''''''
+    if time_str is None:
+        return None
+    if(isinstance(time_str, datetime) or isinstance(time_str, date)):
+        return time_str
+    return parse(time_str, ignoretz=ignoretz)
+
+def load_json(source, object_hook=json_util.object_hook):
+    """"""
+    ret = source
+    if isinstance(source, bytes):
+        source = source.decode('utf-8')
+    if isinstance(source, str):
+        ret = json.loads(source, object_hook=object_hook)
+    return ret
+
+def dump_json(value, default=json_util.default):
+    """"""
+    svalue = json.dumps(value, default=default)
+    return svalue

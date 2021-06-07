@@ -9,6 +9,8 @@ Install
 ```
 pip install pixiu
 ```
+If you have problems installing TA-Lib, please refer to https://github.com/mrjbq7/ta-lib
+
 
 
 How to use
@@ -737,5 +739,30 @@ WaitCommand(self, uid, timeout=120)
           Returns:
                   ErrorID: If 0 success.
                   CommandResult: If failed returns None.
+                  
+
+ AcquireLock(self, name, timeout=60) -> bool:
+     '''
+     Acquire a lock
+
+             Parameters:
+                     name : The lock name
+                     timeout : Lock timeout （seconds）
+             Returns:
+                     If True success.
+     '''
+     raise NotImplementedError
+
+ ReleaseLock(self, name):
+     '''
+     Release a lock。
+
+             Parameters:
+                     name : The lock name
+     '''
+     raise NotImplementedError
+
+
+                  
                    
 ```

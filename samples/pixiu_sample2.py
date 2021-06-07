@@ -4,4 +4,4 @@ uids = GetOpenedOrderUIDs()
 for uid in uids:
     o = GetOrder(uid)
     if o.profit > 0.5:
-        CloseOrder(o.uid, volume=o.volume, price=Bid())
+        CloseOrder(o.uid)

@@ -1,4 +1,17 @@
 
+### [2021-06-07]
+#### Version:
+#####   Package:
+#####    pixiu: 0.36.2.20210607
+#####
+#### **Descriptions：**
+    1.fix dependencies bugs
+       remove oeoeweb library
+       add pymongo library
+    2.fix sample.py, sample2.py errors.
+    3.API add AcquireLock, ReleaseLock 
+
+    
 ### [2021-06-04]
 #### Version:
 #####   Package:
