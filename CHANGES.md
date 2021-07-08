@@ -1,4 +1,12 @@
 
+### [2021-07-08]
+#### Version:
+#####   Package:
+#####    pixiu: 0.37.0.20210608
+#####
+#### **Descriptions：**
+    1.fix write_log bugs: parameters count
+
 ### [2021-06-07]
 #### Version:
 #####   Package:

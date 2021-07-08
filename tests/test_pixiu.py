@@ -406,6 +406,7 @@ class PiXiuTests(TestCase):
                                                      valid_values=values, valid_account=self.account,
                                                      valid_symbols=self.symbol_properties,
                                                      get_value_by_time=self.get_value_by_time))
+        self.eat_params['log_path'] = 'tmp_log.txt'
         eatt = EATTester(self, self.eat_params)
         eatt.execute("123456", sync=True)
         self.assertEqual(self.test_result, "OK")

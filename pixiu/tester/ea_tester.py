@@ -162,15 +162,30 @@ class EATester(EABase):
             self.print_collection = EATesterPrintCollector(_getattr_, self.write_log)
         return self.print_collection
 
-    def write_log(self, log_str, print_=True):
+    def write_log(self, *args, **kwargs):
+        print_ = kwargs.get('print_', True)
         if print_:
-            print(log_str)
+            print(*args)
         #
         if self.log_file:
+            log_str = ''
+            for a in args:
+                log_str = f'{log_str} {a}'
             self.log_file.write(str(log_str))
+            # self.log_file.write(*args)
             self.log_file.write('\n')
         return True
 
+    #
+    # def write_log(self, log_str, print_=True):
+    #     if print_:
+    #         print(log_str)
+    #     #
+    #     if self.log_file:
+    #         self.log_file.write(str(log_str))
+    #         self.log_file.write('\n')
+    #     return True
+    #
 
     def get_account_data(self, timeframe):
         """"""

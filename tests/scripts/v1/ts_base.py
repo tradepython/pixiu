@@ -1,3 +1,4 @@
+print("ts_base: ", "test print", "1", "2", "3", "4", "5")
 assertEqual(TimeFrame.S1, "s1")
 assertEqual(TimeFrame.M1, "m1")
 assertEqual(TimeFrame.M5, "m5")
