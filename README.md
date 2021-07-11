@@ -1,3 +1,9 @@
+[comment]: <> (![alt pixiu-icon]&#40;pixiu-128x128-8bit.png&#41;)
+
+<p align="center">
+<img width="128" height="128" src="https://github.com/tradepython/pixiu/blob/main/pixiu-128x128-8bit.png">
+</p>
+
 PiXiu
 ======
 A trading backtesting tool similar to MT4/MT5.
