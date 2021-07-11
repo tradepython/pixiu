@@ -3,7 +3,7 @@
 <p align="center">
 <img width="128" height="128" src="https://raw.githubusercontent.com/tradepython/pixiu/main/pixiu-128x128-8bit.png">
 </p>
-<p style="font-size:xx-small; text-align:center;">PiXiu - A Chinese mythological creature that brings fortune to people.</p>
+<p align="center" style="font-size:xx-small;">PiXiu - A Chinese mythological creature that brings fortune to people.</p>
 
 
 PiXiu
