@@ -1,8 +1,10 @@
 [comment]: <> (![alt pixiu-icon]&#40;pixiu-128x128-8bit.png&#41;)
 
 <p align="center">
-<img width="128" height="128" src="https://github.com/tradepython/pixiu/blob/main/pixiu-128x128-8bit.png">
+<img width="128" height="128" src="https://raw.githubusercontent.com/tradepython/pixiu/main/pixiu-128x128-8bit.png">
 </p>
+<p style="font-size:xx-small; text-align:center;">PiXiu - A Chinese mythological creature that brings fortune to people.</p>
+
 
 PiXiu
 ======
