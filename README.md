@@ -750,7 +750,6 @@ WaitCommand(self, uid, timeout=120)
                   
 
  AcquireLock(self, name, timeout=60) -> bool:
-     '''
      Acquire a lock
 
              Parameters:
@@ -758,17 +757,14 @@ WaitCommand(self, uid, timeout=120)
                      timeout : Lock timeout （seconds）
              Returns:
                      If True success.
-     '''
-     raise NotImplementedError
+     
 
  ReleaseLock(self, name):
-     '''
-     Release a lock。
+     Release a lock
 
              Parameters:
                      name : The lock name
-     '''
-     raise NotImplementedError
+     
 
 
                   

@@ -1,3 +1,8 @@
+<p align="center">
+<img width="128" height="128" src="https://raw.githubusercontent.com/tradepython/pixiu/main/pixiu-128x128-8bit.png">
+</p>
+
+
 PiXiu - 貔貅
 =======
 貔貅是一款交易回测工具，它是仿照 MT4/MT5 的测试器开发的。
@@ -715,5 +720,22 @@ WaitCommand(self, uid, timeout=120)
           Returns:
                   ErrorID: If 0 success.
                   CommandResult: If failed returns None.
-                   
+
+
+ AcquireLock(self, name, timeout=60) -> bool:
+     Acquire a lock
+
+             Parameters:
+                     name : The lock name
+                     timeout : Lock timeout （seconds）
+             Returns:
+                     If True success.
+     
+
+ ReleaseLock(self, name):
+     Release a lock
+
+             Parameters:
+                     name : The lock name
+
 ```
