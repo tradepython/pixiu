@@ -1,8 +1,27 @@
 
+### [2021-07-20]
+#### Version:
+#####   Package:
+#####    pixiu: 0.39.0.20210720
+#####
+#### **Descriptions：**
+    1.ea_tester.py:
+        1).Add plot 
+
+### [2021-07-16]
+#### Version:
+#####   Package:
+#####    pixiu: 0.38.0.20210716
+#####
+#### **Descriptions：**
+    1.Update API:
+     1) GetOpenedOrderUIDs, GetPendingOrderUIDs, GetClosedOrderUIDs
+       Add parameter: scope
+
 ### [2021-07-08]
 #### Version:
 #####   Package:
-#####    pixiu: 0.37.0.20210608
+#####    pixiu: 0.37.0.20210708
 #####
 #### **Descriptions：**
     1.fix write_log bugs: parameters count

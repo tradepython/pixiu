@@ -13,6 +13,7 @@ import pandas as pd
 from pixiu.api.errors import *
 from pixiu.api import (TimeFrame, OrderCommand, order_is_long, order_is_short, order_is_market, order_is_stop,
                        order_is_limit, order_is_pending)
+from pixiu.api.v1 import (OrderScope, )
 import traceback
 import logging
 log = logging.getLogger(__name__)
@@ -88,6 +89,7 @@ class EATester(EABase):
         self.byte_code = None
         self.orders = None
         self.order_logs = []
+        self.charts_data = []
         self.account_logs = []
         self.balance_dead_line = 0.0
         self.account = params.get("account", None)
@@ -264,6 +266,9 @@ class EATester(EABase):
         """Add order log"""
         log_dict['id'] = len(self.order_logs) + 1
         self.order_logs.append(log_dict)
+
+    def plot(self, chart_name, series_name, data):
+        self.charts_data.append(dict(cn=chart_name, sn=series_name, data=data))
 
     def add_account_log(self, log_dict):
         """Add account log"""
@@ -504,8 +509,7 @@ class EATester(EABase):
 
         return ret
 
-    def get_order_dict(self, symbol, status="opened", script_name=None):
-        """"""
+    def get_order_dict(self, symbol, status="opened", scope=OrderScope.EA):
         symbol = self.symbol if symbol is None else symbol
         order_list = self.orders.get(status, {})
         if symbol == '*':
@@ -911,9 +915,11 @@ class EATester(EABase):
         self.symbol_data = {}
         self.current_tick_index = 0
         self.update_log_time = 0
+        self.update_charts_time = 0
         self.last_update_order_log_index = 0
         self.last_update_account_log_index = 0
         self.last_update_print_log_index = 0
+        self.last_update_charts_data_index = 0
         self.cache = {}
         #
         self.order_logs = []

@@ -291,24 +291,49 @@ GetAccount(self)
            Returns:
                    The account data.
 
-GetClosedOrderUIDs(self, symbol: str = None)
+GetClosedOrderUIDs(self, symbol: str = None, scope: int = OrderScope.EA)
    Returns the UIDs of current closed orders.
 
            Parameters:
                    symbol: The symbol name.
                            If None returns current symbol.
                            If '*' returns all symbols.
+                   scope:
+                           EA: The current ea (default).
+                           ACCOUNT: The current account.
+                           EA_VERSION: The current ea version.
 
            Returns:
                    The uid list.
 
-GetOpenedOrderUIDs(self, symbol: str = None)
+GetOpenedOrderUIDs(self, symbol: str = None, scope: int = OrderScope.EA)
    Returns the UIDs of current opened orders.
 
            Parameters:
                    symbol: The symbol name.
                            If None returns current symbol.
                            If '*' returns all symbols.
+                   scope:
+                           EA: The current ea (default).
+                           ACCOUNT: The current account.
+                           EA_VERSION: The current ea version.
+
+
+           Returns:
+                   The uid list.
+
+
+GetPendingOrderUIDs(self, symbol: str = None, scope: int = OrderScope.EA)
+   Returns the UIDs of current pending orders.
+
+           Parameters:
+                   symbol: The symbol name.
+                           If None returns current symbol.
+                           If '*' returns all symbols.
+                   scope:
+                           EA: The current ea (default).
+                           ACCOUNT: The current account.
+                           EA_VERSION: The current ea version.
 
            Returns:
                    The uid list.
@@ -331,17 +356,6 @@ GetParam(self, name, default=None)
 
            Returns:
                    The EA parameter value.
-
-GetPendingOrderUIDs(self, symbol: str = None)
-   Returns the UIDs of current pending orders.
-
-           Parameters:
-                   symbol: The symbol name.
-                           If None returns current symbol.
-                           If '*' returns all symbols.
-
-           Returns:
-                   The uid list.
 
 GetSymbol(self, symbol=None)
    Returns the symbol properties.

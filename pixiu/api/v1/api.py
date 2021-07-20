@@ -27,6 +27,11 @@ class IndicatiorID():
     TEMA = 17000
     WPR = 18000
 
+class OrderScope():
+    EA = 0
+    EA_VERSION = 200
+    ACCOUNT = 300
+
 ErrorID = NewType('ErrorID', int)
 Result = NewType('Result', dict)
 UID = NewType('UID', str)
@@ -386,7 +391,7 @@ class APIStub(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def GetOpenedOrderUIDs(self, symbol: str = None):
+    def GetOpenedOrderUIDs(self, symbol: str = None, scope: int = OrderScope.EA):
         '''
         Returns the UIDs of current opened orders.
 
@@ -394,6 +399,10 @@ class APIStub(abc.ABC):
                         symbol: The symbol name.
                                 If None returns current symbol.
                                 If '*' returns all symbols.
+                        scope:
+                            EA: The current ea (default).
+                            ACCOUNT: The current account.
+                            EA_VERSION: The current ea version.
 
                 Returns:
                         The uid list.
@@ -401,7 +410,7 @@ class APIStub(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def GetPendingOrderUIDs(self, symbol: str = None):
+    def GetPendingOrderUIDs(self, symbol: str = None, scope: int = OrderScope.EA):
         '''
         Returns the UIDs of current pending orders.
 
@@ -409,6 +418,10 @@ class APIStub(abc.ABC):
                         symbol: The symbol name.
                                 If None returns current symbol.
                                 If '*' returns all symbols.
+                        scope:
+                            EA: The current ea (default).
+                            ACCOUNT: The current account.
+                            EA_VERSION: The current ea version.
 
                 Returns:
                         The uid list.
@@ -416,7 +429,7 @@ class APIStub(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def GetClosedOrderUIDs(self, symbol: str = None):
+    def GetClosedOrderUIDs(self, symbol: str = None, scope: int = OrderScope.EA):
         '''
         Returns the UIDs of current closed orders.
 
@@ -424,6 +437,10 @@ class APIStub(abc.ABC):
                         symbol: The symbol name.
                                 If None returns current symbol.
                                 If '*' returns all symbols.
+                        scope:
+                            EA: The current ea (default).
+                            ACCOUNT: The current account.
+                            EA_VERSION: The current ea version.
 
                 Returns:
                         The uid list.
