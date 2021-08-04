@@ -267,8 +267,8 @@ class EATester(EABase):
         log_dict['id'] = len(self.order_logs) + 1
         self.order_logs.append(log_dict)
 
-    def plot(self, chart_name, series_name, data):
-        self.charts_data.append(dict(cn=chart_name, sn=series_name, data=data))
+    def plot(self, chart_name, series):
+        self.charts_data.append(dict(cn=chart_name, data=series))
 
     def add_account_log(self, log_dict):
         """Add account log"""

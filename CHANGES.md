@@ -1,4 +1,13 @@
 
+### [2021-08-04]
+#### Version:
+#####   Package:
+#####    pixiu: 0.40.0.20210804
+#####
+#### **Descriptions：**
+    1.ea_tester.py:
+        1).Change plot parameters to plot(chart_name, {series_name1: data, series_name2: data, ...})
+
 ### [2021-07-20]
 #### Version:
 #####   Package:
