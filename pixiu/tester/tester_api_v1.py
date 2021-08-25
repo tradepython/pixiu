@@ -128,6 +128,8 @@ class TesterAPI_V1(API_V1_Base):
                 ret['open_lowest'] = order.open_price
         return ret
 
+    def Plot(self, series):
+        self.tester.plot('default', series)
 
     def GetParam(self, name, default=None):
         '''Get params'''

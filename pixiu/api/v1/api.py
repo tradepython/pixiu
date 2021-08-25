@@ -779,10 +779,19 @@ class APIStub(abc.ABC):
     @abc.abstractmethod
     def ReleaseLock(self, name):
         '''
-        Release a lock。
+        Release a lock
 
                 Parameters:
                         name : The lock name
+        '''
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def Plot(self, series):
+        '''
+        Plot
+                Parameters:
+                        series
         '''
         raise NotImplementedError
 

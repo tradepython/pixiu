@@ -1,4 +1,25 @@
 
+### [2021-08-25]
+#### Version:
+#####   Package:
+#####    pixiu: 0.42.0.20210825
+#####
+#### **Descriptions：**
+    1.ea_tester.py:
+      1) __add_market_order__:
+        new_order['comment'] = f"cuid#{new_order['uid']}|" 
+        to
+        new_order['comment'] = f"uid#{new_order['uid']}|"
+
+### [2021-08-06]
+#### Version:
+#####   Package:
+#####    pixiu: 0.41.0.20210806
+#####
+#### **Descriptions：**
+    1.API 1 
+      1) Add Plot 
+
 ### [2021-08-04]
 #### Version:
 #####   Package:

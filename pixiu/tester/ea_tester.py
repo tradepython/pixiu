@@ -269,6 +269,7 @@ class EATester(EABase):
 
     def plot(self, chart_name, series):
         self.charts_data.append(dict(cn=chart_name, data=series))
+        # self.charts_data.append(dict(cn="default", data=series))
 
     def add_account_log(self, log_dict):
         """Add account log"""
@@ -360,7 +361,7 @@ class EATester(EABase):
         if margin > self.account['balance'] - self.account['margin']:
             return EID_EAT_MARGIN_CALL, -1
         new_order['uid'] = str(new_order['ticket'])
-        new_order['comment'] = f"cuid#{new_order['uid']}|"
+        new_order['comment'] = f"uid#{new_order['uid']}|"
         new_order['margin'] = margin
         commission = 0.0
         #commissions
@@ -703,10 +704,10 @@ class EATester(EABase):
         self.__modify_order__(order_dict)
 
         #
-        self.add_order_log(dict(ticket=order_dict['ticket'],
+        self.add_order_log(dict(uid=order_uid, ticket=order_dict['ticket'],
                                  time=str(datetime.fromtimestamp(self.current_time())),
                                  type="MODIFY",
-                                 size=order_dict['volume'], price=round(price, self.price_digits),
+                                 volume=order_dict['volume'], price=round(price, self.price_digits),
                                  stop_loss=round(stop_loss, self.price_digits),
                                  take_profit=round(take_profit, self.price_digits),
                                  profit=round(order_dict['profit'], self.default_digits),

@@ -70,6 +70,7 @@ class API_V1_Base(API_V1):
         env_dict["dump_json"] = dump_json
         env_dict["round"] = round
         env_dict["dict"] = dict
+        env_dict["list"] = list
         env_dict['math'] = math
         env_dict['nan'] = np.nan
         env_dict['isnan'] = np.isnan
