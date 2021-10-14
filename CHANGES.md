@@ -1,4 +1,16 @@
 
+### [2021-10-14]
+#### Version:
+#####   Package:
+#####    pixiu: 0.43.0.20211014
+#####
+#### **Descriptions：**
+    1.ea_tester.py:
+      1) Fix bugs: __process_order__, close_all_orders call close_order error
+      2) Fix bugs: max_drawdown calculation
+    2.pxtester.py:
+      1) on_end_execute: report output format
+
 ### [2021-08-25]
 #### Version:
 #####   Package:

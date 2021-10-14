@@ -22,7 +22,6 @@ class API_V1_Base(API_V1):
     def __init__(self, data_source, default_symbol):
         self.data_source = data_source
         self.default_symbol = default_symbol
-        #
 
     def dict_to_order(self, order_dict):
         return Order(order_dict)

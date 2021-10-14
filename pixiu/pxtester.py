@@ -197,10 +197,27 @@ class PXTester(EATester):
         idx = 1
         for key in self.report:
             item = self.report[key]
-            report_str += f"{idx:02d}). {item['desc']}: {item['value']}\n"
+            precision = item.get('precision', 2)
+            item_type = item.get('type', 'value')
+            if item_type == 'value':
+                report_str += f"{idx:02d}). {item['desc']}: {round(item['value'], precision)}\n"
+            else: #%
+                report_str += f"{idx:02d}). {item['desc']}: {round(item['value']*100, precision)} %\n"
+
             idx += 1
         self.write_log(f"{report_str}")
         return 0
+    #
+    # def on_end_execute(self, *args, **kwargs):
+    #     self.__update_execuate_log__(self.ticket, None, force=True)
+    #     report_str = "\n-- Result --\n"
+    #     idx = 1
+    #     for key in self.report:
+    #         item = self.report[key]
+    #         report_str += f"{idx:02d}). {item['desc']}: {item['value']}\n"
+    #         idx += 1
+    #     self.write_log(f"{report_str}")
+    #     return 0
 
     def GetSymbolData(self, symbol=None, timeframe=None):
         if symbol is None:

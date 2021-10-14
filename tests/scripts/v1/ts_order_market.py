@@ -19,7 +19,10 @@ assertEqual(order.uid, result['order_uid'])
 assertEqual(order.volume, volume)
 assertEqual(order.stop_loss, 0)
 assertEqual(order.take_profit, 0)
-assertEqual(order.comment, f"cuid#{result['order_uid']}|")
+if result['command_uid']:
+    assertEqual(order.comment, f"cuid#{result['command_uid']}|")
+else:
+    assertEqual(order.comment, f"uid#{result['order_uid']}|")
 # assertIsNone(order.magic_number)
 assertIsNone(order.close_time)
 assertIsNone(order.close_price)
