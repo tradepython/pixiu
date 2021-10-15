@@ -1,4 +1,13 @@
 
+### [2021-10-15]
+#### Version:
+#####   Package:
+#####    pixiu: 0.44.0.20211015
+#####
+#### **Descriptions：**
+    1.pxtester.py:
+      1) Add argument: print_log_type = account|order|ea|report
+
 ### [2021-10-14]
 #### Version:
 #####   Package:

@@ -39,7 +39,7 @@ class EATesterPrintCollector(object):
             kwargs['file'] = self
         else:
             self._getattr_(kwargs['file'], 'write')
-        if not self.write_log(*objects):
+        if not self.write_log(*objects, type='ea'):
             print(*objects, **kwargs)
 
 
@@ -71,6 +71,7 @@ class EATester(EABase):
         self.script_path = params.get("script_path", None)
         self.log_file = None
         self.log_path = params.get("log_path", None)
+        self.print_log_type = params.get("print_log_type", ['account', 'ea', 'order', 'report'])
         #
         if self.log_path:
             self.log_file = open(self.log_path, mode='at')
@@ -169,8 +170,8 @@ class EATester(EABase):
         return self.print_collection
 
     def write_log(self, *args, **kwargs):
-        print_ = kwargs.get('print_', True)
-        if print_:
+        log_type = kwargs.get('type', 'eat')
+        if log_type == 'eat' or log_type in self.print_log_type:
             print(*args)
         #
         if self.log_file:
@@ -181,17 +182,20 @@ class EATester(EABase):
             # self.log_file.write(*args)
             self.log_file.write('\n')
         return True
-
     #
-    # def write_log(self, log_str, print_=True):
+    # def write_log(self, *args, **kwargs):
+    #     print_ = kwargs.get('print_', True)
     #     if print_:
-    #         print(log_str)
+    #         print(*args)
     #     #
     #     if self.log_file:
+    #         log_str = ''
+    #         for a in args:
+    #             log_str = f'{log_str} {a}'
     #         self.log_file.write(str(log_str))
+    #         # self.log_file.write(*args)
     #         self.log_file.write('\n')
     #     return True
-    #
 
     def get_account_data(self, timeframe):
         """"""
@@ -1174,8 +1178,9 @@ class EATester(EABase):
         errid = EID_OK
         update_log_task = None
         try:
-            self.write_log(f"\n\n == Execute PiXiu backtesting: {datetime.now()}, ticket: {ticket}, symbol: {self.symbol}, period: {self.start_time} - {self.end_time}, "
-                           f"tick_timeframe: {self.tick_timeframe}, tick_mode: {self.tick_mode} == \n\n")
+            test_start_time = datetime.now()
+            self.write_log(f"\n\n == PiXiu Backtesting Start: {test_start_time}, Ticket: {ticket}, Symbol: {self.symbol}, Period: {self.start_time} - {self.end_time}, "
+                           f"Timeframe: {self.tick_timeframe}, Mode: {self.tick_mode} == \n\n")
             self.init_data()
             self.update_log_task_running = True
             self.on_pre_load_ticks()
@@ -1185,7 +1190,7 @@ class EATester(EABase):
 
             count = self.tick_info.size
 
-            self.write_log(f"execute start ... count={count}, tick_max_count={self.tick_max_count}")
+            self.write_log(f"Tick Count: {count}, Tick Max Count: {self.tick_max_count}")
             status = dict(current=self.current_tick_index, max=count, errid=0)
             self.report['ticks']['value'] = status['max']
             self.on_execute_status(ticket, status)
@@ -1234,7 +1239,9 @@ class EATester(EABase):
                 traceback.print_exc()
             self.on_end_execute()
 
-            self.write_log(f"\n\n == Execute PiXiu backtesting end: {datetime.now()}, ticket: {ticket} == \n\n")
+            # self.write_log(f"\n\n == Execute PiXiu backtesting end: {datetime.now()}, ticket: {ticket} == \n\n")
+            test_end_time = datetime.now()
+            self.write_log(f"\n\n == PiXiu Backtesting End: {test_end_time}, Total Time: {(test_end_time-test_start_time).total_seconds()} sec, Ticket: {ticket} == \n\n")
             status = {}
             if exception_msg is not None:
                 status["exception"] = exception_msg

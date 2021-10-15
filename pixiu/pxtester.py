@@ -18,24 +18,24 @@ from pixiu.tester import (EATester, )
 
 
 class PXTester(EATester):
-    def __init__(self, test_config_path, test_name, script_path, log_path=None):
-        self.parse_test_config(test_config_path, test_name, script_path, log_path)
+    def __init__(self, test_config_path, test_name, script_path, log_path=None, print_log_type=None):
+        self.parse_test_config(test_config_path, test_name, script_path, log_path, print_log_type)
         super(PXTester, self).__init__(self.eat_params)
 
     def add_order_log(self, log_dict):
         super(PXTester, self).add_order_log(log_dict)
-        self.write_log(f"Order Log: #{log_dict['id']}: {log_dict}")
+        self.write_log(f"Order Log: #{log_dict['id']}: {log_dict}", type='order')
 
     def add_account_log(self, log_dict):
         super(PXTester, self).add_account_log(log_dict)
-        self.write_log(f"Account Log: {log_dict}")
+        self.write_log(f"Account Log: {log_dict}", type='account')
 
     def read_test_config(self, test_config_path):
         with open(test_config_path) as f:
             s = f.read()
             return json.loads(s)
 
-    def parse_test_config(self, test_config_path, test_name, script_path, log_path=None):
+    def parse_test_config(self, test_config_path, test_name, script_path, log_path=None, print_log_type=None):
         test_config = self.read_test_config(test_config_path)
         test_params = test_config['tests'][test_name]
         symbol = test_params['symbol']
@@ -61,6 +61,8 @@ class PXTester(EATester):
         self.eat_params['account'] = account
         self.eat_params['script_path'] = script_path
         self.eat_params['log_path'] = log_path
+        if print_log_type is not None:
+            self.eat_params['print_log_type'] = print_log_type
         #
         if "start_time" not in self.eat_params.keys():
             self.eat_params['start_time'] = str(datetime.fromtimestamp(self.new_a[0]['t']))
@@ -180,7 +182,7 @@ class PXTester(EATester):
             logs = self.print_logs[self.last_update_print_log_index:eidx]
             # OEOEHuiEATester.add_logs(self.ticket, 'print', logs)
             for l in logs:
-                self.write_log(l)
+                self.write_log(l, type='ea')
             self.last_update_print_log_index += len(logs)
             # #
 
@@ -205,7 +207,7 @@ class PXTester(EATester):
                 report_str += f"{idx:02d}). {item['desc']}: {round(item['value']*100, precision)} %\n"
 
             idx += 1
-        self.write_log(f"{report_str}")
+        self.write_log(f"{report_str}", type='report')
         return 0
     #
     # def on_end_execute(self, *args, **kwargs):
