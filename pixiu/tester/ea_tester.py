@@ -129,11 +129,13 @@ class EATester(EABase):
                         'init_balance': {'value': self.account['balance'], 'desc': 'Init Balance'}, #
                         'ticks': {'value': 0, 'desc': 'Ticks', 'precision': 0}, #
                         'total_net_profit': {'value': 0, 'desc': 'Total net profit'}, #
+                        'total_net_profit_rate': {'value': 0, 'desc': 'Total net profit rate', 'type': '%'}, #
                         'absolute_drawdown': {'value': 0, 'desc': 'Absolute Drawdown'}, #
                         'max_drawdown': {'value': 0, 'desc': 'Max Drawdown'}, #
                         'max_drawdown_rate': {'value': 0, 'desc': 'Max Drawdown Rate', 'type': '%'}, #
                         'total_trades': {'value': 0, 'desc': 'Total Trades', 'precision': 0},#
                         'profit_trades': {'value': 0, 'desc': 'Profit Trades', 'precision': 0},#
+                        'win_rate': {'value': 0, 'desc': 'Win Rate', 'type': '%'},  #
                         'trade_max_profit': {'value': 0, 'desc': 'Trade Max Profit'}, #
                         'trade_avg_profit': {'value': 0, 'desc': 'Trade Avg Profit'}, #
                         'trade_max_loss': {'value': np.nan, 'desc': 'Trade Max Loss'}, #
@@ -678,15 +680,17 @@ class EATester(EABase):
 
     def modify_order(self, order_uid, price, stop_loss, take_profit, comment=None, arrow_color=None,
                      expiration=None):
-        """"""
+        """modify_order"""
         order_dict = self.get_order(order_uid=order_uid)
         if order_dict is None:
             return EID_EAT_INVALID_ORDER_TICKET, dict(order_uid=order_uid, command_uid=None, sync=True)
         if order_dict['symbol'] != self.symbol:
             return EID_EAT_INVALID_SYMBOL, dict(order_uid=order_uid, command_uid=None, sync=True)
         order_tmp = order_dict.copy()
-        order_tmp['stop_loss'] = stop_loss
-        order_tmp['take_profit'] = take_profit
+        if stop_loss is not None:
+            order_tmp['stop_loss'] = stop_loss
+        if take_profit is not None:
+            order_tmp['take_profit'] = take_profit
         order_tmp['comment'] = comment
         #
         close_price = self.Close()
@@ -706,22 +710,76 @@ class EATester(EABase):
             return errid, dict(order_uid=order_uid, command_uid=None, sync=True)
         #
         order_dict['open_price'] = order_tmp['open_price']
-        order_dict['stop_loss'] = order_tmp['stop_loss']
-        order_dict['take_profit'] = order_tmp['take_profit']
+        if 'stop_loss' in order_tmp:
+            order_dict['stop_loss'] = order_tmp['stop_loss']
+        if 'take_profit' in order_tmp:
+            order_dict['take_profit'] = order_tmp['take_profit']
         order_dict['comment'] = order_tmp['comment']
         self.__modify_order__(order_dict)
 
         #
-        self.add_order_log(dict(uid=order_uid, ticket=order_dict['ticket'],
+        order_log = dict(uid=order_uid, ticket=order_dict['ticket'],
                                  time=str(datetime.fromtimestamp(self.current_time())),
                                  type="MODIFY",
                                  volume=order_dict['volume'], price=round(price, self.price_digits),
-                                 stop_loss=round(stop_loss, self.price_digits),
-                                 take_profit=round(take_profit, self.price_digits),
+                                 # stop_loss=round(stop_loss, self.price_digits),
+                                 # take_profit=round(take_profit, self.price_digits),
                                  profit=round(order_dict['profit'], self.default_digits),
                                  balance=round(self.account["balance"] + order_dict['profit'], self.default_digits),
-                                 comment=comment))
+                                 comment=comment)
+        if stop_loss is not None:
+            order_log['stop_loss'] = round(stop_loss, self.price_digits)
+        if take_profit is not None:
+            order_log['take_profit'] = round(take_profit, self.price_digits),
+        self.add_order_log(order_log)
         return EID_OK, dict(order_uid=order_uid, command_uid=None, sync=True)
+    #
+    # def modify_order(self, order_uid, price, stop_loss, take_profit, comment=None, arrow_color=None,
+    #                  expiration=None):
+    #     """"""
+    #     order_dict = self.get_order(order_uid=order_uid)
+    #     if order_dict is None:
+    #         return EID_EAT_INVALID_ORDER_TICKET, dict(order_uid=order_uid, command_uid=None, sync=True)
+    #     if order_dict['symbol'] != self.symbol:
+    #         return EID_EAT_INVALID_SYMBOL, dict(order_uid=order_uid, command_uid=None, sync=True)
+    #     order_tmp = order_dict.copy()
+    #     order_tmp['stop_loss'] = stop_loss
+    #     order_tmp['take_profit'] = take_profit
+    #     order_tmp['comment'] = comment
+    #     #
+    #     close_price = self.Close()
+    #     if order_is_market(order_dict['cmd']):
+    #         if price is None:
+    #             price = close_price
+    #         #
+    #     else:
+    #         if price is None:
+    #             price = close_price
+    #         else:
+    #             order_tmp['price'] = price
+    #             order_tmp['open_price'] = price
+    #     #
+    #     errid = self.__valid_order__(1, order_tmp, close_price)
+    #     if errid != EID_OK:
+    #         return errid, dict(order_uid=order_uid, command_uid=None, sync=True)
+    #     #
+    #     order_dict['open_price'] = order_tmp['open_price']
+    #     order_dict['stop_loss'] = order_tmp['stop_loss']
+    #     order_dict['take_profit'] = order_tmp['take_profit']
+    #     order_dict['comment'] = order_tmp['comment']
+    #     self.__modify_order__(order_dict)
+    #
+    #     #
+    #     self.add_order_log(dict(uid=order_uid, ticket=order_dict['ticket'],
+    #                              time=str(datetime.fromtimestamp(self.current_time())),
+    #                              type="MODIFY",
+    #                              volume=order_dict['volume'], price=round(price, self.price_digits),
+    #                              stop_loss=round(stop_loss, self.price_digits),
+    #                              take_profit=round(take_profit, self.price_digits),
+    #                              profit=round(order_dict['profit'], self.default_digits),
+    #                              balance=round(self.account["balance"] + order_dict['profit'], self.default_digits),
+    #                              comment=comment))
+    #     return EID_OK, dict(order_uid=order_uid, command_uid=None, sync=True)
 
     def __order_close_price__(self, order_dict):
         if order_is_market(order_dict['cmd']):
@@ -872,6 +930,11 @@ class EATester(EABase):
             #
         #
         #
+        if self.report['total_trades']['value'] > 0:
+            self.report['win_rate']['value'] = self.report['profit_trades']['value'] / self.report['total_trades']['value']
+        #Total net profit
+        if self.report['init_balance']['value'] > 0:
+            self.report['total_net_profit_rate']['value'] = self.report['total_net_profit']['value'] / self.report['init_balance']['value']
         if self.temp['account_max_equity'] < self.account['equity']:
             self.temp['account_max_equity'] = self.account['equity']
         if self.temp['account_min_equity'] > self.account['equity']:

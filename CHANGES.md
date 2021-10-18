@@ -1,4 +1,22 @@
 
+### [2021-10-18]
+#### Version:
+#####   Package:
+#####    pixiu: 0.46.0.20211018
+#####
+#### **Descriptions：**
+    1.ea_tester.py:
+     1) Fix modify_order bug, if take_profit or stop_loss is None
+
+### [2021-10-16]
+#### Version:
+#####   Package:
+#####    pixiu: 0.45.0.20211016
+#####
+#### **Descriptions：**
+    1.pxtester.py:
+      1) Report add win rate
+
 ### [2021-10-15]
 #### Version:
 #####   Package:
