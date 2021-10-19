@@ -1,4 +1,15 @@
 
+### [2021-10-19]
+#### Version:
+#####   Package:
+#####    pixiu: 0.47.0.20211019
+#####
+#### **Descriptions：**
+    1.ea_tester.py:
+     1) Fix report total_net_profit_rate error.
+    2.pxtester.py:
+     1) parse_test_config: Add custom account
+
 ### [2021-10-18]
 #### Version:
 #####   Package:

@@ -123,13 +123,22 @@ class EATester(EABase):
                             'margin_so_so': 0.0,
                             'commission': 0.0,
                             }
-
-
+        else:
+            default_value = {'equity': self.account['balance'], 'margin': 0, 'free_margin': self.account['balance']}
+            for k in default_value:
+                if k not in self.account:
+                    self.account[k] = default_value[k]
+        #
         self.report = {
                         'init_balance': {'value': self.account['balance'], 'desc': 'Init Balance'}, #
+                        'symbol': {'value': self.symbol, 'desc': 'Symbol', 'type': 'str'}, #
+                        'currency': {'value': self.account['currency'], 'desc': 'Currency', 'type': 'str'}, #
+                        'leverage': {'value': self.account['leverage'], 'desc': 'Leverage'}, #
+                        'spread_point': {'value': self.spread_point, 'desc': 'Spread Points'}, #
                         'ticks': {'value': 0, 'desc': 'Ticks', 'precision': 0}, #
-                        'total_net_profit': {'value': 0, 'desc': 'Total net profit'}, #
-                        'total_net_profit_rate': {'value': 0, 'desc': 'Total net profit rate', 'type': '%'}, #
+                        'balance': {'value': 0, 'desc': 'Balance'}, #
+                        'total_net_profit': {'value': 0, 'desc': 'Total Net Profit'}, #
+                        'total_net_profit_rate': {'value': 0, 'desc': 'Total Net Profit Rate', 'type': '%'}, #
                         'absolute_drawdown': {'value': 0, 'desc': 'Absolute Drawdown'}, #
                         'max_drawdown': {'value': 0, 'desc': 'Max Drawdown'}, #
                         'max_drawdown_rate': {'value': 0, 'desc': 'Max Drawdown Rate', 'type': '%'}, #
@@ -157,8 +166,11 @@ class EATester(EABase):
             'consecutive_wins_money': 0,
             'consecutive_losses': 0,
             'consecutive_losses_money': 0,
+            'max_drawdown': 0,
+            'max_drawdown_rate': 0,
             'account_max_equity': self.account['equity'],
             'account_min_equity': self.account['equity'],
+            'account_min_balance': self.account['balance'],
         }
         self.print_collection = None
         #
@@ -892,6 +904,19 @@ class EATester(EABase):
     def Volume(self, shift=0) -> float:
         return self.tick_info['v'][self.current_tick_index - shift]
     #
+    def __update_report_max_dd__(self):
+        #calculate maxdd: https://www.investopedia.com/terms/m/maximum-drawdown-mdd.asp
+        if self.temp['account_min_equity'] < self.report['init_balance']['value']:
+            self.temp['max_drawdown'] = self.temp['account_min_equity'] - self.temp['account_max_equity']
+        if self.temp['account_max_equity'] > 0:
+            self.temp['max_drawdown_rate'] = self.temp['max_drawdown'] / self.temp['account_max_equity']
+        else:
+            self.temp['max_drawdown_rate'] = 0
+        #
+        if self.report['max_drawdown']['value'] > self.temp['max_drawdown']:
+            self.report['max_drawdown']['value'] = self.temp['max_drawdown']
+            self.report['max_drawdown_rate']['value'] = self.temp['max_drawdown_rate']
+
     def __update_report__(self, is_long, profit, trades=1):
         if profit == 0:
             return
@@ -929,21 +954,30 @@ class EATester(EABase):
             self.temp['consecutive_wins_money'] = 0
             #
         #
-        #
-        if self.report['total_trades']['value'] > 0:
-            self.report['win_rate']['value'] = self.report['profit_trades']['value'] / self.report['total_trades']['value']
-        #Total net profit
-        if self.report['init_balance']['value'] > 0:
-            self.report['total_net_profit_rate']['value'] = self.report['total_net_profit']['value'] / self.report['init_balance']['value']
+        #max dd
         if self.temp['account_max_equity'] < self.account['equity']:
+            # #calculate maxdd: https://www.investopedia.com/terms/m/maximum-drawdown-mdd.asp
+            self.__update_report_max_dd__()
+            #
             self.temp['account_max_equity'] = self.account['equity']
-        if self.temp['account_min_equity'] > self.account['equity']:
             self.temp['account_min_equity'] = self.account['equity']
-        self.report['max_drawdown']['value'] = self.temp['account_max_equity'] - self.temp['account_min_equity']
-        if self.temp['account_max_equity'] > 0:
-            self.report['max_drawdown_rate']['value'] = self.report['max_drawdown']['value'] / self.temp['account_max_equity']
         else:
-            self.report['max_drawdown_rate']['value'] = 0
+            if self.temp['account_min_equity'] > self.account['equity']:
+                self.__update_report_max_dd__()
+                self.temp['account_min_equity'] = self.account['equity']
+        #
+
+        #
+        if self.temp['account_min_balance'] > self.account['balance']:
+            self.temp['account_min_balance'] = self.account['balance']
+            self.report['absolute_drawdown']['value'] = self.temp['account_min_balance'] - self.report['init_balance']['value']
+
+        #
+        # self.report['max_drawdown']['value'] = self.temp['account_max_equity'] - self.temp['account_min_equity']
+        # if self.temp['account_max_equity'] > 0:
+        #     self.report['max_drawdown_rate']['value'] = self.report['max_drawdown']['value'] / self.temp['account_max_equity']
+        # else:
+        #     self.report['max_drawdown_rate']['value'] = 0
         if self.report['max_consecutive_wins']['value'] < self.temp['consecutive_wins']:
             self.report['max_consecutive_wins']['value'] = self.temp['consecutive_wins']
         if self.report['max_consecutive_wins_money']['value'] < self.temp['consecutive_wins_money']:
@@ -954,8 +988,13 @@ class EATester(EABase):
             self.report['max_consecutive_losses_money']['value'] = self.temp['consecutive_losses_money']
         self.report['total_net_profit']['value'] = self.report['gross_profit']['value'] - abs(
             self.report['gross_loss']['value'])
-        if self.report['total_net_profit']['value'] < 0:
-            self.report['absolute_drawdown']['value'] = abs(self.report['total_net_profit']['value'])
+        #
+        if self.report['total_trades']['value'] > 0:
+            self.report['win_rate']['value'] = self.report['profit_trades']['value'] / self.report['total_trades']['value']
+        #Total net profit rate
+        if self.report['init_balance']['value'] > 0:
+            self.report['total_net_profit_rate']['value'] = self.report['total_net_profit']['value'] / self.report['init_balance']['value']
+        self.report['balance']['value'] = self.account['balance']
 
     # def __update_report__(self, is_long, profit, trades=1):
     #     if profit == 0:
@@ -966,33 +1005,45 @@ class EATester(EABase):
     #         self.report['gross_profit']['value'] = self.report['gross_profit']['value'] + profit
     #         self.report['trade_avg_profit']['value'] = self.report['gross_profit']['value'] / \
     #                                                    self.report['profit_trades']['value']
-    # 
+    #
     #         if self.report['trade_max_profit']['value'] < profit:
     #             self.report['trade_max_profit']['value'] = profit
     #         if is_long:
     #             self.report['long_positions_win']['value'] += trades
     #         else:
     #             self.report['short_positions_win']['value'] += trades
-    # 
+    #
     #         self.temp['consecutive_wins'] += trades
     #         self.temp['consecutive_wins_money'] = self.temp['consecutive_wins_money'] + profit
     #         self.temp['consecutive_losses'] = 0
     #         self.temp['consecutive_losses_money'] = 0
+    #         #self.account['currency']
     #     else:
     #         self.report['loss_trades']['value'] += trades
     #         self.report['gross_loss']['value'] = self.report['gross_loss']['value'] + profit
-    #         self.report['max_drawdown']['value'] = self.report['gross_loss']['value']
     #         self.report['trade_avg_loss']['value'] = self.report['gross_loss']['value'] / self.report['loss_trades'][
     #             'value']
-    # 
-    #         if self.report['trade_max_loss']['value'] < profit:
+    #
+    #         if np.isnan(self.report['trade_max_loss']['value']) or self.report['trade_max_loss']['value'] > profit:
     #             self.report['trade_max_loss']['value'] = profit
-    # 
+    #
     #         self.temp['consecutive_losses'] += trades
     #         self.temp['consecutive_losses_money'] = self.temp['consecutive_losses_money'] + profit
     #         self.temp['consecutive_wins'] = 0
     #         self.temp['consecutive_wins_money'] = 0
+    #         #
     #     #
+    #     #
+    #     if self.temp['account_max_equity'] < self.account['equity']:
+    #         self.temp['account_max_equity'] = self.account['equity']
+    #     if self.temp['account_min_equity'] > self.account['equity']:
+    #         self.temp['account_min_equity'] = self.account['equity']
+    #     #
+    #     self.report['max_drawdown']['value'] = self.temp['account_max_equity'] - self.temp['account_min_equity']
+    #     if self.temp['account_max_equity'] > 0:
+    #         self.report['max_drawdown_rate']['value'] = self.report['max_drawdown']['value'] / self.temp['account_max_equity']
+    #     else:
+    #         self.report['max_drawdown_rate']['value'] = 0
     #     if self.report['max_consecutive_wins']['value'] < self.temp['consecutive_wins']:
     #         self.report['max_consecutive_wins']['value'] = self.temp['consecutive_wins']
     #     if self.report['max_consecutive_wins_money']['value'] < self.temp['consecutive_wins_money']:
@@ -1005,7 +1056,14 @@ class EATester(EABase):
     #         self.report['gross_loss']['value'])
     #     if self.report['total_net_profit']['value'] < 0:
     #         self.report['absolute_drawdown']['value'] = abs(self.report['total_net_profit']['value'])
-    # 
+    #     #
+    #     if self.report['total_trades']['value'] > 0:
+    #         self.report['win_rate']['value'] = self.report['profit_trades']['value'] / self.report['total_trades']['value']
+    #     #Total net profit rate
+    #     if self.report['init_balance']['value'] > 0:
+    #         self.report['total_net_profit_rate']['value'] = self.report['total_net_profit']['value'] / self.report['init_balance']['value']
+    #
+
     def __calculate_pip_with_quote_currency__(self, price):
         return 1.0
 
@@ -1077,7 +1135,7 @@ class EATester(EABase):
         sp = self.get_symbol_properties(self.symbol)
         if self.spread_point is None:
             self.spread_point = int(sp['spread'])
-        self.price_digits =  int(sp['digits'])
+        self.price_digits = int(sp['digits'])
         self.spread_calculated = abs(self.spread_point * sp['point'])
         #
         if self.account['currency'] is None:

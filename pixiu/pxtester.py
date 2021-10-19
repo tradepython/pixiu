@@ -42,6 +42,11 @@ class PXTester(EATester):
         account = test_params['account']
         if not isinstance(account, dict):
             account = test_config['accounts'][account]
+        #custom account
+        for k in account:
+            if k in test_params:
+                account[k] = test_params[k]
+        #
         symbol_properties = test_config['symbols']
         #
         tick_data = test_params['tick_data']
@@ -203,8 +208,10 @@ class PXTester(EATester):
             item_type = item.get('type', 'value')
             if item_type == 'value':
                 report_str += f"{idx:02d}). {item['desc']}: {round(item['value'], precision)}\n"
-            else: #%
+            elif item_type == '%': #%
                 report_str += f"{idx:02d}). {item['desc']}: {round(item['value']*100, precision)} %\n"
+            else: #str
+                report_str += f"{idx:02d}). {item['desc']}: {item['value']}\n"
 
             idx += 1
         self.write_log(f"{report_str}", type='report')
