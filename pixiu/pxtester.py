@@ -18,7 +18,9 @@ from pixiu.tester import (EATester, )
 
 
 class PXTester(EATester):
-    def __init__(self, test_config_path, test_name, script_path, log_path=None, print_log_type=None):
+    def __init__(self, test_config_path, test_name, script_path, log_path=None, print_log_type=None, test_result=None):
+        self.test_name = test_name
+        self.test_result = test_result
         self.parse_test_config(test_config_path, test_name, script_path, log_path, print_log_type)
         super(PXTester, self).__init__(self.eat_params)
 
@@ -168,7 +170,6 @@ class PXTester(EATester):
         else:
             return channel(symbol, tick_source)
 
-
     def init_data(self):
         super(PXTester, self).init_data()
 
@@ -204,6 +205,7 @@ class PXTester(EATester):
         idx = 1
         for key in self.report:
             item = self.report[key]
+            #
             precision = item.get('precision', 2)
             item_type = item.get('type', 'value')
             if item_type == 'value':
@@ -215,6 +217,9 @@ class PXTester(EATester):
 
             idx += 1
         self.write_log(f"{report_str}", type='report')
+        if self.test_result is not None:
+            self.test_result.value = json.dumps(dict(report=self.report))
+
         return 0
     #
     # def on_end_execute(self, *args, **kwargs):
@@ -223,10 +228,20 @@ class PXTester(EATester):
     #     idx = 1
     #     for key in self.report:
     #         item = self.report[key]
-    #         report_str += f"{idx:02d}). {item['desc']}: {item['value']}\n"
+    #         precision = item.get('precision', 2)
+    #         item_type = item.get('type', 'value')
+    #         if item_type == 'value':
+    #             report_str += f"{idx:02d}). {item['desc']}: {round(item['value'], precision)}\n"
+    #         elif item_type == '%': #%
+    #             report_str += f"{idx:02d}). {item['desc']}: {round(item['value']*100, precision)} %\n"
+    #         else: #str
+    #             report_str += f"{idx:02d}). {item['desc']}: {item['value']}\n"
+    #
     #         idx += 1
-    #     self.write_log(f"{report_str}")
+    #     self.write_log(f"{report_str}", type='report')
     #     return 0
+
+
 
     def GetSymbolData(self, symbol=None, timeframe=None):
         if symbol is None:

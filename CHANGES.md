@@ -1,4 +1,14 @@
 
+### [2021-10-23]
+#### Version:
+#####   Package:
+#####    pixiu: 0.48.0.20211023
+#####
+#### **Descriptions：**
+    1.Add support multiple test names:
+     pixiu -c pixiu.json -n testAUDUSD_TP_Demo1 testGBPUSD_TP_Demo1 testNZDUSD_TP_Demo1 testEURUSD_TP_Demo1 testUSDCHF_TP_Demo1 testUSDJPY_TP_Demo1 testUSDCAD_TP_Demo1 ...
+
+
 ### [2021-10-19]
 #### Version:
 #####   Package:
