@@ -129,6 +129,11 @@ class EATester(EABase):
                 if k not in self.account:
                     self.account[k] = default_value[k]
         #
+        self.print_collection = None
+        #
+        self.current_api = TesterAPI_V1(tester=self, data_source={}, default_symbol=params["symbol"])
+
+    def init_report_data(self):
         self.report = {
                         'init_balance': {'value': self.account['balance'], 'desc': 'Init Balance'}, #
                         'symbol': {'value': self.symbol, 'desc': 'Symbol', 'type': 'str'}, #
@@ -172,10 +177,6 @@ class EATester(EABase):
             'account_min_equity': self.account['equity'],
             'account_min_balance': self.account['balance'],
         }
-        self.print_collection = None
-        #
-        self.current_api = TesterAPI_V1(tester=self, data_source={}, default_symbol=params["symbol"])
-
 
     def get_print_factory(self, _getattr_=None):
         """print factory"""
@@ -1146,6 +1147,8 @@ class EATester(EABase):
         else:
             self.__calculate_pip__ = self.__calculate_pip_with_quote_currency__
         self.stop = False
+        #
+        self.init_report_data()
 
     def get_symbol_properties(self, symbol):
         ''''''

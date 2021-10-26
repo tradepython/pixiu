@@ -1,4 +1,21 @@
 
+### [2021-10-26]
+#### Version:
+#####   Package:
+#####    pixiu: 0.50.0.20211026
+#####
+#### **Descriptions：**
+    1.ea_tester.py:
+        1) Fix report currency bug
+
+### [2021-10-24]
+#### Version:
+#####   Package:
+#####    pixiu: 0.49.0.20211024
+#####
+#### **Descriptions：**
+    1.Using process pool
+
 ### [2021-10-23]
 #### Version:
 #####   Package:
