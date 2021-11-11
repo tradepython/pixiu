@@ -81,6 +81,26 @@ class API_V1_Base(API_V1):
         env_dict["pandas"] = pd
         env_dict["numpy"] = np
         #
+        env_dict["max"] = max
+        env_dict["min"] = min
+        env_dict["all"] = all
+        env_dict["any"] = any
+        env_dict["ascii"] = ascii
+        env_dict["bin"] = bin
+        env_dict["chr"] = chr
+        env_dict["divmod"] = divmod
+        env_dict["enumerate"] = enumerate
+        env_dict["filter"] = filter
+        env_dict["format"] = format
+        env_dict["hex"] = hex
+        env_dict["next"] = next
+        env_dict["oct"] = oct
+        env_dict["ord"] = ord
+        env_dict["pow"] = pow
+        env_dict["reversed"] = reversed
+        env_dict["sorted"] = sorted
+        env_dict["sum"] = sum
+        #
         env_dict["LockObject"] = self.lock_object
 
         #

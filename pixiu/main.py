@@ -10,7 +10,8 @@ class MainApp:
     def __init__(self):
         self.test_names = []
 
-    def str2bool(self, v):
+    @staticmethod
+    def str2bool(v):
         if isinstance(v, bool):
            return v
         if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -52,7 +53,7 @@ class MainApp:
                        log_path=log_path, print_log_type=print_log_type, test_result=result_value)
         pxt.execute("", sync=True)
 
-    def start(self, args):
+    def start_mp(self, args):
         # test_config_path = args.testconfig
         # test_name = args.testname, script_path = args.scriptpath,
         # log_path = args.logpath, print_log_type = args.printlogtype
@@ -83,6 +84,32 @@ class MainApp:
                 reports[key][tn] = ri[tn]['report'][key]
         self.output_report(reports)
 
+    def start_sp(self, args):
+        self.test_names = args.testname
+        #
+        results = {}
+        manager = Manager()
+        pool_args = []
+        pool = Pool()
+        for test_name in args.testname:
+            tr = manager.Value(c_wchar_p, '')
+            pool_args.append((args.testconfig, test_name, args.scriptpath, args.logpath, args.printlogtype, tr))
+            results[test_name] = tr
+        #
+        for pa in pool_args:
+            self.run_tester(*pa)
+        #
+        reports = {}
+        ri = {}
+        for tn in results:
+            res = json.loads(results[tn].value)
+            ri[tn] = res
+        for key in ri[self.test_names[0]]['report']:
+            reports[key] = {}
+            for tn in self.test_names:
+                reports[key][tn] = ri[tn]['report'][key]
+        self.output_report(reports)
+
 
 def main(*args, **kwargs):
     parser = argparse.ArgumentParser()
@@ -93,8 +120,12 @@ def main(*args, **kwargs):
     parser.add_argument('-o', '--logpath', type=str, help='Log path')
     parser.add_argument('-p', '--printlogtype', nargs='+', default=['ea', 'report'], required=False,
                         help='Print log type,  account order ea report')
+    parser.add_argument('-m', '--multiprocessing', type=MainApp.str2bool, default=True, help='Multiprocessing mode')
     args = parser.parse_args()
-    MainApp().start(args)
+    if args.multiprocessing:
+        MainApp().start_mp(args)
+    else:
+        MainApp().start_sp(args)
     # pxt = PXTester(test_config_path=args.testconfig, test_name=args.testname, script_path=args.scriptpath,
     #                log_path=args.logpath, print_log_type=args.printlogtype)
     # pxt.execute("", sync=True)

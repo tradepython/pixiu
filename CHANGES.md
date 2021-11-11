@@ -1,4 +1,15 @@
 
+### [2021-11-11]
+#### Version:
+#####   Package:
+#####    pixiu: 0.51.0.20211111
+#####
+#### **Descriptions：**
+    1.api_base:
+      Add build-in function: max, min, all, any, ascii, bin, chr, divmod, enumerate, filter, format, hex, next, oct, ord, pow, reversed, sorted, sum
+    2.main.py:
+      Add argument: multiprocessing
+
 ### [2021-10-26]
 #### Version:
 #####   Package:
