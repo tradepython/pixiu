@@ -111,20 +111,22 @@ class MainApp:
                 #
                 if compare_item:
                     cv = round(compare_item['value'], precision)
+                    diff = round(v - cv, precision)
                     if cv < v:
-                        v = f"{v} ↑"
+                        v = f"{v} ({diff}) ↑"
                     elif cv > v:
-                        v = f"{v} ↓"
+                        v = f"{v} ({diff}) ↓"
             elif item_type == '%':  # %
                 v = round(item['value'] * 100, precision)
                 total_value += v
                 vs = f"{v} %"
                 if compare_item:
                     cv = round(compare_item['value'] * 100, precision)
+                    diff = round(v - cv, precision)
                     if cv < v:
-                        vs = f"{vs} ↑"
+                        vs = f"{vs} ({diff}) ↑"
                     elif cv > v:
-                        vs = f"{vs} ↓"
+                        vs = f"{vs} ({diff}) ↓"
                 v = vs
             else:  # str
                 v = item['value']

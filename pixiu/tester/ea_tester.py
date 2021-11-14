@@ -875,34 +875,50 @@ class EATester(EABase):
         pass
 
     #
-    def Ask(self, shift=0):
+    def Ask(self, shift=0, symbol=None):
+        if symbol is not None and symbol != self.symbol:
+            return None
         ask = self.tick_info['a'][self.current_tick_index - shift]
         if ask == 0:
             ask = self.Bid(shift) + self.spread_calculated
         return ask
 
-    def Bid(self, shift=0):
+    def Bid(self, shift=0, symbol=None):
+        if symbol is not None and symbol != self.symbol:
+            return None
         bid = self.tick_info['b'][self.current_tick_index - shift]
         if bid == 0:
             bid = self.Close(shift)
         return bid
 
-    def Close(self, shift=0):
+    def Close(self, shift=0, symbol=None):
+        if symbol is not None and symbol != self.symbol:
+            return None
         return self.tick_info['c'][self.current_tick_index - shift]
 
-    def Open(self, shift=0):
+    def Open(self, shift=0, symbol=None):
+        if symbol is not None and symbol != self.symbol:
+            return None
         return self.tick_info['o'][self.current_tick_index - shift]
 
-    def High(self, shift=0):
+    def High(self, shift=0, symbol=None):
+        if symbol is not None and symbol != self.symbol:
+            return None
         return self.tick_info['h'][self.current_tick_index - shift]
 
-    def Low(self, shift=0):
+    def Low(self, shift=0, symbol=None):
+        if symbol is not None and symbol != self.symbol:
+            return None
         return self.tick_info['l'][self.current_tick_index - shift]
 
-    def Time(self, shift=0) -> datetime:
+    def Time(self, shift=0, symbol=None) -> datetime:
+        if symbol is not None and symbol != self.symbol:
+            return None
         return datetime.fromtimestamp(self.tick_info['t'][self.current_tick_index - shift])
 
-    def Volume(self, shift=0) -> float:
+    def Volume(self, shift=0, symbol=None) -> float:
+        if symbol is not None and symbol != self.symbol:
+            return None
         return self.tick_info['v'][self.current_tick_index - shift]
     #
     def __update_report_max_dd__(self):

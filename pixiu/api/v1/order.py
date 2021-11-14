@@ -139,4 +139,19 @@ class Order(object):
     def description(self):
         return self.order_dict["description"]
 
+    @property
+    def from_uid(self) -> str:
+        return self.order_dict.get("from_uid", None)
+
+    @property
+    def to_uid(self) -> str:
+        return self.order_dict.get("to_uid", None)
+
+    @property
+    def group_uid(self) -> str:
+        return self.order_dict.get("group_uid", None)
+
+    @property
+    def tags(self) -> str:
+        return self.order_dict.get("tags", None)
 

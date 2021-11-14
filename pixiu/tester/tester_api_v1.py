@@ -138,29 +138,29 @@ class TesterAPI_V1(API_V1_Base):
     def GetOrder(self, order_uid: str):
         return Order(self.tester.get_order(order_uid=order_uid))
 
-    def Close(self, shift=0) -> float:
-        return self.tester.Close(shift=shift)
+    def Close(self, shift=0, symbol=None) -> float:
+        return self.tester.Close(shift=shift, symbol=symbol)
 
-    def Open(self, shift=0) -> float:
-        return self.tester.Open(shift=shift)
+    def Open(self, shift=0, symbol=None) -> float:
+        return self.tester.Open(shift=shift, symbol=symbol)
 
-    def High(self, shift=0) -> float:
-        return self.tester.High(shift=shift)
+    def High(self, shift=0, symbol=None) -> float:
+        return self.tester.High(shift=shift, symbol=symbol)
 
-    def Low(self, shift=0) -> float:
-        return self.tester.Low(shift=shift)
+    def Low(self, shift=0, symbol=None) -> float:
+        return self.tester.Low(shift=shift, symbol=symbol)
 
-    def Ask(self, shift=0) -> float:
-        return self.tester.Ask(shift=shift)
+    def Ask(self, shift=0, symbol=None) -> float:
+        return self.tester.Ask(shift=shift, symbol=symbol)
 
-    def Bid(self, shift=0) -> float:
-        return self.tester.Bid(shift=shift)
+    def Bid(self, shift=0, symbol=None) -> float:
+        return self.tester.Bid(shift=shift, symbol=symbol)
 
-    def Time(self, shift=0) -> datetime:
-        return self.tester.Time(shift=shift)
+    def Time(self, shift=0, symbol=None) -> datetime:
+        return self.tester.Time(shift=shift, symbol=symbol)
 
-    def Volume(self, shift=0) -> float:
-        return self.tester.Volume(shift=shift)
+    def Volume(self, shift=0, symbol=None) -> float:
+        return self.tester.Volume(shift=shift, symbol=symbol)
 
     def Symbol(self, shift=0) -> str:
         return self.tester.symbol

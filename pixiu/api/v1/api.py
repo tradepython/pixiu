@@ -269,13 +269,15 @@ class APIStub(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def Close(self, shift=0) -> float:
+    def Close(self, shift=0, symbol=None) -> float:
         '''
         Returns Close price value for the default symbol with default timeframe and shift.
 
                 Parameters:
                         shift (int): Index of the value taken from the buffer
                         (shift relative to the current the given amount of periods ago).
+                        symbol: The symbol name.
+                                If None returns current symbol.
 
                 Returns:
                         Close price.
@@ -283,13 +285,15 @@ class APIStub(abc.ABC):
         raise NotImplementedError
     #
     @abc.abstractmethod
-    def Open(self, shift=0) -> float:
+    def Open(self, shift=0, symbol=None) -> float:
         '''
         Returns Open price value for the default symbol with default timeframe and shift.
 
                 Parameters:
                         shift (int): Index of the value taken from the buffer
                         (shift relative to the current the given amount of periods ago).
+                        symbol: The symbol name.
+                                If None returns current symbol.
 
                 Returns:
                         Open price.
@@ -297,13 +301,15 @@ class APIStub(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def High(self, shift=0) -> float:
+    def High(self, shift=0, symbol=None) -> float:
         '''
         Returns High price value for the default symbol with default timeframe and shift.
 
                 Parameters:
                         shift (int): Index of the value taken from the buffer
                         (shift relative to the current the given amount of periods ago).
+                        symbol: The symbol name.
+                                If None returns current symbol.
 
                 Returns:
                         High price.
@@ -311,13 +317,15 @@ class APIStub(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def Low(self, shift=0) -> float:
+    def Low(self, shift=0, symbol=None) -> float:
         '''
         Returns Low price value for the default symbol with default timeframe and shift.
 
                 Parameters:
                         shift (int): Index of the value taken from the buffer
                         (shift relative to the current the given amount of periods ago).
+                        symbol: The symbol name.
+                                If None returns current symbol.
 
                 Returns:
                         Low price.
@@ -325,13 +333,15 @@ class APIStub(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def Ask(self, shift=0) -> float:
+    def Ask(self, shift=0, symbol=None) -> float:
         '''
         Returns Ask price value for the default symbol with default timeframe and shift.
 
                 Parameters:
                         shift (int): Index of the value taken from the buffer
                         (shift relative to the current the given amount of periods ago).
+                        symbol: The symbol name.
+                                If None returns current symbol.
 
                 Returns:
                         Ask price.
@@ -339,13 +349,15 @@ class APIStub(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def Bid(self, shift=0) -> float:
+    def Bid(self, shift=0, symbol=None) -> float:
         '''
         Returns Bid price value for the default symbol with default timeframe and shift.
 
                 Parameters:
                         shift (int): Index of the value taken from the buffer
                         (shift relative to the current the given amount of periods ago).
+                        symbol: The symbol name.
+                                If None returns current symbol.
 
                 Returns:
                         Bid price.
@@ -353,13 +365,15 @@ class APIStub(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def Time(self, shift=0) -> datetime:
+    def Time(self, shift=0, symbol=None) -> datetime:
         '''
         Returns time value for the default symbol with default timeframe and shift.
 
                 Parameters:
                         shift (int): Index of the value taken from the buffer
                         (shift relative to the current the given amount of periods ago).
+                        symbol: The symbol name.
+                                If None returns current symbol.
 
                 Returns:
                         Time.
@@ -367,13 +381,15 @@ class APIStub(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def Volume(self, shift=0) -> float:
+    def Volume(self, shift=0, symbol=None) -> float:
         '''
         Returns volume value for the default symbol with default timeframe and shift.
 
                 Parameters:
                         shift (int): Index of the value taken from the buffer
                         (shift relative to the current the given amount of periods ago).
+                        symbol: The symbol name.
+                                If None returns current symbol.
 
                 Returns:
                         Volume price.

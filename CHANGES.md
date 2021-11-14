@@ -1,4 +1,15 @@
 
+### [2021-11-14]
+#### Version:
+#####   Package:
+#####    pixiu: 0.53.0.20211114
+#####
+#### **Descriptions：**
+    1.api.py, tester_api_v1.py:
+      Ask, Bid, Time, Volume, Open, Close, Low, High add symbol
+    2.order.py:
+      Add from_uid, to_uid， group_uid, tags
+
 ### [2021-11-13]
 #### Version:
 #####   Package:
