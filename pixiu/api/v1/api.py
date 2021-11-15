@@ -32,6 +32,13 @@ class OrderScope():
     EA_VERSION = 200
     ACCOUNT = 300
 
+class DataScope():
+    EA = 0
+    EA_VERSION = 200
+    ACCOUNT = 300
+    EA_SETTIGNS = 400
+
+
 ErrorID = NewType('ErrorID', int)
 Result = NewType('Result', dict)
 UID = NewType('UID', str)
@@ -46,6 +53,7 @@ class APIStub(abc.ABC):
         OrderType=OrderType,
         OrderCommand=OrderCommand,
         Order=Order,
+        DataScope=DataScope,
     )
 
     def __init__(self):
@@ -60,7 +68,8 @@ class APIStub(abc.ABC):
 
     @abc.abstractmethod
     def Buy(self, volume: float, type=OrderType.MARKET, price=None, stop_loss=None, take_profit=None,
-            magic_number=None, symbol=None, slippage=None, arrow_color=None, expiration=None) -> (ErrorID, OrderResult):
+            magic_number=None, symbol=None, slippage=None, arrow_color=None, expiration=None,
+            tags=None) -> (ErrorID, OrderResult):
         '''
         Open a buy order.
 
@@ -83,7 +92,8 @@ class APIStub(abc.ABC):
 
     @abc.abstractmethod
     def Sell(self, volume: float, type=OrderType.MARKET, price=None, stop_loss=None, take_profit=None,
-             magic_number=None, symbol=None, slippage=None, arrow_color=None, expiration=None) -> (ErrorID, OrderResult):
+             magic_number=None, symbol=None, slippage=None, arrow_color=None, expiration=None,
+             tags=None) -> (ErrorID, OrderResult):
         '''
         Open a sell order.
 
@@ -106,7 +116,7 @@ class APIStub(abc.ABC):
 
     @abc.abstractmethod
     def ModifyOrder(self, uid, price=None, stop_loss=None, take_profit=None,
-                     arrow_color=None, expiration=None) -> (ErrorID, OrderResult):
+                     arrow_color=None, expiration=None, tags=None) -> (ErrorID, OrderResult):
         '''
         Modify a order.
 
@@ -125,7 +135,7 @@ class APIStub(abc.ABC):
 
     @abc.abstractmethod
     # def CloseOrder(self, uid, price, volume: float, slippage=None, arrow_color=None) -> (ErrorID, OrderResult):
-    def CloseOrder(self, uid, volume=None, price=None, slippage=None, arrow_color=None) -> (ErrorID, OrderResult):
+    def CloseOrder(self, uid, volume=None, price=None, slippage=None, arrow_color=None, tags=None) -> (ErrorID, OrderResult):
         '''
         Close a order.
 
@@ -808,6 +818,48 @@ class APIStub(abc.ABC):
         Plot
                 Parameters:
                         series
+        '''
+        raise NotImplementedError
+
+
+    @abc.abstractmethod
+    def DeleteData(self, name, scope: int = DataScope.EA) -> ErrorID:
+        '''
+        Delete data
+
+                Parameters:
+                        name : The data name
+                        scope : The data scope (current EA settings, EA version, EA, Account)
+                Returns:
+                        The errorid.
+        '''
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def LoadData(self, name, scope: int = DataScope.EA, format='json'):
+        '''
+        Load data
+
+                Parameters:
+                        name : The data name
+                        scope : The data scope (current EA settings, EA version, EA, Account)
+                        format: Only support JSON.
+                Returns:
+                        data.
+        '''
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def SaveData(self, name, data, scope: int = DataScope.EA, format='json') -> ErrorID:
+        '''
+        Save data
+
+                Parameters:
+                        name : The data name
+                        scope : The data scope (current EA settings, EA version, EA, Account)
+                        format: Only support JSON.
+                Returns:
+                        The errorid.
         '''
         raise NotImplementedError
 

@@ -81,6 +81,19 @@ assertEqual(symbol.currency_profit, valid_symbols[Symbol()]['currency_profit'])
 assertEqual(symbol.currency_base, valid_symbols[Symbol()]['currency_base'])
 assertEqual(symbol.currency_margin, valid_symbols[Symbol()]['currency_margin'])
 
+#Data
+for scope in (DataScope.EA, DataScope.EA_VERSION, DataScope.ACCOUNT, DataScope.EA_SETTIGNS):
+    name = hashlib.md5(str(uuid.uuid4()).encode("utf-8")).hexdigest()
+    data = dict(value=UID())
+    SaveData(scope=scope, name=name, data=data)
+    d = LoadData(scope=scope, name=name)
+    assertEqual(d['value'], data['value'], f"scope={scope}")
+    DeleteData(scope=scope, name=name)
+    d = LoadData(scope=scope, name=name)
+    assertIsNone(d, f"scope={scope}")
+
+
+#
 set_test_result("OK")
 #
 StopTester()

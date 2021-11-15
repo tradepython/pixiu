@@ -1,5 +1,8 @@
 import json
 from bson import json_util
+import uuid
+import hashlib
+from hashids import Hashids
 from datetime import datetime, date
 from dateutil.parser import parse
 from pixiu.api.defines import OrderCommand
@@ -95,3 +98,10 @@ def dump_json(value, default=json_util.default):
     """"""
     svalue = json.dumps(value, default=default)
     return svalue
+
+def uuid_str(short=True):
+    hashids = Hashids()
+    key = hashlib.md5(str(uuid.uuid4()).encode("utf-8")).hexdigest()
+    if short:
+        key = hashids.encode(int(key, 16))
+    return key

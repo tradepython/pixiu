@@ -5,7 +5,7 @@ import talib
 import logging
 from datetime import datetime
 from pixiu.api.v1 import (TimeFrame, OrderCommand, OrderType, IndicatiorID, SymbolIndicator, SymbolPrice, SymbolData,
-                      Order, Account, Symbol, AccountData, ErrorID, OrderResult, OrderScope)
+                      Order, Account, Symbol, AccountData, ErrorID, OrderResult, OrderScope, DataScope)
 log = logging.getLogger(__name__)
 
 
@@ -22,7 +22,7 @@ class TesterAPI_V1(API_V1_Base):
         return self.tester.get_print_factory(*args, **kwargs)
     #
     def Buy(self, volume, type=OrderType.MARKET, price=0, stop_loss=None, take_profit=None, comment=None,
-            magic_number=None, symbol=None, slippage=None, arrow_color=None, expiration=None):
+            magic_number=None, symbol=None, slippage=None, arrow_color=None, expiration=None, tags=None):
         if symbol is None:
             symbol = self.default_symbol
         if price <= 0:
@@ -39,10 +39,10 @@ class TesterAPI_V1(API_V1_Base):
 
         return self.tester.open_order(symbol, oct, price, volume, stop_loss, take_profit,
                                            comment=comment, magic_number=magic_number, slippage=slippage,
-                                           arrow_color=arrow_color)
+                                           arrow_color=arrow_color, tags=tags)
 
     def Sell(self, volume, type=OrderType.MARKET, price=0, stop_loss=None, take_profit=None, comment=None,
-             magic_number=None, symbol=None, slippage=None, arrow_color=None, expiration=None):
+             magic_number=None, symbol=None, slippage=None, arrow_color=None, expiration=None, tags=None):
         if symbol is None:
             symbol = self.default_symbol
         if price <= 0:
@@ -58,17 +58,17 @@ class TesterAPI_V1(API_V1_Base):
             raise NotImplementedError
         return self.tester.open_order(symbol, oct, price, volume, stop_loss, take_profit,
                                            comment=comment, magic_number=magic_number, slippage=slippage,
-                                           arrow_color=arrow_color)
+                                           arrow_color=arrow_color, tags=tags)
 
     def ModifyOrder(self, uid, price=None, stop_loss=None, take_profit=None, comment=None,
-                     arrow_color=None, expiration=None):
+                     arrow_color=None, expiration=None, tags=None):
         return self.tester.modify_order(uid, price, stop_loss, take_profit,
-                              comment=comment, arrow_color=arrow_color, expiration=expiration)
+                              comment=comment, arrow_color=arrow_color, expiration=expiration, tags=tags)
 
     #
-    def CloseOrder(self, uid, volume: float=None, price=None,  slippage=None, arrow_color=None):
+    def CloseOrder(self, uid, volume: float=None, price=None,  slippage=None, arrow_color=None, tags=None):
         return self.tester.close_order(uid, volume, price, slippage=slippage,
-                              arrow_color=arrow_color)
+                              arrow_color=arrow_color, tags=tags)
 
     def WaitCommand(self, uid, timeout=120):
         return self.tester.wait_command(uid, timeout)
@@ -133,7 +133,16 @@ class TesterAPI_V1(API_V1_Base):
 
     def GetParam(self, name, default=None):
         '''Get params'''
-        return self.get_param(name, default)
+        return self.tester.get_param(name, default)
+
+    def DeleteData(self, name, scope: int = DataScope.EA):
+        return self.tester.delete_data(name, scope)
+
+    def LoadData(self, name, scope: int = DataScope.EA, format='json'):
+        return self.tester.load_data(name, scope, format)
+
+    def SaveData(self, name, data, scope: int = DataScope.EA, format='json'):
+        return self.tester.save_data(name, data, scope, format)
 
     def GetOrder(self, order_uid: str):
         return Order(self.tester.get_order(order_uid=order_uid))

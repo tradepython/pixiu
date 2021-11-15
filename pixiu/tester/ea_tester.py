@@ -13,7 +13,7 @@ import pandas as pd
 from pixiu.api.errors import *
 from pixiu.api import (TimeFrame, OrderCommand, order_is_long, order_is_short, order_is_market, order_is_stop,
                        order_is_limit, order_is_pending)
-from pixiu.api.v1 import (OrderScope, )
+from pixiu.api.v1 import (OrderScope, DataScope)
 import traceback
 import logging
 log = logging.getLogger(__name__)
@@ -51,6 +51,7 @@ class TickMode():
     ONLY_OPEN = 200
 
 
+MAX_DATA_LENGTH = 1048576 #1MB
 class EATester(EABase):
     """EA Tester"""
     def __init__(self, params):
@@ -132,6 +133,29 @@ class EATester(EABase):
         self.print_collection = None
         #
         self.current_api = TesterAPI_V1(tester=self, data_source={}, default_symbol=params["symbol"])
+        self.data = {DataScope.EA_VERSION: {}, DataScope.EA: {}, DataScope.ACCOUNT: {}, DataScope.EA_SETTIGNS: {}}
+
+    def delete_data(self, name, scope):
+        self.data[scope].pop(name)
+        return 0
+
+    def load_data(self, name, scope, format='json'):
+        if format != 'json':
+            return None
+        data = self.data[scope].get(name, None)
+        if data is None:
+            return None
+        return json.loads(data)
+
+    def save_data(self, name, data, scope, format='json'):
+        if format != 'json':
+            return EID_EAT_INVALID_DATA_FORMAT
+        if data is not None:
+            data = json.dumps(data)
+            if len(data) > MAX_DATA_LENGTH:
+                return EID_EAT_INVALID_DATA_LENGTH
+        self.data[scope][name] = data
+        return EID_OK
 
     def init_report_data(self):
         self.report = {
@@ -653,7 +677,7 @@ class EATester(EABase):
         return str(self.orders['counter'] + 1)
 
     def open_order(self, symbol, cmd, price, volume, stop_loss, take_profit, comment=None, ext_check_open_range=0,
-                       ext_check_order_hold_count=0, magic_number=None, slippage=None, arrow_color=None):
+                       ext_check_order_hold_count=0, magic_number=None, slippage=None, arrow_color=None, tags=None):
         """"""
         order_uid = None
         account = self.account
@@ -667,7 +691,7 @@ class EATester(EABase):
         order_dict = dict(ticket=self.__new_ticket__(), symbol=symbol, cmd=cmd, open_price=price,
                          volume=volume, stop_loss=stop_loss, take_profit=take_profit, margin=0, comment=comment,
                          magic_number=magic_number, open_time=self.current_time(), commission=0,
-                         close_time=None, close_price=np.nan, profit=0.0)
+                         close_time=None, close_price=np.nan, profit=0.0, tags=tags)
         errid = self.__valid_order__(0, order_dict, self.Close())
         if errid != EID_OK:
             return errid, dict(order_uid=order_uid, command_uid=None, sync=True)
@@ -692,7 +716,7 @@ class EATester(EABase):
     #
 
     def modify_order(self, order_uid, price, stop_loss, take_profit, comment=None, arrow_color=None,
-                     expiration=None):
+                     expiration=None, tags=None):
         """modify_order"""
         order_dict = self.get_order(order_uid=order_uid)
         if order_dict is None:
@@ -705,6 +729,8 @@ class EATester(EABase):
         if take_profit is not None:
             order_tmp['take_profit'] = take_profit
         order_tmp['comment'] = comment
+        if tags is not None:
+            order_tmp['tags'] = tags
         #
         close_price = self.Close()
         if order_is_market(order_dict['cmd']):
@@ -801,7 +827,7 @@ class EATester(EABase):
             return 0
 
     def close_order(self, order_uid, volume, price, slippage=None, comment=None, arrow_color=None,
-                    update_report_func=None):
+                    update_report_func=None, tags=None):
         """Close order"""
         order_dict = self.get_order(order_uid=order_uid)
         if order_dict is None:
@@ -822,6 +848,8 @@ class EATester(EABase):
             errid = self.__valid_order__(2, order_dict, price)
             if errid != EID_OK:
                 return errid, dict(order_uid=order_uid, command_uid=None, sync=True)
+            if tags is not None:
+                order_dict['tags'] = tags
             order_dict['comment'] = comment
             order_dict['close_time'] = close_time
             order_dict['close_price'] = price

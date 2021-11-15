@@ -5,8 +5,8 @@ volume = 0.01
 assertEqual(AcquireLock("test"), True)
 ReleaseLock("test")
 
-
-errid, result = Buy(volume=volume)
+score = 1.0
+errid, result = Buy(volume=volume, tags={'score': score})
 assertEqual(errid, 0)
 assertNotEqual(result['order_uid'], None)
 errid = exec_command()
@@ -19,6 +19,8 @@ assertEqual(order.uid, result['order_uid'])
 assertEqual(order.volume, volume)
 assertEqual(order.stop_loss, 0)
 assertEqual(order.take_profit, 0)
+assertEqual(order.tags['score'], score)
+
 if result['command_uid']:
     assertEqual(order.comment, f"cuid#{result['command_uid']}|")
 else:
@@ -35,7 +37,7 @@ assertIsNone(order.close_price)
 stop_loss=Bid()-15*point
 take_profit=Ask()+30*point
 errid, result = Buy(volume=0.01, price=Ask(), stop_loss=stop_loss,
-                    take_profit=take_profit)
+                    take_profit=take_profit, tags={'score': score})
 assertEqual(errid, 0)
 assertNotEqual(result['order_uid'], None)
 errid = exec_command()
@@ -49,6 +51,7 @@ assertEqual(order.stop_loss, stop_loss)
 assertEqual(order.take_profit, take_profit)
 assertIsNone(order.close_time)
 assertIsNone(order.close_price)
+assertEqual(order.tags['score'], score)
 
 #Buy all params
 stop_loss=Bid()-15*point
@@ -56,7 +59,7 @@ take_profit=Ask()+30*point
 magic_number=4291651
 errid, result = Buy(volume=0.01, price=Ask(), stop_loss=stop_loss,
                     take_profit=take_profit, magic_number=magic_number,
-                    symbol=Symbol(), slippage=3, arrow_color="white")
+                    symbol=Symbol(), slippage=3, arrow_color="white", tags={'score': score})
 assertEqual(errid, 0)
 assertNotEqual(result['order_uid'], None)
 errid = exec_command()
@@ -71,11 +74,12 @@ assertEqual(order.take_profit, take_profit)
 assertEqual(order.magic_number, magic_number)
 assertIsNone(order.close_time)
 assertIsNone(order.close_price)
+assertEqual(order.tags['score'], score)
 
 #
 stop_loss = stop_loss - 15 * point
 take_profit = take_profit + 30 * point
-errid, result = ModifyOrder(result['order_uid'], stop_loss=stop_loss, take_profit=take_profit)
+errid, result = ModifyOrder(result['order_uid'], stop_loss=stop_loss, take_profit=take_profit, tags={'score': score})
 assertEqual(errid, 0)
 assertNotEqual(result['order_uid'], None)
 errid = exec_command()
@@ -89,10 +93,11 @@ assertEqual(order.stop_loss, stop_loss)
 assertEqual(order.take_profit, take_profit)
 assertIsNone(order.close_time)
 assertIsNone(order.close_price)
+assertEqual(order.tags['score'], score)
 
 #close order
 # errid, result = CloseOrder(result['order_uid'], price=Ask(), volume=volume)
-errid, result = CloseOrder(result['order_uid'])
+errid, result = CloseOrder(result['order_uid'], tags={'score': score})
 assertEqual(errid, 0)
 assertNotEqual(result['order_uid'], None)
 errid = exec_command()
@@ -102,6 +107,7 @@ assertIsNotNone(order)
 assertEqual(order.symbol, Symbol())
 assertIsNotNone(order.close_time)
 assertEqual(order.close_price, Bid())
+assertEqual(order.tags['score'], score)
 
 #The order was closed ?
 oo = GetOpenedOrderUIDs()
@@ -110,7 +116,7 @@ for t in oo:
 
 
 # Sell
-errid, result = Sell(volume=0.01)
+errid, result = Sell(volume=0.01, tags={'score': score})
 assertEqual(errid, 0)
 assertNotEqual(result['order_uid'], None)
 errid = exec_command()
@@ -125,12 +131,13 @@ assertEqual(order.take_profit, 0)
 assertIsNone(order.magic_number)
 assertIsNone(order.close_time)
 assertIsNone(order.close_price)
+assertEqual(order.tags['score'], score)
 
 #Sell with sl and tp
 stop_loss = Ask() + 15 * point
 take_profit = Bid() - 30 * point
 errid, result = Sell(volume=0.01, price=Bid(), stop_loss=Ask()+15*point,
-                    take_profit=Bid()-30*point)
+                    take_profit=Bid()-30*point, tags={'score': score})
 assertEqual(errid, 0)
 assertNotEqual(result['order_uid'], None)
 errid = exec_command()
@@ -144,12 +151,13 @@ assertEqual(order.stop_loss, stop_loss)
 assertEqual(order.take_profit, take_profit)
 assertIsNone(order.close_time)
 assertIsNone(order.close_price)
+assertEqual(order.tags['score'], score)
 
 #Sell all params
 magic_number=4291652
 errid, result = Sell(volume=volume, price=Bid(), stop_loss=stop_loss,
                     take_profit=take_profit, magic_number=magic_number,
-                    symbol=Symbol(), slippage=3, arrow_color="red")
+                    symbol=Symbol(), slippage=3, arrow_color="red", tags={'score': score})
 assertEqual(errid, 0)
 assertNotEqual(result['order_uid'], None)
 errid = exec_command()
@@ -164,10 +172,12 @@ assertEqual(order.take_profit, take_profit)
 assertEqual(order.magic_number, magic_number)
 assertIsNone(order.close_time)
 assertIsNone(order.close_price)
+assertEqual(order.tags['score'], score)
+
 #
 stop_loss = stop_loss + 15 * point
 take_profit = take_profit - 30 * point
-errid, result = ModifyOrder(result['order_uid'], stop_loss=stop_loss, take_profit=take_profit)
+errid, result = ModifyOrder(result['order_uid'], stop_loss=stop_loss, take_profit=take_profit, tags={'score': score})
 assertEqual(errid, 0)
 assertNotEqual(result['order_uid'], None)
 errid = exec_command()
@@ -181,9 +191,11 @@ assertEqual(order.stop_loss, stop_loss)
 assertEqual(order.take_profit, take_profit)
 assertIsNone(order.close_time)
 assertIsNone(order.close_price)
+assertEqual(order.tags['score'], score)
+
 #close order
 # errid, result = CloseOrder(result['order_uid'], price=Bid(), volume=volume)
-errid, result = CloseOrder(result['order_uid'])
+errid, result = CloseOrder(result['order_uid'], tags={'score': score})
 assertEqual(errid, 0)
 assertNotEqual(result['order_uid'], None)
 errid = exec_command()
@@ -193,6 +205,7 @@ assertIsNotNone(order)
 assertEqual(order.symbol, Symbol())
 assertIsNotNone(order.close_time)
 assertEqual(order.close_price, Ask())
+assertEqual(order.tags['score'], score)
 
 #The order was closed ?
 oo = GetOpenedOrderUIDs()

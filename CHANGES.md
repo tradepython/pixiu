@@ -1,4 +1,19 @@
 
+### [2021-11-15]
+#### Version:
+#####   Package:
+#####    pixiu: 0.54.0.20211115
+#####
+#### **Descriptions：**
+    1.api.py, tester_api_v1.py:
+      Add DeleteData, LoadData, SaveData
+      Buy/Sell/ModifyOrder/CloseOrder add argument tags 
+    2.tests:
+      ts_base.py add data test
+      ts_order_market.py add tags 
+    3.api_base.py:
+      Add uuid, hashlib 
+
 ### [2021-11-14]
 #### Version:
 #####   Package:

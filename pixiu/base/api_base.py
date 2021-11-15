@@ -9,7 +9,9 @@ import time
 from RestrictedPython.Guards import (guarded_unpack_sequence, )
 from RestrictedPython.Eval import (default_guarded_getiter, )
 import inspect
-from pixiu.api.utils import (load_json, dump_json)
+from pixiu.api.utils import (load_json, dump_json, uuid_str)
+import uuid
+import hashlib
 
 from ..api.v1 import (TimeFrame, OrderCommand, Order, APIStub as API_V1)
 
@@ -80,6 +82,9 @@ class API_V1_Base(API_V1):
         env_dict["time"] = time
         env_dict["pandas"] = pd
         env_dict["numpy"] = np
+        env_dict["uuid"] = uuid
+        env_dict["hashlib"] = hashlib
+        env_dict["UID"] = uuid_str
         #
         env_dict["max"] = max
         env_dict["min"] = min

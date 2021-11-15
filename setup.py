@@ -17,7 +17,9 @@ requires = [
     'TA-Lib',
     'pymongo',
     'tabulate',
-    'uuid'
+    'uuid',
+    'hashlib',
+    'hashids'
 ]
 
 tests_require = [
@@ -28,7 +30,7 @@ tests_require = [
 
 setup(
     name='pixiu',
-    version='0.53.0',
+    version='0.54.0',
     description='PiXiu - A trading backtesting tool similar to MT4/MT5',
     long_description=README + '\n\n' + CHANGES,
     long_description_content_type="text/markdown",
