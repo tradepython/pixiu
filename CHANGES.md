@@ -1,4 +1,12 @@
 
+### [2021-11-16]
+#### Version:
+#####   Package:
+#####    pixiu: 0.55.*.20211116
+#####
+#### **Descriptions：**
+    1.Fix setup.py requires. 
+
 ### [2021-11-15]
 #### Version:
 #####   Package:
