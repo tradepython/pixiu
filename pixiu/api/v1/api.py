@@ -863,4 +863,16 @@ class APIStub(abc.ABC):
         '''
         raise NotImplementedError
 
+    @abc.abstractmethod
+    def Notify(self, message) -> ErrorID:
+        '''
+        Send a notification
+
+                Parameters:
+                        message: The content of notification
+                Returns:
+                        The errorid.
+        '''
+        raise NotImplementedError
+
 

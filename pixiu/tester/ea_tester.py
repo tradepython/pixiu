@@ -902,6 +902,9 @@ class EATester(EABase):
     def release_lock(self, name):
         pass
 
+    def notify(self, message):
+        self.print_logs.append(f"<Notification>: {message}")
+
     #
     def Ask(self, shift=0, symbol=None):
         if symbol is not None and symbol != self.symbol:

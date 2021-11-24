@@ -70,6 +70,9 @@ class TesterAPI_V1(API_V1_Base):
         return self.tester.close_order(uid, volume, price, slippage=slippage,
                               arrow_color=arrow_color, tags=tags)
 
+    def Notify(self, message):
+        return self.tester.notify(message)
+
     def WaitCommand(self, uid, timeout=120):
         return self.tester.wait_command(uid, timeout)
 
