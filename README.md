@@ -25,14 +25,68 @@ How to use
 =======
 Parameters :
 
-    -c test config
-    -n test name (in the test configuration file)
-    -s script file
-    -o log file
+    -c/--testconfig         test config
+    -n/--testname           test name (in the test configuration file)
+    -s/--scriptpath         script file
+    -o/--logpath            log file
+    -p/--printlogtype       print log type
+    -m/--multiprocessing    multiprocessing mode
+    -r/--compare            compare with the tags list
+    -t/--tag                tag
+    -l/--datafile           data file name
+
+    Basic
 
     pixiu -c pixiu_sample.json -n testUSDCHF_TP -s pixiu_sample.py
     pixiu -c pixiu_sample.json -n testUSDCHF_TP -s pixiu_sample.py
     pixiu -c pixiu_sample.json -n testUSDCHF -s pixiu_sample2.py -o log.txt
+
+    Compare multiple strategies
+
+    pixiu -c pixiu.json -n testAUDUSD_TP_Demo1 testGBPUSD_TP_Demo1 testNZDUSD_TP_Demo1 testEURUSD_TP_Demo1 testUSDCHF_TP_Demo1 testUSDJPY_TP_Demo1 testUSDCAD_TP_Demo1 -s ../EA/EA_V2.10.0.py -p report -t 2.10.0 -l ea2_7.json
+    pixiu -c pixiu.json -n testAUDUSD_TP_Demo1 testGBPUSD_TP_Demo1 testNZDUSD_TP_Demo1 testEURUSD_TP_Demo1 testUSDCHF_TP_Demo1 testUSDJPY_TP_Demo1 testUSDCAD_TP_Demo1 -s ../EA/EA_V2.10.1.py -p report -t 2.10.1 -l ea2_7.json
+    pixiu -c pixiu.json -n testAUDUSD_TP_Demo1 testGBPUSD_TP_Demo1 testNZDUSD_TP_Demo1 testEURUSD_TP_Demo1 testUSDCHF_TP_Demo1 testUSDJPY_TP_Demo1 testUSDCAD_TP_Demo1 -s ../EA/EA_V2.10.2.py -p report -t 2.10.2 -l ea2_7.json
+
+    pixiu -c pixiu.json -n testAUDUSD_TP_Demo1 testGBPUSD_TP_Demo1 testNZDUSD_TP_Demo1 testEURUSD_TP_Demo1 testUSDCHF_TP_Demo1 testUSDJPY_TP_Demo1 testUSDCAD_TP_Demo1 -t 2.10.0 -r 2.10.1 2.10.2 -l ea2_7.json
+
+    Output:
+    +----+--------------------------------------+---------------------+---------------------+---------------------+---------------------+---------------------+---------------------+---------------------+--------------------+
+    |    |                                      | testAUDUSD_TP_Demo1 | testGBPUSD_TP_Demo1 | testNZDUSD_TP_Demo1 | testEURUSD_TP_Demo1 | testUSDCHF_TP_Demo1 | testUSDJPY_TP_Demo1 | testUSDCAD_TP_Demo1 | Total/Avg          |
+    +----+--------------------------------------+---------------------+---------------------+---------------------+---------------------+---------------------+---------------------+---------------------+--------------------+
+    | 1  | Init Balance(2.10.0)                 | 5000.0              | 5000.0              | 5000.0              | 5000.0              | 5000.0              | 5000.0              | 5000.0              | 35000.0 / 5000.0   |
+    | 1  | Init Balance(2.10.1)                 | 5000.0              | 5000.0              | 5000.0              | 5000.0              | 5000.0              | 5000.0              | 5000.0              | 35000.0 / 5000.0   |
+    | 1  | Init Balance(2.10.2)                 | 5000.0              | 5000.0              | 5000.0              | 5000.0              | 5000.0              | 5000.0              | 5000.0              | 35000.0 / 5000.0   |
+    ...
+    | 7  | Balance(2.10.0)                      | 4988.31             | 5064.61             | 5041.77             | 5071.6              | 4994.96             | 4996.97             | 4996.94             | 35155.16 / 5022.17 |
+    | 7  | Balance(2.10.1)                      | 5003.42 ↑           | 5061.26 ↓           | 5000.58 ↓           | 4965.65 ↓           | 5009.12 ↑           | 5033.44 ↑           | 4931.17 ↓           | 35004.64 / 5000.66 |
+    | 7  | Balance(2.10.2)                      | 4981.59 ↓           | 5076.74 ↑           | 5000.58 ↓           | 4985.02 ↓           | 5023.02 ↑           | 5029.35 ↑           | 4965.34 ↓           | 35061.64 / 5008.81 |
+    | 8  | Total Net Profit(2.10.0)             | -11.69              | 64.61               | 41.77               | 71.6                | -5.05               | -3.02               | -3.05               | 155.17 / 22.17     |
+    | 8  | Total Net Profit(2.10.1)             | 3.42 ↑              | 61.26 ↓             | 0.58 ↓              | -34.35 ↓            | 9.14 ↑              | 33.44 ↑             | -68.84 ↓            | 4.65 / 0.66        |
+    | 8  | Total Net Profit(2.10.2)             | -18.41 ↓            | 76.74 ↑             | 0.58 ↓              | -14.98 ↓            | 23.04 ↑             | 29.35 ↑             | -34.68 ↓            | 61.64 / 8.81       |
+    | 9  | Total Net Profit Rate(2.10.0)        | -0.23 %             | 1.29 %              | 0.84 %              | 1.43 %              | -0.1 %              | -0.06 %             | -0.06 %             | 3.11 % / 0.44 %    |
+    | 9  | Total Net Profit Rate(2.10.1)        | 0.07 % ↑            | 1.23 % ↓            | 0.01 % ↓            | -0.69 % ↓           | 0.18 % ↑            | 0.67 % ↑            | -1.38 % ↓           | 0.09 % / 0.01 %    |
+    | 9  | Total Net Profit Rate(2.10.2)        | -0.37 % ↓           | 1.53 % ↑            | 0.01 % ↓            | -0.3 % ↓            | 0.46 % ↑            | 0.59 % ↑            | -0.69 % ↓           | 1.23 % / 0.18 %    |
+    ...
+
+    pixiu -c pixiu.json -n testUSDCAD_TP_Demo1 -t 2.10.0 -r 2.10.1 2.10.2 -l ea2_7.json
+    Output:
+    +----+--------------------------------------+---------------------+-------------------+
+    |    |                                      | testUSDCAD_TP_Demo1 | Total/Avg         |
+    +----+--------------------------------------+---------------------+-------------------+
+    | 1  | Init Balance(2.10.0)                 | 5000.0              | 5000.0 / 5000.0   |
+    | 1  | Init Balance(2.10.1)                 | 5000.0              | 5000.0 / 5000.0   |
+    | 1  | Init Balance(2.10.2)                 | 5000.0              | 5000.0 / 5000.0   |
+    ...
+    | 7  | Balance(2.10.0)                      | 4996.94             | 4996.94 / 4996.94 |
+    | 7  | Balance(2.10.1)                      | 4931.17 ↓           | 4931.17 / 4931.17 |
+    | 7  | Balance(2.10.2)                      | 4965.34 ↓           | 4965.34 / 4965.34 |
+    | 8  | Total Net Profit(2.10.0)             | -3.05               | -3.05 / -3.05     |
+    | 8  | Total Net Profit(2.10.1)             | -68.84 ↓            | -68.84 / -68.84   |
+    | 8  | Total Net Profit(2.10.2)             | -34.68 ↓            | -34.68 / -34.68   |
+    | 9  | Total Net Profit Rate(2.10.0)        | -0.06 %             | -0.06 % / -0.06 % |
+    | 9  | Total Net Profit Rate(2.10.1)        | -1.38 % ↓           | -1.38 % / -1.38 % |
+    | 9  | Total Net Profit Rate(2.10.2)        | -0.69 % ↓           | -0.69 % / -0.69 % |
+    ...
 
 
 Test configuration file format
@@ -248,28 +302,32 @@ AccountFreeMargin(self)
            Returns:
                    The free margin.
 
-Ask(self, shift=0) -> float
+Ask(self, shift=0, symbol=None) -> float
    Returns Ask price value for the default symbol with default timeframe and shift.
 
            Parameters:
                    shift (int): Index of the value taken from the buffer
                    (shift relative to the current the given amount of periods ago).
+                   symbol (str): The symbol name.
+                           If None returns current symbol.
 
            Returns:
                    Ask price.
 
-Bid(self, shift=0) -> float
+Bid(self, shift=0, symbol=None) -> float
    Returns Bid price value for the default symbol with default timeframe and shift.
 
            Parameters:
                    shift (int): Index of the value taken from the buffer
                    (shift relative to the current the given amount of periods ago).
+                   symbol (str): The symbol name.
+                           If None returns current symbol.
 
            Returns:
                    Bid price.
 
-Buy(self, volume: float, type=0, price=None, stop_loss=None, take_profit=None, magic_number=None, symbol=None, slippage=None, arrow_color=None, expiration=None) -> (<function NewType.<locals>.new_type at 0x7fe120629dc0>, <function NewType.<locals>.new_type at 0x7fe122ed0940>)
-   Open a buy order.
+Buy(self, volume: float, type=0, price=None, stop_loss=None, take_profit=None, magic_number=None, symbol=None, slippage=None, arrow_color=None, expiration=None, tags=None) -> (<function NewType.<locals>.new_type at 0x7fe120629dc0>, <function NewType.<locals>.new_type at 0x7fe122ed0940>)
+   Open a long order.
 
            Parameters:
                    volume (float): Number of lots.
@@ -282,21 +340,50 @@ Buy(self, volume: float, type=0, price=None, stop_loss=None, take_profit=None, m
                    slippage (float): Maximum price slippage for trading.
                    arrow_color (float): Color of the opening arrow on the MT4/5 chart.
                    expiration (float): Order expiration time (for pending order only)
+                   tags (dict): Order tags
+
            Returns:
                    ErrorID: If 0 success.
                    OrderResult: The order result.
 
-Close(self, shift=0) -> float
-   Returns Close price value for the default symbol with default timeframe and shift.
+
+Sell(self, volume: float, type=0, price=None, stop_loss=None, take_profit=None, magic_number=None, symbol=None, slippage=None, arrow_color=None, expiration=None, tags=None) -> (<function NewType.<locals>.new_type at 0x7fe120629dc0>, <function NewType.<locals>.new_type at 0x7fe122ed0940>)
+   Open a short order.
 
            Parameters:
-                   shift (int): Index of the value taken from the buffer
-                   (shift relative to the current the given amount of periods ago).
+                   volume (float): Number of lots.
+                   type (OrderType): Order type.
+                   price (float): Order price. If price is None, price = Bid().
+                   stop_loss (float): Stop loss price.
+                   take_profit (float): Take profit price.
+                   magic_number (float): Order magic number.
+                   symbol (float): Symbol for trading.
+                   slippage (float): Maximum price slippage for trading.
+                   arrow_color (float): Color of the opening arrow on the MT4/5 chart.
+                   expiration (float): Order expiration time (for pending order only)
+                   tags (dict): Order tags
 
            Returns:
-                   Close price.
+                   ErrorID: If 0 success.
+                   OrderResult: The order result.
 
-CloseOrder(self, uid, price, volume: float, slippage=None, arrow_color=None) -> (<function NewType.<locals>.new_type at 0x7fe120629dc0>, <function NewType.<locals>.new_type at 0x7fe122ed0940>)
+
+ModifyOrder(self, uid, price=None, stop_loss=None, take_profit=None, arrow_color=None, expiration=None, tags=None) -> (<function NewType.<locals>.new_type at 0x7fe120629dc0>, <function NewType.<locals>.new_type at 0x7fe122ed0940>)
+   Modify a order.
+
+           Parameters:
+                   uid : The order UID.
+                   price (float): New open price. (for pending order only)
+                   stop_loss (float): New stop loss price.
+                   take_profit (float): New take profit price.
+                   arrow_color (float): New color of the opening arrow on the MT4/5 chart.
+                   expiration (float): New order expiration time (for pending order only)
+                   tags (dict): Order tags
+           Returns:
+                   ErrorID: If 0 success.
+                   OrderResult: The order result.
+
+CloseOrder(self, uid, price, volume: float, slippage=None, arrow_color=None, tags=None) -> (<function NewType.<locals>.new_type at 0x7fe120629dc0>, <function NewType.<locals>.new_type at 0x7fe122ed0940>)
    Close a order.
 
            Parameters:
@@ -305,9 +392,24 @@ CloseOrder(self, uid, price, volume: float, slippage=None, arrow_color=None) -> 
                    volume (float): Number of lots.
                    slippage (float): Maximum price slippage for trading.
                    arrow_color (float): New color of the opening arrow on the MT4/5 chart.
+                   tags (dict): Order tags
+
            Returns:
                    ErrorID: If 0 success.
                    OrderResult: The order result.
+
+
+Close(self, shift=0, symbol=None) -> float
+   Returns Close price value for the default symbol with default timeframe and shift.
+
+           Parameters:
+                   shift (int): Index of the value taken from the buffer
+                   (shift relative to the current the given amount of periods ago).
+                    symbol (str): The symbol name.
+                            If None returns current symbol.
+
+           Returns:
+                   Close price.
 
 DefaultTimeFrame(self)
    Returns the default time frame.
@@ -388,7 +490,7 @@ GetSymbol(self, symbol=None)
    Returns the symbol properties.
 
            Parameters:
-                   symbol (int): The symbol name.
+                   symbol (str): The symbol name.
 
            Returns:
                    The symbol properties
@@ -404,46 +506,38 @@ GetSymbolData(self, symbol: str, timeframe: str, size: int)
            Returns:
                    Symbol data
 
-High(self, shift=0) -> float
+High(self, shift=0, symbol=None) -> float
    Returns High price value for the default symbol with default timeframe and shift.
 
            Parameters:
                    shift (int): Index of the value taken from the buffer
                    (shift relative to the current the given amount of periods ago).
+                   symbol (str): The symbol name.
+                           If None returns current symbol.
 
            Returns:
                    High price.
 
-Low(self, shift=0) -> float
+Low(self, shift=0, symbol=None) -> float
    Returns Low price value for the default symbol with default timeframe and shift.
 
            Parameters:
                    shift (int): Index of the value taken from the buffer
                    (shift relative to the current the given amount of periods ago).
+                   symbol (str): The symbol name.
+                           If None returns current symbol.
 
            Returns:
                    Low price.
 
-ModifyOrder(self, uid, price=None, stop_loss=None, take_profit=None, arrow_color=None, expiration=None) -> (<function NewType.<locals>.new_type at 0x7fe120629dc0>, <function NewType.<locals>.new_type at 0x7fe122ed0940>)
-   Modify a order.
-
-           Parameters:
-                   uid : The order UID.
-                   price (float): New open price. (for pending order only)
-                   stop_loss (float): New stop loss price.
-                   take_profit (float): New take profit price.
-                   arrow_color (float): New color of the opening arrow on the MT4/5 chart.
-                   expiration (float): New order expiration time (for pending order only)
-           Returns:
-                   ErrorID: If 0 success.
-                   OrderResult: The order result.
-
-Open(self, shift=0) -> float
+Open(self, shift=0, symbol=None) -> float
    Returns Open price value for the default symbol with default timeframe and shift.
 
            Parameters:
                    shift (int): Index of the value taken from the buffer
                    (shift relative to the current the given amount of periods ago).
+                   symbol (str): The symbol name.
+                           If None returns current symbol.
 
            Returns:
                    Open price.
@@ -457,23 +551,6 @@ OrderStats(self, order_uids)
            Returns:
                    The order statistics.
 
-Sell(self, volume: float, type=0, price=None, stop_loss=None, take_profit=None, magic_number=None, symbol=None, slippage=None, arrow_color=None, expiration=None) -> (<function NewType.<locals>.new_type at 0x7fe120629dc0>, <function NewType.<locals>.new_type at 0x7fe122ed0940>)
-   Open a sell order.
-
-           Parameters:
-                   volume (float): Number of lots.
-                   type (OrderType): Order type.
-                   price (float): Order price. If price is None, price = Bid().
-                   stop_loss (float): Stop loss price.
-                   take_profit (float): Take profit price.
-                   magic_number (float): Order magic number.
-                   symbol (float): Symbol for trading.
-                   slippage (float): Maximum price slippage for trading.
-                   arrow_color (float): Color of the opening arrow on the MT4/5 chart.
-                   expiration (float): Order expiration time (for pending order only)
-           Returns:
-                   ErrorID: If 0 success.
-                   OrderResult: The order result.
 
 StopTester(self, code: int = 0, message: str = None)
    Stop the EA tester. (For tester only.)
@@ -502,22 +579,26 @@ SymbolInfo(self, item, symbol=None, default=None)
            Returns:
                    The symbol information.
 
-Time(self, shift=0) -> datetime.datetime
+Time(self, shift=0, symbol=None) -> datetime.datetime
    Returns time value for the default symbol with default timeframe and shift.
 
            Parameters:
                    shift (int): Index of the value taken from the buffer
                    (shift relative to the current the given amount of periods ago).
+                   symbol (str): The symbol name.
+                           If None returns current symbol.
 
            Returns:
                    Time.
 
-Volume(self, shift=0) -> float
+Volume(self, shift=0, symbol=None) -> float
    Returns volume value for the default symbol with default timeframe and shift.
 
            Parameters:
                    shift (int): Index of the value taken from the buffer
                    (shift relative to the current the given amount of periods ago).
+                   symbol (str): The symbol name.
+                           If None returns current symbol.
 
            Returns:
                    Volume price.
@@ -780,7 +861,49 @@ WaitCommand(self, uid, timeout=120)
                      name : The lock name
      
 
+ Plot(self, series):
+     Plot
+     
+             Parameters:
+                     series
 
+
+ DeleteData(self, name, scope: int = DataScope.EA) -> ErrorID:
+     Delete data
+
+             Parameters:
+                     name : The data name
+                     scope : The data scope (current EA settings, EA version, EA, Account)
+             Returns:
+                     The errorid.
+
+ LoadData(self, name, scope: int = DataScope.EA, format='json'):
+     Load data
+
+             Parameters:
+                     name : The data name
+                     scope : The data scope (current EA settings, EA version, EA, Account)
+                     format: Only support JSON.
+             Returns:
+                     data.
+ 
+ SaveData(self, name, data, scope: int = DataScope.EA, format='json') -> ErrorID:
+     Save data
+
+             Parameters:
+                     name : The data name
+                     scope : The data scope (current EA settings, EA version, EA, Account)
+                     format: Only support JSON.
+             Returns:
+                     The errorid.
+ 
+ Notify(self, message) -> ErrorID:
+     Send a notification
+
+             Parameters:
+                     message: The content of notification
+             Returns:
+                     The errorid.
                   
                    
 ```

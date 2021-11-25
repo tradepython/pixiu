@@ -1,4 +1,14 @@
 
+### [2021-11-25]
+#### Version:
+#####   Package:
+#####    pixiu: 0.57.*.20211125
+#####
+#### **Descriptions：**
+    1.Update README.md/README.zh.md
+    2.ea_tester.py:
+      Modify notify output format
+
 ### [2021-11-24]
 #### Version:
 #####   Package:

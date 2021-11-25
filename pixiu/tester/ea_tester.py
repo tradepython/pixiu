@@ -903,7 +903,7 @@ class EATester(EABase):
         pass
 
     def notify(self, message):
-        self.print_logs.append(f"<Notification>: {message}")
+        self.print_logs.append(f"<Notification>: {message}\n")
 
     #
     def Ask(self, shift=0, symbol=None):

@@ -71,7 +71,7 @@ class APIStub(abc.ABC):
             magic_number=None, symbol=None, slippage=None, arrow_color=None, expiration=None,
             tags=None) -> (ErrorID, OrderResult):
         '''
-        Open a buy order.
+        Open a long order.
 
                 Parameters:
                         volume (float): Number of lots.
@@ -84,6 +84,7 @@ class APIStub(abc.ABC):
                         slippage (float): Maximum price slippage for trading.
                         arrow_color (float): Color of the opening arrow on the MT4/5 chart.
                         expiration (float): Order expiration time (for pending order only)
+                        tags (dict): Order tags
                 Returns:
                         ErrorID: If 0 success.
                         OrderResult: The order result.
@@ -95,7 +96,7 @@ class APIStub(abc.ABC):
              magic_number=None, symbol=None, slippage=None, arrow_color=None, expiration=None,
              tags=None) -> (ErrorID, OrderResult):
         '''
-        Open a sell order.
+        Open a short order.
 
                 Parameters:
                         volume (float): Number of lots.
@@ -108,6 +109,7 @@ class APIStub(abc.ABC):
                         slippage (float): Maximum price slippage for trading.
                         arrow_color (float): Color of the opening arrow on the MT4/5 chart.
                         expiration (float): Order expiration time (for pending order only)
+                        tags (dict): Order tags
                 Returns:
                         ErrorID: If 0 success.
                         OrderResult: The order result.
@@ -127,6 +129,7 @@ class APIStub(abc.ABC):
                         take_profit (float): New take profit price.
                         arrow_color (float): New color of the opening arrow on the MT4/5 chart.
                         expiration (float): New order expiration time (for pending order only)
+                        tags (dict): Order tags
                 Returns:
                         ErrorID: If 0 success.
                         OrderResult: The order result.
@@ -145,6 +148,7 @@ class APIStub(abc.ABC):
                         price (float): Close price. If price is None or zero, price = OrderClosePrice(MT4/MT5)
                         slippage (float): Maximum price slippage for trading.
                         arrow_color (float): New color of the opening arrow on the MT4/5 chart.
+                        tags (dict): Order tags
                 Returns:
                         ErrorID: If 0 success.
                         OrderResult: The order result.
@@ -186,7 +190,7 @@ class APIStub(abc.ABC):
         Returns the symbol properties.
 
                 Parameters:
-                        symbol (int): The symbol name.
+                        symbol (str): The symbol name.
 
                 Returns:
                         The symbol properties
