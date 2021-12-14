@@ -2,6 +2,7 @@
 import math
 import json
 from datetime import (datetime, timedelta)
+from pytz import timezone
 import random
 import numpy as np
 import pandas as pd
@@ -77,6 +78,7 @@ class API_V1_Base(API_V1):
         env_dict['isnan'] = np.isnan
         env_dict['isnull'] = pd.isnull
         env_dict["datetime"] = datetime
+        env_dict["timezone"] = timezone
         env_dict["timedelta"] = timedelta
         env_dict["random"] = random
         env_dict["time"] = time

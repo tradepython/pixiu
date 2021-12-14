@@ -1,4 +1,35 @@
 
+### [2021-12-14]
+#### Version:
+#####   Package:
+#####    pixiu: 0.60.*.20211114
+#####
+#### **Descriptions：**
+    1.EA script support timezone
+    2.ts_base: Add test_timezone
+
+### [2021-12-11]
+#### Version:
+#####   Package:
+#####    pixiu: 0.59.*.20211111
+#####
+#### **Descriptions：**
+    1.Support auto loading script from tag
+        pixiu -c pixiu.json -n testAUDUSD_TP_Demo1 -s ../Test/Test_V2.11.18-3x.py -p report -t 2.11.18-3x -l ea2_7_211209.json
+        or
+        pixiu -c pixiu.json -n testAUDUSD_TP_Demo1 -s ../Test -p report -t 2.11.18-3x -l ea2_7_211209.json
+
+
+### [2021-11-26]
+#### Version:
+#####   Package:
+#####    pixiu: 0.58.*.20211126
+#####
+#### **Descriptions：**
+    1.Update README.md/README.zh.md
+    2.ea_tester.py:
+      Modify notify output format
+
 ### [2021-11-25]
 #### Version:
 #####   Package:

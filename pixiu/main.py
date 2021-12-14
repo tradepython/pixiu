@@ -7,6 +7,7 @@ import json
 import uuid
 import hashlib
 import traceback
+import os
 from datetime import datetime
 
 
@@ -81,14 +82,14 @@ class MainApp:
             # item_aggr = item.get('aggr', None)
             report_str += f"{idx:02d}). {item['desc']}: "
             if len(compare_reports) > 0:
-                row = [idx, f"{item['desc']}({self.tag[:6]})"]
+                row = [idx, f"{item['desc']}({self.tag[:12]})"]
             else:
                 row = [idx, f"{item['desc']}"]
             report_str = self.gen_report_row(headers, item_type, key, precision, report_str, reports, row)
             data.append(row)
             report_str += "\n"
             for cr in compare_reports:
-                row = [idx, f"{item['desc']}({cr['tag'][:6]})"]
+                row = [idx, f"{item['desc']}({cr['tag'][:12]})"]
                 report_str = self.gen_report_row(headers, item_type, key, precision, report_str, cr['reports'], row, reports)
                 data.append(row)
                 report_str += "\n"
@@ -175,6 +176,27 @@ class MainApp:
                        log_path=log_path, print_log_type=print_log_type, test_result=result_value)
         pxt.execute("", sync=True)
 
+    def get_script_path(self, args):
+        if not args.scriptpath:
+            return None
+        if not os.path.isdir(args.scriptpath):
+            return args.scriptpath
+        if not args.tag:
+            return None
+        #
+        dir_name = os.path.basename(args.scriptpath)
+        for flag in ("_V", "_v", "@"):
+            script_name = f"{dir_name}{flag}{args.tag}.py"
+            script_path = os.path.join(args.scriptpath, script_name)
+            if not os.path.isfile(script_path):
+                script_path = None
+            else:
+                break
+
+        return script_path
+
+
+
     def start_mp(self, args):
         # test_config_path = args.testconfig
         # test_name = args.testname, script_path = args.scriptpath,
@@ -185,9 +207,14 @@ class MainApp:
         manager = Manager()
         pool_args = []
         pool = Pool()
+        script_path = self.get_script_path(args)
+        if not script_path:
+            print(f"ERROR: Invalid Script Path.")
+            return 1
+
         for test_name in args.testname:
             tr = manager.Value(c_wchar_p, '')
-            pool_args.append((args.testconfig, test_name, args.scriptpath, args.logpath, args.printlogtype, tr))
+            pool_args.append((args.testconfig, test_name, script_path, args.logpath, args.printlogtype, tr))
             results[test_name] = tr
         #
         for pa in pool_args:
@@ -229,10 +256,14 @@ class MainApp:
         results = {}
         manager = Manager()
         pool_args = []
-        pool = Pool()
+        script_path = self.get_script_path(args)
+        if not script_path:
+            print(f"ERROR: Invalid Script Path.")
+            return 1
+
         for test_name in args.testname:
             tr = manager.Value(c_wchar_p, '')
-            pool_args.append((args.testconfig, test_name, args.scriptpath, args.logpath, args.printlogtype, tr))
+            pool_args.append((args.testconfig, test_name, script_path, args.logpath, args.printlogtype, tr))
             results[test_name] = tr
         #
         for pa in pool_args:

@@ -1,3 +1,10 @@
+def test_timezone():
+    tz = timezone('EST')
+    d = Time().astimezone(tz)
+    assertIsNotNone(d)
+
+
+
 print("ts_base: ", "test print", "1", "2", "3", "4", "5")
 assertEqual(TimeFrame.S1, "s1")
 assertEqual(TimeFrame.M1, "m1")
@@ -92,6 +99,8 @@ for scope in (DataScope.EA, DataScope.EA_VERSION, DataScope.ACCOUNT, DataScope.E
     d = LoadData(scope=scope, name=name)
     assertIsNone(d, f"scope={scope}")
 
+# Test functions
+test_timezone()
 
 #
 set_test_result("OK")
