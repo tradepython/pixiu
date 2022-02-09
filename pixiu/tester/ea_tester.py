@@ -13,7 +13,7 @@ import pandas as pd
 from pixiu.api.errors import *
 from pixiu.api import (TimeFrame, OrderCommand, order_is_long, order_is_short, order_is_market, order_is_stop,
                        order_is_limit, order_is_pending)
-from pixiu.api.v1 import (OrderScope, DataScope)
+from pixiu.api.v1 import (DataScope, )
 import traceback
 import logging
 log = logging.getLogger(__name__)
@@ -557,7 +557,7 @@ class EATester(EABase):
 
         return ret
 
-    def get_order_dict(self, symbol, status="opened", scope=OrderScope.EA):
+    def get_order_dict(self, symbol, status="opened", scope=DataScope.EA):
         symbol = self.symbol if symbol is None else symbol
         order_list = self.orders.get(status, {})
         if symbol == '*':

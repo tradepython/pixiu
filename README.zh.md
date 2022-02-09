@@ -400,7 +400,7 @@ GetAccount(self)
            Returns:
                    The account data.
 
-GetClosedOrderUIDs(self, symbol: str = None, scope: int = OrderScope.EA)
+GetClosedOrderUIDs(self, symbol: str = None, scope: int = DataScope.EA)
    Returns the UIDs of current closed orders.
 
            Parameters:
@@ -415,7 +415,7 @@ GetClosedOrderUIDs(self, symbol: str = None, scope: int = OrderScope.EA)
            Returns:
                    The uid list.
 
-GetOpenedOrderUIDs(self, symbol: str = None, scope: int = OrderScope.EA)
+GetOpenedOrderUIDs(self, symbol: str = None, scope: int = DataScope.EA)
    Returns the UIDs of current opened orders.
 
            Parameters:
@@ -432,7 +432,7 @@ GetOpenedOrderUIDs(self, symbol: str = None, scope: int = OrderScope.EA)
                    The uid list.
 
 
-GetPendingOrderUIDs(self, symbol: str = None, scope: int = OrderScope.EA)
+GetPendingOrderUIDs(self, symbol: str = None, scope: int = DataScope.EA)
    Returns the UIDs of current pending orders.
 
            Parameters:

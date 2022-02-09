@@ -5,7 +5,7 @@ import talib
 import logging
 from datetime import datetime
 from pixiu.api.v1 import (TimeFrame, OrderCommand, OrderType, IndicatiorID, SymbolIndicator, SymbolPrice, SymbolData,
-                      Order, Account, Symbol, AccountData, ErrorID, OrderResult, OrderScope, DataScope)
+                      Order, Account, Symbol, AccountData, ErrorID, OrderResult, DataScope)
 log = logging.getLogger(__name__)
 
 
@@ -177,15 +177,15 @@ class TesterAPI_V1(API_V1_Base):
     def Symbol(self, shift=0) -> str:
         return self.tester.symbol
 
-    def GetOpenedOrderUIDs(self, symbol: str = None, scope: int = OrderScope.EA):
+    def GetOpenedOrderUIDs(self, symbol: str = None, scope: int = DataScope.EA):
         ret = self.tester.get_order_dict(symbol, status="opened", scope=scope)
         return list(ret.keys())
 
-    def GetPendingOrderUIDs(self, symbol: str = None, scope: int = OrderScope.EA):
+    def GetPendingOrderUIDs(self, symbol: str = None, scope: int = DataScope.EA):
         ret = self.tester.get_order_dict(symbol, status="pending", scope=scope)
         return list(ret.keys())
 
-    def GetClosedOrderUIDs(self, symbol: str = None, scope: int = OrderScope.EA):
+    def GetClosedOrderUIDs(self, symbol: str = None, scope: int = DataScope.EA):
         ret = self.tester.get_order_dict(symbol, status="closed", scope=scope)
         return list(ret.keys())
 

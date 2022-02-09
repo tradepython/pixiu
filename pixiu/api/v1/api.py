@@ -27,11 +27,6 @@ class IndicatiorID():
     TEMA = 17000
     WPR = 18000
 
-class OrderScope():
-    EA = 0
-    EA_VERSION = 200
-    ACCOUNT = 300
-
 class DataScope():
     EA = 0
     EA_VERSION = 200
@@ -421,7 +416,7 @@ class APIStub(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def GetOpenedOrderUIDs(self, symbol: str = None, scope: int = OrderScope.EA):
+    def GetOpenedOrderUIDs(self, symbol: str = None, scope: int = DataScope.EA):
         '''
         Returns the UIDs of current opened orders.
 
@@ -440,7 +435,7 @@ class APIStub(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def GetPendingOrderUIDs(self, symbol: str = None, scope: int = OrderScope.EA):
+    def GetPendingOrderUIDs(self, symbol: str = None, scope: int = DataScope.EA):
         '''
         Returns the UIDs of current pending orders.
 
@@ -459,7 +454,7 @@ class APIStub(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def GetClosedOrderUIDs(self, symbol: str = None, scope: int = OrderScope.EA):
+    def GetClosedOrderUIDs(self, symbol: str = None, scope: int = DataScope.EA):
         '''
         Returns the UIDs of current closed orders.
 

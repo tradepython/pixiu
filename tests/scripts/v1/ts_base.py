@@ -91,10 +91,11 @@ assertEqual(symbol.currency_margin, valid_symbols[Symbol()]['currency_margin'])
 #Data
 for scope in (DataScope.EA, DataScope.EA_VERSION, DataScope.ACCOUNT, DataScope.EA_SETTIGNS):
     name = hashlib.md5(str(uuid.uuid4()).encode("utf-8")).hexdigest()
-    data = dict(value=UID())
-    SaveData(scope=scope, name=name, data=data)
-    d = LoadData(scope=scope, name=name)
-    assertEqual(d['value'], data['value'], f"scope={scope}")
+    for i in range(3):
+        data = dict(value=UID())
+        SaveData(scope=scope, name=name, data=data)
+        d = LoadData(scope=scope, name=name)
+        assertEqual(d['value'], data['value'], f"scope={scope}, i={i}")
     DeleteData(scope=scope, name=name)
     d = LoadData(scope=scope, name=name)
     assertIsNone(d, f"scope={scope}")
