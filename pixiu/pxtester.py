@@ -24,6 +24,9 @@ class PXTester(EATester):
         self.parse_test_config(test_config_path, test_name, script_path, log_path, print_log_type)
         super(PXTester, self).__init__(self.eat_params)
 
+    def lib_path(self, name, version):
+        return f"libs/{name}/{name}_V{version}.py"
+
     def add_order_log(self, log_dict):
         super(PXTester, self).add_order_log(log_dict)
         self.write_log(f"Order Log: #{log_dict['id']}: {log_dict}", type='order')

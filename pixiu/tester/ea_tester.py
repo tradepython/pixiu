@@ -79,10 +79,15 @@ class EATester(EABase):
 
         if self.script_path is None:
             self.script = params["script"]
+        else:
+            self.script = open(self.script_path).read()
+        #
+        self.script_metadata = self.parse_script(self.script)
+        self.script_libs = self.load_libs(json.loads(self.script_metadata.get('lib', self.script_metadata.get('library', '[]'))))
         #
         self.script_settings = None
         try:
-            ss = params.get("script_settings", None)
+            ss = params.get("script_settings", self.script_metadata.get('script_settings', None))
             if ss:
                 self.script_settings = json.loads(ss)
         except:

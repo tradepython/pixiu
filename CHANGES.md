@@ -1,4 +1,17 @@
 
+### [2022-02-10]
+#### Version:
+#####   Package:
+#####    pixiu: 0.62.*.20220210
+#####
+#### **Descriptions：**
+    1.Add library function 
+        ###[lib|library]=["PriceAction==0.1.0"]
+    2.ea_base.py:
+      1)Add method parse_script
+    
+
+
 ### [2022-02-09]
 #### Version:
 #####   Package:
