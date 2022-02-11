@@ -82,7 +82,8 @@ class EABase():
             ret.append(lib_data)
         return ret
 
-    def parse_script(self, script_text):
+    @staticmethod
+    def parse_script(script_text):
         ret = {}
         try:
             if not script_text or not isinstance(script_text, str):

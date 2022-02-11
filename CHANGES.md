@@ -1,4 +1,12 @@
 
+### [2022-02-11]
+#### Version:
+#####   Package:
+#####    pixiu: 0.63.*.20220211
+#####
+#### **Descriptions：**
+    1.Add new testing 'test_ea_tester_func_load_lib'
+
 ### [2022-02-10]
 #### Version:
 #####   Package:

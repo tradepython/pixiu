@@ -70,6 +70,7 @@ class EATester(EABase):
 
         self.language = params.get("language", 'en')
         self.script_path = params.get("script_path", None)
+        self.script_libs = params.get("script_libs", None)
         self.log_file = None
         self.log_path = params.get("log_path", None)
         self.print_log_type = params.get("print_log_type", ['account', 'ea', 'order', 'report'])
@@ -83,7 +84,8 @@ class EATester(EABase):
             self.script = open(self.script_path).read()
         #
         self.script_metadata = self.parse_script(self.script)
-        self.script_libs = self.load_libs(json.loads(self.script_metadata.get('lib', self.script_metadata.get('library', '[]'))))
+        if self.script_libs is None:
+            self.script_libs = self.load_libs(json.loads(self.script_metadata.get('lib', self.script_metadata.get('library', '[]'))))
         #
         self.script_settings = None
         try:

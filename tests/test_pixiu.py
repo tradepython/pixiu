@@ -378,6 +378,24 @@ class PiXiuTests(TestCase):
 
 
     @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_func_load_lib(self):
+        """Test EA Tester"""
+        #
+        values = {}
+        lib_path = os.path.abspath("scripts/v1/ts_lib.py")
+        self.eat_params['script_libs'] = [dict(name='lib', version='1.0', path=lib_path,
+                                            code=open(lib_path).read(), metadata={})]
+        self.eat_params['script_path'] = os.path.abspath("scripts/v1/ts_lib_load.py")
+        self.eat_params['global_values'].update(dict(valid_shift=0, valid_symbol=self.symbol,
+                                                     valid_values=values, valid_account=self.account,
+                                                     valid_symbols=self.symbol_properties,
+                                                     get_value_by_time=self.get_value_by_time))
+        self.eat_params['log_path'] = 'tmp_log.txt'
+        eatt = EATTester(self, self.eat_params)
+        eatt.execute("123456", sync=True)
+        self.assertEqual(self.test_result, "OK")
+
+    @skipIf(debug_some_tests, "debug some tests")
     def test_ea_tester_func_base(self):
         """Test EA Tester"""
         # ma_timeperiod = 5
@@ -579,12 +597,21 @@ class PiXiuTests(TestCase):
 
 
 # --------------------------------------------------------------------
-def test():
+def test(test_cases=[]):
     pixiuTests = TestLoader().loadTestsFromTestCase(PiXiuTests)
 
     #
-    debugTest = [pixiuTests]
-    test_result = TextTestRunner(verbosity=2).run(TestSuite(debugTest))
+    test_suites = TestSuite([pixiuTests])
+    tmp_ts = TestSuite()
+    if len(test_cases) > 0:
+        for ts in test_suites:
+            for t in ts:
+                if t._testMethodName in test_cases:
+                    tmp_ts.addTest(t)
+        test_suites = tmp_ts
+    #
+    test_result = TextTestRunner(verbosity=2).run(test_suites)
+
     return test_result.wasSuccessful()
 
 def str2bool(v):
@@ -598,7 +625,11 @@ def str2bool(v):
         raise argparse.ArgumentTypeError('Boolean value expected.')
 
 if __name__ == '__main__':
-    ret = test()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-c', '--test_cases', nargs='+', default=[], required=False,
+                        help='test cases, ex: case1 case2 case3 ... caseN')
+    args = parser.parse_args()
+    ret = test(test_cases=args.test_cases)
     if ret:
         sys.exit(0)
     else:
