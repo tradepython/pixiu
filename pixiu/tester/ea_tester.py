@@ -457,7 +457,7 @@ class EATester(EABase):
         #
         return EID_OK, new_order['uid']
 
-    def __active_pending_order__(self, order_uid, price, comment=None):
+    def __active_pending_order__(self, order_uid, price, comment=None, tags=None):
         """"""
         order_dict = self.get_order(order_uid=order_uid)
         if order_dict is None:
@@ -469,6 +469,7 @@ class EATester(EABase):
             order_dict['cmd'] = OrderCommand.SELL
         #
         order_dict['comment'] = comment
+        order_dict['tags'] = tags
         order_dict['open_time'] = self.current_time()
         #
         errid, order_uid = self.__add_market_order__(order_dict)
@@ -481,6 +482,7 @@ class EATester(EABase):
                                  price=price,
                                  stop_loss=round(order_dict['stop_loss'], self.price_digits),
                                  take_profit=round(order_dict['take_profit'], self.price_digits),
+                                 comment=order_dict['comment'], tags=order_dict['tags'],
                                  balance=None, profit=None))
         
         return EID_OK, order_uid
@@ -716,6 +718,7 @@ class EATester(EABase):
                                  price=round(price, self.price_digits),
                                  stop_loss=round(stop_loss, self.price_digits),
                                  take_profit=round(take_profit, self.price_digits),
+                                 comment=order_dict['comment'], tags=order_dict['tags'],
                                  balance=None, profit=None))
 
 
@@ -772,7 +775,7 @@ class EATester(EABase):
                                  # take_profit=round(take_profit, self.price_digits),
                                  profit=round(order_dict['profit'], self.default_digits),
                                  balance=round(self.account["balance"] + order_dict['profit'], self.default_digits),
-                                 comment=comment)
+                                 comment=comment, tags=tags)
         if stop_loss is not None:
             order_log['stop_loss'] = round(stop_loss, self.price_digits)
         if take_profit is not None:
@@ -895,7 +898,7 @@ class EATester(EABase):
                                     take_profit=round(order_dict['take_profit'], self.price_digits),
                                     balance=round(self.account["balance"], self.default_digits),
                                     profit=round(order_dict['profit'], self.default_digits),
-                                    comment=comment))
+                                    comment=order_dict['comment'], tags=order_dict['tags']))
 
         return EID_OK, dict(order_uid=order_uid, command_uid=None, sync=True)
 

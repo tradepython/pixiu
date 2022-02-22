@@ -1,3 +1,3 @@
-def lib_test():
+def lib_test1():
     return True
 

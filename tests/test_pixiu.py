@@ -382,9 +382,11 @@ class PiXiuTests(TestCase):
         """Test EA Tester"""
         #
         values = {}
-        lib_path = os.path.abspath("scripts/v1/ts_lib.py")
-        self.eat_params['script_libs'] = [dict(name='lib', version='1.0', path=lib_path,
-                                            code=open(lib_path).read(), metadata={})]
+        self.eat_params['script_libs'] = []
+        for i in range(3):
+            lib_path = os.path.abspath(f"scripts/v1/ts_lib{i}.py")
+            self.eat_params['script_libs'].append(dict(name=f'test_lib{i}', version='1.0', path=lib_path,
+                                                code=open(lib_path).read(), metadata={}))
         self.eat_params['script_path'] = os.path.abspath("scripts/v1/ts_lib_load.py")
         self.eat_params['global_values'].update(dict(valid_shift=0, valid_symbol=self.symbol,
                                                      valid_values=values, valid_account=self.account,

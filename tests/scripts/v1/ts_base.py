@@ -1,3 +1,5 @@
+# SetMetadata("copyright", "2022")
+
 def test_timezone():
     tz = timezone('EST')
     d = Time().astimezone(tz)
