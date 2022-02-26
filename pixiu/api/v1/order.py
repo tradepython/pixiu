@@ -155,3 +155,7 @@ class Order(object):
     def tags(self) -> str:
         return self.order_dict.get("tags", None)
 
+    @property
+    def is_dirty(self) -> bool:
+        return self.order_dict.get("dirty", False)
+

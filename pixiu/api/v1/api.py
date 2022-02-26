@@ -4,7 +4,7 @@ PIXIU API
 from typing import NewType, TypeVar, Generic
 import abc
 from datetime import datetime
-from pixiu.api.defines import (TimeFrame, OrderType, OrderCommand)
+from pixiu.api.defines import (TimeFrame, OrderType, OrderCommand, RunModeValue)
 from .order import Order
 
 class IndicatiorID():
@@ -49,6 +49,7 @@ class APIStub(abc.ABC):
         OrderCommand=OrderCommand,
         Order=Order,
         DataScope=DataScope,
+        RunModeValue=RunModeValue,
     )
 
     def __init__(self):
@@ -144,6 +145,22 @@ class APIStub(abc.ABC):
                         slippage (float): Maximum price slippage for trading.
                         arrow_color (float): New color of the opening arrow on the MT4/5 chart.
                         tags (dict): Order tags
+                Returns:
+                        ErrorID: If 0 success.
+                        OrderResult: The order result.
+        '''
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def CloseMultiOrders(self, orders) -> (ErrorID, OrderResult):
+        '''
+        Close a order.
+
+                Parameters:
+                        orders : list or dict
+                                 ['uid1', 'uid2', 'uid3' ... ]
+                                 OR
+                                 {'uid1': {'price', 'volume', 'slippage', comment, tags}, ...}
                 Returns:
                         ErrorID: If 0 success.
                         OrderResult: The order result.
@@ -874,4 +891,12 @@ class APIStub(abc.ABC):
         '''
         raise NotImplementedError
 
+    @abc.abstractmethod
+    def RunMode(self) -> str:
+        '''
+        Returns the current run mode.
 
+                Returns:
+                        The run mode. (TEST/LIVE)
+        '''
+        raise NotImplementedError

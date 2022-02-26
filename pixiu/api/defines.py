@@ -33,3 +33,6 @@ class OrderType(object):
     STOP = 200
 
 #
+class RunModeValue(object):
+    TEST = 'TEST'
+    LIVE = 'LIVE'

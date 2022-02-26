@@ -6,6 +6,7 @@ def test_timezone():
     assertIsNotNone(d)
 
 
+assertTrue(RunMode() in (RunModeValue.TEST, RunModeValue.LIVE))
 
 print("ts_base: ", "test print", "1", "2", "3", "4", "5")
 assertEqual(TimeFrame.S1, "s1")

@@ -413,7 +413,7 @@ class EATester(EABase):
         sp = self.get_symbol_properties(new_order['symbol'])
         margin = new_order['open_price'] * self.__calculate_pip__(new_order['open_price']) * new_order['volume'] * sp['trade_contract_size'] / self.account['leverage']
         if margin > self.account['balance'] - self.account['margin']:
-            return EID_EAT_MARGIN_CALL, -1
+            return EID_EAT_NOT_ENOUGH_MONEY, -1
         new_order['uid'] = str(new_order['ticket'])
         new_order['comment'] = f"uid#{new_order['uid']}|"
         new_order['margin'] = margin
@@ -424,7 +424,7 @@ class EATester(EABase):
             # all commission charged and debited on the opening of the trade
             commission = new_order['volume'] * self.commission * self.__calculate_pip__(new_order['open_price']) * 2
         if commission > self.account['balance'] - self.account['margin']:
-            return EID_EAT_MARGIN_CALL, -1
+            return EID_EAT_NOT_ENOUGH_MONEY, -1
         new_order['commission'] = commission
         #
         self.orders['counter'] = self.orders['counter'] + 1
@@ -470,6 +470,7 @@ class EATester(EABase):
         #
         order_dict['comment'] = comment
         order_dict['tags'] = tags
+        order_dict['dirty'] = False
         order_dict['open_time'] = self.current_time()
         #
         errid, order_uid = self.__add_market_order__(order_dict)
@@ -700,7 +701,7 @@ class EATester(EABase):
         order_dict = dict(ticket=self.__new_ticket__(), symbol=symbol, cmd=cmd, open_price=price,
                          volume=volume, stop_loss=stop_loss, take_profit=take_profit, margin=0, comment=comment,
                          magic_number=magic_number, open_time=self.current_time(), commission=0,
-                         close_time=None, close_price=np.nan, profit=0.0, tags=tags)
+                         close_time=None, close_price=np.nan, profit=0.0, tags=tags, dirty=False)
         errid = self.__valid_order__(0, order_dict, self.Close())
         if errid != EID_OK:
             return errid, dict(order_uid=order_uid, command_uid=None, sync=True)
@@ -764,6 +765,7 @@ class EATester(EABase):
         if 'take_profit' in order_tmp:
             order_dict['take_profit'] = order_tmp['take_profit']
         order_dict['comment'] = order_tmp['comment']
+        order_dict['dirty'] = False
         self.__modify_order__(order_dict)
 
         #
@@ -836,12 +838,13 @@ class EATester(EABase):
         else:
             return 0
 
-    def close_order(self, order_uid, volume, price, slippage=None, comment=None, arrow_color=None,
+    def __close_order__(self, order_uid, volume, price, slippage=None, comment=None, arrow_color=None,
                     update_report_func=None, tags=None):
         """Close order"""
         order_dict = self.get_order(order_uid=order_uid)
         if order_dict is None:
-            return EID_EAT_INVALID_ORDER_TICKET, dict(order_uid=order_uid, command_uid=None, sync=True)
+            return EID_EAT_INVALID_ORDER_TICKET, dict(order_uid=order_uid, order_dict=order_dict, close_price=price,
+                                                      close_time=close_time)
         # if volume is None:
         #     return EID_EAT_INVALID_ORDER_VOLUME, dict(order_uid=order_uid, command_uid=None, sync=True)
         if volume is None or volume <= 0:
@@ -853,13 +856,16 @@ class EATester(EABase):
         if order_is_market(order_dict['cmd']):
             symbol = order_dict['symbol']
             if volume > order_dict['volume']:
-                return EID_EAT_INVALID_ORDER_VOLUME, dict(order_uid=order_uid, command_uid=None, sync=True)
+                return EID_EAT_INVALID_ORDER_VOLUME, dict(order_uid=order_uid, order_dict=order_dict, close_price=price,
+                                                          close_time=close_time)
             #
             errid = self.__valid_order__(2, order_dict, price)
             if errid != EID_OK:
-                return errid, dict(order_uid=order_uid, command_uid=None, sync=True)
+                return errid, dict(order_uid=order_uid, order_dict=order_dict, close_price=price,
+                                   close_time=close_time)
             if tags is not None:
                 order_dict['tags'] = tags
+            order_dict['dirty'] = False
             order_dict['comment'] = comment
             order_dict['close_time'] = close_time
             order_dict['close_price'] = price
@@ -885,15 +891,96 @@ class EATester(EABase):
                                   open_time=close_time)
                 errid, order_uid = self.__add_market_order__(new_order_dict)
                 if errid != EID_OK:
-                    return errid, dict(order_uid=order_uid, command_uid=None, sync=True)
+                    return errid, dict(order_uid=order_uid, order_dict=order_dict, close_price=price,
+                                       close_time=close_time)
         else:
             order_uid = self.__remove_pending_order__(order_dict)
 
+        return EID_OK, dict(order_uid=order_uid, order_dict=order_dict, close_price=price, close_time=close_time)
+    #
+    # def __close_order__(self, order_uid, volume, price, slippage=None, comment=None, arrow_color=None,
+    #                 update_report_func=None, tags=None):
+    #     """Close order"""
+    #     order_dict = self.get_order(order_uid=order_uid)
+    #     if order_dict is None:
+    #         return EID_EAT_INVALID_ORDER_TICKET, dict(order_uid=order_uid, command_uid=None, sync=True)
+    #     # if volume is None:
+    #     #     return EID_EAT_INVALID_ORDER_VOLUME, dict(order_uid=order_uid, command_uid=None, sync=True)
+    #     if volume is None or volume <= 0:
+    #         volume = float(order_dict['volume'])
+    #     if price is None or price <= 0:
+    #         price = self.__order_close_price__(order_dict)
+    #     #
+    #     close_time = self.current_time()
+    #     if order_is_market(order_dict['cmd']):
+    #         symbol = order_dict['symbol']
+    #         if volume > order_dict['volume']:
+    #             return EID_EAT_INVALID_ORDER_VOLUME, dict(order_uid=order_uid, command_uid=None, sync=True)
+    #         #
+    #         errid = self.__valid_order__(2, order_dict, price)
+    #         if errid != EID_OK:
+    #             return errid, dict(order_uid=order_uid, command_uid=None, sync=True)
+    #         if tags is not None:
+    #             order_dict['tags'] = tags
+    #         order_dict['dirty'] = False
+    #         order_dict['comment'] = comment
+    #         order_dict['close_time'] = close_time
+    #         order_dict['close_price'] = price
+    #         order_uid = self.__remove_order__(order_dict)
+    #         self.account["balance"] = self.account["balance"] + order_dict['profit']
+    #         closed_margin = order_dict['margin'] * volume / order_dict['volume']
+    #         self.account["margin"] = self.account["margin"] - closed_margin
+    #         new_margin = order_dict['margin'] - closed_margin
+    #         new_volume = order_dict['volume'] - volume
+    #     #
+    #         #report
+    #         if update_report_func:
+    #             update_report_func(order_is_long(order_dict['cmd']), order_dict['profit'], 1)
+    #         else:
+    #             self.__update_report__(order_is_long(order_dict['cmd']), order_dict['profit'])
+    #
+    #         #
+    #         if new_volume > 0:
+    #             new_order_dict = dict(ticket=self.__new_ticket__(), symbol=symbol, cmd=order_dict['cmd'], open_price=price,
+    #                               volume=new_volume, stop_loss=order_dict['stop_loss'],
+    #                               take_profit=order_dict['take_profit'], margin=new_margin,
+    #                               comment=f"close by#{order_dict['ticket']}",
+    #                               open_time=close_time)
+    #             errid, order_uid = self.__add_market_order__(new_order_dict)
+    #             if errid != EID_OK:
+    #                 return errid, dict(order_uid=order_uid, command_uid=None, sync=True)
+    #     else:
+    #         order_uid = self.__remove_pending_order__(order_dict)
+    #
+    #     #
+    #     self.add_order_log(dict(uid=order_dict['uid'], ticket=order_dict['ticket'],
+    #                                 time=str(datetime.fromtimestamp(close_time)),
+    #                                 type="CLOSE", volume=order_dict['volume'],
+    #                                 price=round(price, self.price_digits),
+    #                                 stop_loss=round(order_dict['stop_loss'], self.price_digits),
+    #                                 take_profit=round(order_dict['take_profit'], self.price_digits),
+    #                                 balance=round(self.account["balance"], self.default_digits),
+    #                                 profit=round(order_dict['profit'], self.default_digits),
+    #                                 comment=order_dict['comment'], tags=order_dict['tags']))
+    #
+    #     return EID_OK, dict(order_uid=order_uid, command_uid=None, sync=True)
+
+
+    def close_order(self, order_uid, volume, price, slippage=None, comment=None, arrow_color=None,
+                    update_report_func=None, tags=None):
+        """Close order"""
+        errid, ret = self.__close_order__(order_uid, volume, price, slippage=slippage, comment=comment, arrow_color=arrow_color,
+                    update_report_func=update_report_func, tags=tags,)
+        if errid != EID_OK:
+            return errid, dict(order_uid=order_uid, command_uid=None, sync=True)
+        order_dict = ret['order_dict']
+        close_time = ret['close_time']
+        close_price = ret['close_price']
         #
         self.add_order_log(dict(uid=order_dict['uid'], ticket=order_dict['ticket'],
                                     time=str(datetime.fromtimestamp(close_time)),
                                     type="CLOSE", volume=order_dict['volume'],
-                                    price=round(price, self.price_digits),
+                                    price=round(close_price, self.price_digits),
                                     stop_loss=round(order_dict['stop_loss'], self.price_digits),
                                     take_profit=round(order_dict['take_profit'], self.price_digits),
                                     balance=round(self.account["balance"], self.default_digits),
@@ -902,6 +989,77 @@ class EATester(EABase):
 
         return EID_OK, dict(order_uid=order_uid, command_uid=None, sync=True)
 
+    def close_multi_orders(self, orders):
+        """Close multi orders"""
+        ret = {}
+        multi_info = []
+        if isinstance(orders, list):
+            for order_uid in orders:
+                order_dict = self.get_order(order_uid)
+                if order_dict is None:
+                    errid = EID_EAT_INVALID_ORDER_TICKET
+                else:
+                    multi_info.append(dict(order_id=order_dict['ticket'], order_uid=order_uid))
+                    errid = EID_OK
+                ret[order_uid] = dict(errid=errid)
+        elif isinstance(orders, dict):
+            for order_uid in orders:
+                order_dict = self.get_order(order_uid)
+                if order_dict is None:
+                    errid = EID_EAT_INVALID_ORDER_TICKET
+                else:
+                    errid = EID_OK
+                    info = orders[order_uid]
+                    price = info.get('price', None)
+                    volume = info.get('volume', float(order_dict['volume']))
+                    slippage = info.get('slippage', None)
+                    comment = info.get('comment', None)
+                    tags = info.get('tags', None)
+                    arrow_color = info.get('arrow_color', None)
+                    #
+                    order_params = {'order_id': order_dict['ticket'],
+                                    'volume': volume,
+                                    'order_uid': order_uid,
+                                    }
+                    if price is not None and isinstance(price, float):
+                        order_params['close_price'] = price
+                    if comment is not None and isinstance(comment, str):
+                        order_params['comment'] = comment
+                    if tags is not None and isinstance(tags, dict):
+                        order_params['tags'] = tags
+                    if slippage is not None:
+                        order_params['slippage'] = slippage
+                    if arrow_color is not None and isinstance(arrow_color, str):
+                        order_params['arrow_color'] = arrow_color
+                    multi_info.append(order_params)
+                ret[order_uid] = dict(errid=errid)
+        else:
+            return EID_EAT_ERROR, None
+
+        result = []
+        for mi in multi_info:
+            errid, ret = self.__close_order__(mi['order_uid'], mi.get('volume', 0),
+                                              mi.get('close_price', 0), slippage=mi.get('slippage', None),
+                                              comment=mi.get('comment', None),
+                                              arrow_color=mi.get('arrow_color', None),
+                                              tags=mi.get('tags', None))
+            if errid != EID_OK:
+                return errid, dict(orders=orders, command_uid=None, sync=True)
+            order_dict = ret['order_dict']
+            close_time = ret['close_time']
+            close_price = ret['close_price']
+            #
+            self.add_order_log(dict(uid=order_dict['uid'], ticket=order_dict['ticket'],
+                                        time=str(datetime.fromtimestamp(close_time)),
+                                        type="CLOSE_MULTI_ORDERS", volume=order_dict['volume'],
+                                        price=round(close_price, self.price_digits),
+                                        stop_loss=round(order_dict['stop_loss'], self.price_digits),
+                                        take_profit=round(order_dict['take_profit'], self.price_digits),
+                                        balance=round(self.account["balance"], self.default_digits),
+                                        profit=round(order_dict['profit'], self.default_digits),
+                                        comment=order_dict['comment'], tags=order_dict['tags']))
+
+        return EID_OK, dict(orders=orders, command_uid=None, sync=True)
 
     def wait_command(self, uid, timeout=120):
         return 0, {}
@@ -1397,7 +1555,7 @@ class EATester(EABase):
                     # #
                     if exit != 0:
                         if exit == 2:
-                            raise PXErrorCode(EID_EAT_MARGIN_CALL)
+                            raise PXErrorCode(EID_EAT_NOT_ENOUGH_MONEY)
                         else:
                             raise PXErrorCode(EID_EAT_EA_DEAD)
                     self.current_tick_index += 1

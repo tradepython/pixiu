@@ -1,4 +1,22 @@
 
+### [2022-02-26]
+#### Version:
+#####   Package:
+#####    pixiu: 0.66.*.20220226
+#####
+#### **Descriptions：**
+    1.Add is_dirty method to order
+    2.API: add RunMode, CloseMultiOrders
+    3.Defines: add RunModeValue
+
+### [2022-02-24]
+#### Version:
+#####   Package:
+#####    pixiu: 0.65.*.20220224
+#####
+#### **Descriptions：**
+    1.Change error name: EID_EAT_MARGIN_CALL -> EID_EAT_NOT_ENOUGH_MONEY
+
 ### [2022-02-22]
 #### Version:
 #####   Package:

@@ -4,7 +4,8 @@ import numpy as np
 import talib
 import logging
 from datetime import datetime
-from pixiu.api.v1 import (TimeFrame, OrderCommand, OrderType, IndicatiorID, SymbolIndicator, SymbolPrice, SymbolData,
+from pixiu.api import RunModeValue
+from pixiu.api.v1 import (OrderCommand, OrderType, IndicatiorID, SymbolIndicator, SymbolPrice, SymbolData,
                       Order, Account, Symbol, AccountData, ErrorID, OrderResult, DataScope)
 log = logging.getLogger(__name__)
 
@@ -70,8 +71,14 @@ class TesterAPI_V1(API_V1_Base):
         return self.tester.close_order(uid, volume, price, slippage=slippage,
                               arrow_color=arrow_color, tags=tags)
 
+    def CloseMultiOrders(self, orders):
+        return self.tester.close_multi_orders(orders)
+
     def Notify(self, message):
         return self.tester.notify(message)
+
+    def RunMode(self):
+        return RunModeValue.TEST
 
     def WaitCommand(self, uid, timeout=120):
         return self.tester.wait_command(uid, timeout)
@@ -447,3 +454,4 @@ class TesterAPI_V1(API_V1_Base):
         '''
         # real = ADX(high, low, close, timeperiod=14)
         return self.__get_indicator__(f"wpr:", shift, IndicatiorID.WPR, symbol_data, timeperiod)
+
