@@ -521,7 +521,9 @@ class EATester(EABase):
     def __remove_order__(self, order, add_closed=True):
         """"""
         order_list = self.get_order_dict(order['symbol'], 'opened')
-        order_list.pop(order['uid'])
+        ret = order_list.pop(order['uid'], None)
+        if ret is None:
+            return order['uid']
         #
         oid = int(order['uid'])
         ds = self.orders['opened']['__ds__']
@@ -540,6 +542,29 @@ class EATester(EABase):
 
         return order['uid']
 
+    # 
+    # def __remove_order__(self, order, add_closed=True):
+    #     """"""
+    #     order_list = self.get_order_dict(order['symbol'], 'opened')
+    #     order_list.pop(order['uid'])
+    #     #
+    #     oid = int(order['uid'])
+    #     ds = self.orders['opened']['__ds__']
+    #     # closed_a = ds[ds['oid'] == oid]
+    #     closed_a = ds[ds['oid'] == oid][0]
+    #     self.orders['opened']['__ds__'] = ds[ds['oid'] != oid]
+    #     #
+    #     order['profit'] = closed_a['pf']
+    #     if add_closed:
+    #         symbol_orders = self.orders['closed'].get(order['symbol'], {})
+    #         symbol_orders[oid] = order
+    #         self.orders['closed'][order['symbol']] = symbol_orders
+    # 
+    #     self.orders['opened_counter'] = self.orders['opened_counter'] - 1
+    #     #
+    # 
+    #     return order['uid']
+    # 
 
     def __calculate_profit__(self, price):
         ''''''
