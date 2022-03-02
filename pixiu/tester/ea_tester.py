@@ -1,6 +1,6 @@
 
 import sys
-
+import math
 import json
 import threading
 import importlib
@@ -105,6 +105,10 @@ class EATester(EABase):
         if self.account is None:
             balance = round(float(params['balance']), self.default_digits)
             equity = balance
+            try:
+                leverage = float(params.get('leverage', 100))
+            except:
+                leverage = 100
             self.account = {'balance': balance,
                             'equity': equity,
                             'margin': 0,
@@ -113,7 +117,7 @@ class EATester(EABase):
                             'profit': 0.0,
                             'margin_level': 0,
                             #static
-                            'leverage': params.get('leverage', 100),
+                            'leverage': leverage,
                             'currency': params.get("currency", None),
                             'free_margin_mode': 0,
                             'stop_out_level': 0,
@@ -722,7 +726,7 @@ class EATester(EABase):
             stop_loss = 0.0
         if take_profit is None:
             take_profit = 0.0
-
+        volume = round(volume, self.volume_precision)
         order_dict = dict(ticket=self.__new_ticket__(), symbol=symbol, cmd=cmd, open_price=price,
                          volume=volume, stop_loss=stop_loss, take_profit=take_profit, margin=0, comment=comment,
                          magic_number=magic_number, open_time=self.current_time(), commission=0,
@@ -874,6 +878,8 @@ class EATester(EABase):
         #     return EID_EAT_INVALID_ORDER_VOLUME, dict(order_uid=order_uid, command_uid=None, sync=True)
         if volume is None or volume <= 0:
             volume = float(order_dict['volume'])
+        else:
+            volume = round(volume, self.volume_precision)
         if price is None or price <= 0:
             price = self.__order_close_price__(order_dict)
         #
@@ -1377,6 +1383,7 @@ class EATester(EABase):
         if self.spread_point is None:
             self.spread_point = int(sp['spread'])
         self.price_digits = int(sp['digits'])
+        self.volume_precision = int(math.log10(1/sp['volume_min']))
         self.spread_calculated = abs(self.spread_point * sp['point'])
         #
         if self.account['currency'] is None:

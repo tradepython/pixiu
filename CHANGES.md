@@ -1,4 +1,12 @@
 
+### [2022-03-02]
+#### Version:
+#####   Package:
+#####    pixiu: 0.68.*.20220301
+#####
+#### **Descriptions：**
+    1.ea_tester.py: Add volume_precision
+
 ### [2022-03-01]
 #### Version:
 #####   Package:
