@@ -1,4 +1,14 @@
 
+### [2022-03-04]
+#### Version:
+#####   Package:
+#####    pixiu: 0.69.*.20220304
+#####
+#### **Descriptions：**
+    1.Add PositionType
+    2.Fix __valid_order__ pending order error
+    3.Fix __close_order__ close_time error
+
 ### [2022-03-02]
 #### Version:
 #####   Package:

@@ -36,3 +36,7 @@ class OrderType(object):
 class RunModeValue(object):
     TEST = 'TEST'
     LIVE = 'LIVE'
+
+class PositionType(object):
+    SHORT = 'SHORT'
+    LONG = 'LONG'

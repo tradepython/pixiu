@@ -473,7 +473,8 @@ class EATester(EABase):
             order_dict['cmd'] = OrderCommand.SELL
         #
         order_dict['comment'] = comment
-        order_dict['tags'] = tags
+        if tags:
+            order_dict['tags'] = tags
         order_dict['dirty'] = False
         order_dict['open_time'] = self.current_time()
         #
@@ -659,10 +660,12 @@ class EATester(EABase):
                     if open_price < price:
                         return EID_EAT_INVALID_MARKET_ORDER_OPEN_PRICE
                 elif open_price is not None and order_is_limit(order_dict['cmd']):
-                    if open_price <= price:
+                    #buy limit
+                    if open_price >= price:
                         return EID_EAT_INVALID_LIMIT_ORDER_OPEN_PRICE
                 elif open_price is not None and order_is_stop(order_dict['cmd']):
-                    if open_price >= price:
+                    #buy stop
+                    if open_price <= price:
                         return EID_EAT_INVALID_STOP_ORDER_OPEN_PRICE
                 else:
                     return EID_EAT_INVALID_ORDER_TYPE
@@ -688,10 +691,12 @@ class EATester(EABase):
                     if open_price > price:
                         return EID_EAT_INVALID_MARKET_ORDER_OPEN_PRICE
                 elif open_price is not None and order_is_limit(order_dict['cmd']):
-                    if open_price >= price:
+                    #sell limit
+                    if open_price <= price:
                         return EID_EAT_INVALID_LIMIT_ORDER_OPEN_PRICE
                 elif open_price is not None and order_is_stop(order_dict['cmd']):
-                    if open_price <= price:
+                    #sell stop
+                    if open_price >= price:
                         return EID_EAT_INVALID_STOP_ORDER_OPEN_PRICE
                 else:
                     return EID_EAT_INVALID_ORDER_TYPE
@@ -870,8 +875,9 @@ class EATester(EABase):
     def __close_order__(self, order_uid, volume, price, slippage=None, comment=None, arrow_color=None,
                     update_report_func=None, tags=None):
         """Close order"""
+        close_time = self.current_time()
         order_dict = self.get_order(order_uid=order_uid)
-        if order_dict is None:
+        if order_dict is None or order_dict.get('close_time', None) is not None:
             return EID_EAT_INVALID_ORDER_TICKET, dict(order_uid=order_uid, order_dict=order_dict, close_price=price,
                                                       close_time=close_time)
         # if volume is None:
@@ -883,7 +889,6 @@ class EATester(EABase):
         if price is None or price <= 0:
             price = self.__order_close_price__(order_dict)
         #
-        close_time = self.current_time()
         if order_is_market(order_dict['cmd']):
             symbol = order_dict['symbol']
             if volume > order_dict['volume']:
@@ -1425,13 +1430,17 @@ class EATester(EABase):
         ds = self.orders['pending'].get('__ds__', None)
         if ds is not None:
             # if last_price is not None:
-            result = ds[((ds['cid'] == 110) & (ds['o'] > last_price) & (ds['o'] <= price)) |
-                        ((ds['cid'] == 210) & (ds['o'] < last_price) & (ds['o'] >= price)) |
-                        ((ds['cid'] == 120) & (ds['o'] < last_price) & (ds['o'] >= price)) |
-                        ((ds['cid'] == 220) & (ds['o'] > last_price) & (ds['o'] <= price))
-                        ]
-            for r in result:
-                self.__active_pending_order__(str(r['oid']), price, comment='open')
+            #110-BUYLIMIT, 120-BUYSTOP, 210-SELLLIMIT, 220-SELLSTOP
+            try:
+                result = ds[((ds['cid'] == 110) & (last_price > ds['o']) & (ds['o'] >= price )) |
+                            ((ds['cid'] == 210) & (last_price < ds['o']) & (ds['o'] <= price )) |
+                            ((ds['cid'] == 120) & (last_price < ds['o']) & (ds['o'] <= price )) |
+                            ((ds['cid'] == 220) & (last_price > ds['o']) & (ds['o'] >= price ))
+                            ]
+                for r in result:
+                    self.__active_pending_order__(str(r['oid']), price, comment='open')
+            except:
+                traceback.print_exc()
 
         #update opened orders
         order_report = {True: dict(profit=0.0, trades=0), False: dict(profit=0.0, trades=0)}
