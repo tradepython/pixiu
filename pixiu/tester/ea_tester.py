@@ -416,6 +416,7 @@ class EATester(EABase):
         #
         sp = self.get_symbol_properties(new_order['symbol'])
         margin = new_order['open_price'] * self.__calculate_pip__(new_order['open_price']) * new_order['volume'] * sp['trade_contract_size'] / self.account['leverage']
+        margin = round(margin, self.default_digits)
         if margin > self.account['balance'] - self.account['margin']:
             return EID_EAT_NOT_ENOUGH_MONEY, -1
         new_order['uid'] = str(new_order['ticket'])
@@ -448,8 +449,8 @@ class EATester(EABase):
         else:
             self.orders['opened']['__ds__'] = new_a
         #update account
-        self.account['margin'] = self.account['margin'] + new_order['margin']
-        self.account['commission'] = self.account['commission'] + new_order['commission']
+        self.account['margin'] = round(self.account['margin'] + new_order['margin'], self.default_digits)
+        self.account['commission'] = round(self.account['commission'] + new_order['commission'], self.default_digits)
 
         #report
         self.report['total_trades']['value'] += 1
@@ -571,18 +572,34 @@ class EATester(EABase):
     #     return order['uid']
     # 
 
-    def __calculate_profit__(self, price):
+    def __calculate_profit__(self, cid, price):
         ''''''
         profit = 0
-        ds = self.orders['opened'].get('__ds__', None)
-        if ds is not None:
+        ods = self.orders['opened'].get('__ds__', None)
+        if ods is not None:
+            ds = ods[ods['cid'] == cid]
+            if len(ds) == 0:
+                return 0
             pips = self.__calculate_pip__(price)
             ds['pf'] = pips * (price - ds['o']) * ds['v'] * ds['tcs'] * ds['pf_f']
             ds['sl_p'] = (price - ds['sl']) * ds['pf_f']
             ds['tp_p'] = (price - ds['tp']) * ds['pf_f']
             profit = ds['pf'].sum()
+            ods[ods['cid'] == cid] = ds
         return profit
 
+    # def __calculate_profit__(self, price):
+    #     ''''''
+    #     profit = 0
+    #     ds = self.orders['opened'].get('__ds__', None)
+    #     if ds is not None:
+    #         pips = self.__calculate_pip__(price)
+    #         ds['pf'] = pips * (price - ds['o']) * ds['v'] * ds['tcs'] * ds['pf_f']
+    #         ds['sl_p'] = (price - ds['sl']) * ds['pf_f']
+    #         ds['tp_p'] = (price - ds['tp']) * ds['pf_f']
+    #         profit = ds['pf'].sum()
+    #     return profit
+    #
     #
     def get_order(self, order_uid):
         """Get Order"""
@@ -642,6 +659,8 @@ class EATester(EABase):
 
     def __valid_order__(self, stage, order_dict, price):
         #buy
+        ask = self.Ask()
+        bid = self.Bid()
         open_price = None
         if stage == 0:
             if order_dict['volume'] <= 0:
@@ -657,65 +676,145 @@ class EATester(EABase):
             # open
             if stage == 0 or (stage == 1 and order_is_pending(order_dict['cmd'])):
                 if order_is_market(order_dict['cmd']):
-                    if open_price < price:
+                    if open_price < ask:
                         return EID_EAT_INVALID_MARKET_ORDER_OPEN_PRICE
                 elif open_price is not None and order_is_limit(order_dict['cmd']):
                     #buy limit
-                    if open_price >= price:
+                    if open_price >= ask:
                         return EID_EAT_INVALID_LIMIT_ORDER_OPEN_PRICE
                 elif open_price is not None and order_is_stop(order_dict['cmd']):
                     #buy stop
-                    if open_price <= price:
+                    if open_price <= ask:
                         return EID_EAT_INVALID_STOP_ORDER_OPEN_PRICE
                 else:
                     return EID_EAT_INVALID_ORDER_TYPE
 
             #close
             elif stage == 2:
-                if price is not None:
-                    if price > 0 and price > self.Bid():
+                if price is not None and order_is_market(order_dict['cmd']):
+                    if price > 0 and price > bid:
                         return EID_EAT_INVALID_ORDER_CLOSE_PRICE
 
             if stage != 2:
                 if stop_loss > 0 and take_profit > 0 and stop_loss > take_profit:
                     return EID_EAT_INVALID_ORDER_STOP_LOSS
-                if take_profit > 0 and take_profit <= price:
+                if take_profit > 0 and take_profit <= ask:
                     return EID_EAT_INVALID_ORDER_TAKE_PROFIT
-                if stop_loss > 0 and stop_loss >= price:
+                if stop_loss > 0 and stop_loss >= ask:
                     return EID_EAT_INVALID_ORDER_STOP_LOSS
         #sell
         elif order_is_short(order_dict['cmd']):
             # open
             if stage == 0 or (stage == 1 and order_is_pending(order_dict['cmd'])):
                 if order_is_market(order_dict['cmd']):
-                    if open_price > price:
+                    if open_price > bid:
                         return EID_EAT_INVALID_MARKET_ORDER_OPEN_PRICE
                 elif open_price is not None and order_is_limit(order_dict['cmd']):
                     #sell limit
-                    if open_price <= price:
+                    if open_price <= bid:
                         return EID_EAT_INVALID_LIMIT_ORDER_OPEN_PRICE
                 elif open_price is not None and order_is_stop(order_dict['cmd']):
                     #sell stop
-                    if open_price >= price:
+                    if open_price >= bid:
                         return EID_EAT_INVALID_STOP_ORDER_OPEN_PRICE
                 else:
                     return EID_EAT_INVALID_ORDER_TYPE
             #close
             elif stage == 2:
-                if price is not None:
-                    if price > 0 and price < self.Ask():
+                if price is not None and order_is_market(order_dict['cmd']):
+                    if price > 0 and price < ask:
                         return EID_EAT_INVALID_ORDER_CLOSE_PRICE
 
             #
             if stage != 2:
                 if stop_loss > 0 and take_profit > 0 and stop_loss < take_profit:
                     return EID_EAT_INVALID_ORDER_STOP_LOSS
-                if stop_loss > 0 and stop_loss <= price:
+                if stop_loss > 0 and stop_loss <= bid:
                     return EID_EAT_INVALID_ORDER_TAKE_PROFIT
-                if take_profit > 0 and take_profit >= price:
+                if take_profit > 0 and take_profit >= bid:
                     return EID_EAT_INVALID_ORDER_STOP_LOSS
 
         return EID_OK
+    # #
+    # def __valid_order__(self, stage, order_dict, price):
+    #     #buy
+    #     ask = self.Ask()
+    #     bid = self.Bid()
+    #     open_price = None
+    #     if stage == 0:
+    #         if order_dict['volume'] <= 0:
+    #             return EID_EAT_INVALID_ORDER_VOLUME
+    #         open_price = order_dict['open_price']
+    #     elif stage == 1:
+    #         open_price = order_dict.get('price', None)
+    #
+    #     stop_loss = order_dict.get('stop_loss', 0)
+    #     take_profit = order_dict.get('take_profit', 0)
+    #
+    #     if order_is_long(order_dict['cmd']):
+    #         # open
+    #         if stage == 0 or (stage == 1 and order_is_pending(order_dict['cmd'])):
+    #             if order_is_market(order_dict['cmd']):
+    #                 if open_price < ask:
+    #                     return EID_EAT_INVALID_MARKET_ORDER_OPEN_PRICE
+    #             elif open_price is not None and order_is_limit(order_dict['cmd']):
+    #                 #buy limit
+    #                 if open_price >= ask:
+    #                     return EID_EAT_INVALID_LIMIT_ORDER_OPEN_PRICE
+    #             elif open_price is not None and order_is_stop(order_dict['cmd']):
+    #                 #buy stop
+    #                 if open_price <= ask:
+    #                     return EID_EAT_INVALID_STOP_ORDER_OPEN_PRICE
+    #             else:
+    #                 return EID_EAT_INVALID_ORDER_TYPE
+    #
+    #         #close
+    #         elif stage == 2:
+    #             if price is not None:
+    #                 if price > 0 and price > bid:
+    #                     return EID_EAT_INVALID_ORDER_CLOSE_PRICE
+    #
+    #         if stage != 2:
+    #             if stop_loss > 0 and take_profit > 0 and stop_loss > take_profit:
+    #                 return EID_EAT_INVALID_ORDER_STOP_LOSS
+    #             if take_profit > 0 and take_profit <= ask:
+    #                 return EID_EAT_INVALID_ORDER_TAKE_PROFIT
+    #             if stop_loss > 0 and stop_loss >= ask:
+    #                 return EID_EAT_INVALID_ORDER_STOP_LOSS
+    #     #sell
+    #     elif order_is_short(order_dict['cmd']):
+    #         # open
+    #         if stage == 0 or (stage == 1 and order_is_pending(order_dict['cmd'])):
+    #             if order_is_market(order_dict['cmd']):
+    #                 if open_price > bid:
+    #                     return EID_EAT_INVALID_MARKET_ORDER_OPEN_PRICE
+    #             elif open_price is not None and order_is_limit(order_dict['cmd']):
+    #                 #sell limit
+    #                 if open_price <= bid:
+    #                     return EID_EAT_INVALID_LIMIT_ORDER_OPEN_PRICE
+    #             elif open_price is not None and order_is_stop(order_dict['cmd']):
+    #                 #sell stop
+    #                 if open_price >= bid:
+    #                     return EID_EAT_INVALID_STOP_ORDER_OPEN_PRICE
+    #             else:
+    #                 return EID_EAT_INVALID_ORDER_TYPE
+    #         #close
+    #         elif stage == 2:
+    #             if price is not None:
+    #                 if price > 0 and price < ask:
+    #                     return EID_EAT_INVALID_ORDER_CLOSE_PRICE
+    #
+    #         #
+    #         if stage != 2:
+    #             if stop_loss > 0 and take_profit > 0 and stop_loss < take_profit:
+    #                 return EID_EAT_INVALID_ORDER_STOP_LOSS
+    #             if stop_loss > 0 and stop_loss <= bid:
+    #                 return EID_EAT_INVALID_ORDER_TAKE_PROFIT
+    #             if take_profit > 0 and take_profit >= bid:
+    #                 return EID_EAT_INVALID_ORDER_STOP_LOSS
+    #
+    #     return EID_OK
+    # #
 
     def __new_ticket__(self):
         return str(self.orders['counter'] + 1)
@@ -736,7 +835,7 @@ class EATester(EABase):
                          volume=volume, stop_loss=stop_loss, take_profit=take_profit, margin=0, comment=comment,
                          magic_number=magic_number, open_time=self.current_time(), commission=0,
                          close_time=None, close_price=np.nan, profit=0.0, tags=tags, dirty=False)
-        errid = self.__valid_order__(0, order_dict, self.Close())
+        errid = self.__valid_order__(0, order_dict, None)
         if errid != EID_OK:
             return errid, dict(order_uid=order_uid, command_uid=None, sync=True)
         #
@@ -789,7 +888,7 @@ class EATester(EABase):
                 order_tmp['price'] = price
                 order_tmp['open_price'] = price
         #
-        errid = self.__valid_order__(1, order_tmp, close_price)
+        errid = self.__valid_order__(1, order_tmp, None)
         if errid != EID_OK:
             return errid, dict(order_uid=order_uid, command_uid=None, sync=True)
         #
@@ -907,8 +1006,9 @@ class EATester(EABase):
             order_dict['close_price'] = price
             order_uid = self.__remove_order__(order_dict)
             self.account["balance"] = self.account["balance"] + order_dict['profit']
-            closed_margin = order_dict['margin'] * volume / order_dict['volume']
-            self.account["margin"] = self.account["margin"] - closed_margin
+            closed_margin = round(order_dict['margin'] * volume / order_dict['volume'], self.default_digits)
+            self.account["margin"] = round(self.account["margin"] - closed_margin, self.default_digits)
+            # self.account["margin"] = self.account["margin"] - closed_margin
             new_margin = order_dict['margin'] - closed_margin
             new_volume = order_dict['volume'] - volume
         #
@@ -1072,30 +1172,33 @@ class EATester(EABase):
         else:
             return EID_EAT_ERROR, None
 
-        result = []
+        result = {}
         for mi in multi_info:
             errid, ret = self.__close_order__(mi['order_uid'], mi.get('volume', 0),
                                               mi.get('close_price', 0), slippage=mi.get('slippage', None),
                                               comment=mi.get('comment', None),
                                               arrow_color=mi.get('arrow_color', None),
                                               tags=mi.get('tags', None))
+            result[mi['order_uid']] = dict(errid=errid, ret=ret)
             if errid != EID_OK:
-                return errid, dict(orders=orders, command_uid=None, sync=True)
-            order_dict = ret['order_dict']
-            close_time = ret['close_time']
-            close_price = ret['close_price']
-            #
-            self.add_order_log(dict(uid=order_dict['uid'], ticket=order_dict['ticket'],
-                                        time=str(datetime.fromtimestamp(close_time)),
-                                        type="CLOSE_MULTI_ORDERS", volume=order_dict['volume'],
-                                        price=round(close_price, self.price_digits),
-                                        stop_loss=round(order_dict['stop_loss'], self.price_digits),
-                                        take_profit=round(order_dict['take_profit'], self.price_digits),
-                                        balance=round(self.account["balance"], self.default_digits),
-                                        profit=round(order_dict['profit'], self.default_digits),
-                                        comment=order_dict['comment'], tags=order_dict['tags']))
+                # return errid, dict(orders=orders, command_uid=None, sync=True)
+                pass
+            else:
+                order_dict = ret['order_dict']
+                close_time = ret['close_time']
+                close_price = ret['close_price']
+                #
+                self.add_order_log(dict(uid=order_dict['uid'], ticket=order_dict['ticket'],
+                                            time=str(datetime.fromtimestamp(close_time)),
+                                            type="CLOSE_MULTI_ORDERS", volume=order_dict['volume'],
+                                            price=round(close_price, self.price_digits),
+                                            stop_loss=round(order_dict['stop_loss'], self.price_digits),
+                                            take_profit=round(order_dict['take_profit'], self.price_digits),
+                                            balance=round(self.account["balance"], self.default_digits),
+                                            profit=round(order_dict['profit'], self.default_digits),
+                                            comment=order_dict['comment'], tags=order_dict['tags']))
 
-        return EID_OK, dict(orders=orders, command_uid=None, sync=True)
+        return EID_OK, dict(result=result, command_uid=None, sync=True)
 
     def wait_command(self, uid, timeout=120):
         return 0, {}
@@ -1407,12 +1510,14 @@ class EATester(EABase):
         return self.symbol_properties.get(symbol, self.default_symbol_properties[symbol])
 
     #
-    def __process_order__(self, price, last_price):
+    def __process_order__(self, price, last_price, ask, last_ask, bid, last_bid):
         ''''''
         comment = None
         dead = 0
         # equity
-        profit = self.__calculate_profit__(price)
+        profit_buy = self.__calculate_profit__(100, bid)
+        profit_sell = self.__calculate_profit__(200, ask)
+        profit = profit_buy + profit_sell
         self.account['profit'] = profit
         # account
         if self.account['balance'] <= self.balance_dead_line:
@@ -1432,11 +1537,16 @@ class EATester(EABase):
             # if last_price is not None:
             #110-BUYLIMIT, 120-BUYSTOP, 210-SELLLIMIT, 220-SELLSTOP
             try:
-                result = ds[((ds['cid'] == 110) & (last_price > ds['o']) & (ds['o'] >= price )) |
-                            ((ds['cid'] == 210) & (last_price < ds['o']) & (ds['o'] <= price )) |
-                            ((ds['cid'] == 120) & (last_price < ds['o']) & (ds['o'] <= price )) |
-                            ((ds['cid'] == 220) & (last_price > ds['o']) & (ds['o'] >= price ))
+                result = ds[((ds['cid'] == 110) & (last_ask > ds['o']) & (ds['o'] >= ask )) |
+                            ((ds['cid'] == 210) & (last_bid < ds['o']) & (ds['o'] <= bid )) |
+                            ((ds['cid'] == 120) & (last_ask < ds['o']) & (ds['o'] <= ask )) |
+                            ((ds['cid'] == 220) & (last_bid > ds['o']) & (ds['o'] >= bid ))
                             ]
+                # result = ds[((ds['cid'] == 110) & (last_price > ds['o']) & (ds['o'] >= price )) |
+                #             ((ds['cid'] == 210) & (last_price < ds['o']) & (ds['o'] <= price )) |
+                #             ((ds['cid'] == 120) & (last_price < ds['o']) & (ds['o'] <= price )) |
+                #             ((ds['cid'] == 220) & (last_price > ds['o']) & (ds['o'] >= price ))
+                #             ]
                 for r in result:
                     self.__active_pending_order__(str(r['oid']), price, comment='open')
             except:
@@ -1474,6 +1584,7 @@ class EATester(EABase):
             order_dict = self.get_order(order_uid=order_uid)
             self.close_order(order_uid, order_dict['volume'], price, comment=comment)
     #
+
     def __update_account_log(self, ticket):
         ''''''
         price = self.Close()
@@ -1489,7 +1600,8 @@ class EATester(EABase):
         # see: https://www.mql5.com/en/forum/46654
         # Margin level percentage = Equity/Margin * 100 %
         if margin != 0:
-            self.account['margin_level'] = equity / margin * 100
+            # self.account['margin_level'] = round(equity / margin * 100, self.default_digits)
+            self.account['margin_level'] = round((equity - margin) / margin * 100, self.default_digits)
 
         self.add_account_log(dict(time=str(datetime.fromtimestamp(time)), balance=balance, margin=margin,
                                    equity=equity, free_margin=free_margin,
@@ -1586,9 +1698,13 @@ class EATester(EABase):
                     self.on_begin_tick()
                     self.set_account(self.account, expiration=expiration)
                     # #
+                    ask = self.Ask()
+                    last_ask = self.Ask(1)
+                    bid = self.Bid()
+                    last_bid = self.Bid(1)
                     last_c_price = self.Close(1)
                     c_price = self.Close()
-                    exit = self.__process_order__(c_price, last_c_price)
+                    exit = self.__process_order__(c_price, last_c_price, ask, last_ask, bid, last_bid)
                     #
                     if exit == 0:
                         self.do_tick()

@@ -1,4 +1,15 @@
 
+### [2022-03-05]
+#### Version:
+#####   Package:
+#####    pixiu: 0.70.*.20220305
+#####
+#### **Descriptions：**
+    1.ea_tester.py:
+      1) __process_order__: Add parameters: ask, last_ask, bid, last_bid
+      2) __calculate_profit__: Update calculation m
+      3) __valid_order__: Add parameters: ask, bid
+
 ### [2022-03-04]
 #### Version:
 #####   Package:

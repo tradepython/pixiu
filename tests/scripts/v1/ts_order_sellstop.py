@@ -11,14 +11,14 @@ if len(ood) == 0:
         take_profit = Bid() - 30 * point
         magic_number = 4301250
         # failed
-        price = Close()
+        price = Bid()
         errid, result = Sell(volume=0.01, type=OrderType.STOP, price=price, stop_loss=stop_loss,
                             take_profit=take_profit, magic_number=magic_number,
                             symbol=Symbol(), slippage=3, arrow_color="white")
         assertEqual(errid, EID_EAT_INVALID_STOP_ORDER_OPEN_PRICE)
 
         # failed
-        price = Close() - 10 * point
+        price = Bid() + 10 * point
         errid, result = Sell(volume=0.01, type=OrderType.STOP, price=price, stop_loss=stop_loss,
                             take_profit=take_profit, magic_number=magic_number,
                             symbol=Symbol(), slippage=3, arrow_color="white")
@@ -39,9 +39,9 @@ if len(ood) == 0:
         # modify
         stop_loss = stop_loss + 15 * point
         take_profit = take_profit - 30 * point
-        errid, result = ModifyOrder(result['order_uid'], price=Close()-1*point, stop_loss=stop_loss, take_profit=take_profit)
+        errid, result = ModifyOrder(result['order_uid'], price=Bid()+1*point, stop_loss=stop_loss, take_profit=take_profit)
         assertEqual(errid, EID_EAT_INVALID_STOP_ORDER_OPEN_PRICE)
-        errid, result = ModifyOrder(result['order_uid'], price=Close()+1*point, stop_loss=stop_loss, take_profit=take_profit)
+        errid, result = ModifyOrder(result['order_uid'], price=Bid()-1*point, stop_loss=stop_loss, take_profit=take_profit)
         assertEqual(errid, 0)
         assertIsNotNone(result)
         errid = exec_command()
@@ -58,7 +58,7 @@ if len(ood) == 0:
         assertIsNone(order.close_price)
 
         #close
-        errid, close_result = CloseOrder(result['order_uid'], volume=volume, price=Bid())
+        errid, close_result = CloseOrder(result['order_uid'], volume=volume, price=Ask())
         assertEqual(errid, 0)
         assertEqual(close_result['order_uid'], result['order_uid'])
         errid = exec_command()

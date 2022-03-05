@@ -518,10 +518,10 @@ class PiXiuTests(TestCase):
     def test_ea_tester_order_buylimit(self):
         """Test EA Tester"""
         #
-        c = new_a['c'][0]
+        a = new_a['a'][0]
         for idx in range(new_a.size):
-            p = new_a[idx]['c']
-            if p > c:
+            p = new_a[idx]['a']
+            if p < a:
                 buylimit_price = p
                 buylimit_time = datetime.fromtimestamp(new_a[idx]['t'])
                 break
@@ -539,10 +539,10 @@ class PiXiuTests(TestCase):
         """Test EA Tester"""
         #
         #
-        c = new_a['c'][0]
+        a = new_a['a'][0]
         for idx in range(new_a.size):
-            p = new_a[idx]['c']
-            if p < c:
+            p = new_a[idx]['a']
+            if p > a:
                 buystop_price = p
                 buystop_time = datetime.fromtimestamp(new_a[idx]['t'])
                 break
@@ -559,10 +559,10 @@ class PiXiuTests(TestCase):
     def test_ea_tester_order_selllimit(self):
         """Test EA Tester"""
         #
-        c = new_a['c'][0]
+        b = new_a['b'][0]
         for idx in range(new_a.size):
-            p = new_a[idx]['c']
-            if p < c:
+            p = new_a[idx]['b']
+            if p > b:
                 selllimit_price = p
                 selllimit_time = datetime.fromtimestamp(new_a[idx]['t'])
                 break
@@ -578,10 +578,10 @@ class PiXiuTests(TestCase):
     @skipIf(debug_some_tests, "debug some tests")
     def test_ea_tester_order_sellstop(self):
         """Test EA Tester"""
-        c = new_a['c'][0]
+        b = new_a['b'][0]
         for idx in range(new_a.size):
-            p = new_a[idx]['c']
-            if p > c:
+            p = new_a[idx]['b']
+            if p < b:
                 sellstop_price = p
                 sellstop_time = datetime.fromtimestamp(new_a[idx]['t'])
                 break
