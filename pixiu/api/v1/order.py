@@ -1,7 +1,7 @@
 from datetime import datetime
 
 import numpy as np
-from pixiu.api.defines import (OrderCommand)
+from pixiu.api.defines import (OrderCommand, OrderStatus)
 from pixiu.api.utils import (parse_datetime_string)
 
 
@@ -158,4 +158,8 @@ class Order(object):
     @property
     def is_dirty(self) -> bool:
         return self.order_dict.get("dirty", False)
+
+    @property
+    def status(self) -> OrderStatus:
+        return int(self.order_dict['status'])
 

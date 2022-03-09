@@ -20,6 +20,7 @@ assertEqual(order.volume, volume)
 assertEqual(order.stop_loss, 0)
 assertEqual(order.take_profit, 0)
 assertEqual(order.tags['score'], score)
+assertEqual(order.status, OrderStatus.OPENED)
 
 if result['command_uid']:
     assertEqual(order.comment, f"cuid#{result['command_uid']}|")
@@ -52,6 +53,7 @@ assertEqual(order.take_profit, take_profit)
 assertIsNone(order.close_time)
 assertIsNone(order.close_price)
 assertEqual(order.tags['score'], score)
+assertEqual(order.status, OrderStatus.OPENED)
 
 #Buy all params
 stop_loss = Bid()-15*point
@@ -75,6 +77,7 @@ assertEqual(order.magic_number, magic_number)
 assertIsNone(order.close_time)
 assertIsNone(order.close_price)
 assertEqual(order.tags['score'], score)
+assertEqual(order.status, OrderStatus.OPENED)
 
 #
 stop_loss = stop_loss - 15 * point
@@ -94,6 +97,7 @@ assertEqual(order.take_profit, take_profit)
 assertIsNone(order.close_time)
 assertIsNone(order.close_price)
 assertEqual(order.tags['score'], score)
+assertEqual(order.status, OrderStatus.OPENED)
 
 #close order
 # errid, result = CloseOrder(result['order_uid'], price=Ask(), volume=volume)
@@ -112,6 +116,7 @@ assertEqual(order.symbol, Symbol())
 assertIsNotNone(order.close_time)
 assertEqual(order.close_price, Bid())
 assertEqual(order.tags['score'], score)
+assertEqual(order.status, OrderStatus.CLOSED)
 
 #The order was closed ?
 oo = GetOpenedOrderUIDs()

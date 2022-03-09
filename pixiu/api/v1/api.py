@@ -4,7 +4,7 @@ PIXIU API
 from typing import NewType, TypeVar, Generic
 import abc
 from datetime import datetime
-from pixiu.api.defines import (TimeFrame, OrderType, OrderCommand, RunModeValue, PositionType)
+from pixiu.api.defines import (TimeFrame, OrderType, OrderCommand, RunModeValue, PositionType, OrderStatus)
 from .order import Order
 
 class IndicatiorID():
@@ -51,6 +51,7 @@ class APIStub(abc.ABC):
         DataScope=DataScope,
         RunModeValue=RunModeValue,
         PositionType=PositionType,
+        OrderStatus=OrderStatus,
     )
 
     def __init__(self):

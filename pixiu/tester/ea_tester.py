@@ -12,7 +12,7 @@ from .tester_api_v1 import (TesterAPI_V1, )
 import pandas as pd
 from pixiu.api.errors import *
 from pixiu.api import (TimeFrame, OrderCommand, order_is_long, order_is_short, order_is_market, order_is_stop,
-                       order_is_limit, order_is_pending)
+                       order_is_limit, order_is_pending, OrderStatus)
 from pixiu.api.v1 import (DataScope, )
 import traceback
 import logging
@@ -389,6 +389,7 @@ class EATester(EABase):
         symbol_orders = self.orders['pending'].get(new_order['symbol'], {})
 
         new_order['uid'] = new_order['ticket']
+        new_order['status'] = OrderStatus.PENDING
         self.orders['data'][new_order['uid']] = new_order
         symbol_orders[new_order['uid']] = new_order
         self.orders['pending'][new_order['symbol']] = symbol_orders
@@ -422,6 +423,8 @@ class EATester(EABase):
         new_order['uid'] = str(new_order['ticket'])
         new_order['comment'] = f"uid#{new_order['uid']}|"
         new_order['margin'] = margin
+        new_order['status'] = OrderStatus.OPENED
+
         commission = 0.0
         #commissions
         if self.commission > 0:
@@ -478,6 +481,7 @@ class EATester(EABase):
             order_dict['tags'] = tags
         order_dict['dirty'] = False
         order_dict['open_time'] = self.current_time()
+        order_dict['status'] = OrderStatus.OPENED
         #
         errid, order_uid = self.__add_market_order__(order_dict)
         if errid != EID_OK:
@@ -1004,6 +1008,7 @@ class EATester(EABase):
             order_dict['comment'] = comment
             order_dict['close_time'] = close_time
             order_dict['close_price'] = price
+            order_dict['status'] = OrderStatus.CLOSED
             order_uid = self.__remove_order__(order_dict)
             self.account["balance"] = self.account["balance"] + order_dict['profit']
             closed_margin = round(order_dict['margin'] * volume / order_dict['volume'], self.default_digits)
@@ -1030,6 +1035,7 @@ class EATester(EABase):
                     return errid, dict(order_uid=order_uid, order_dict=order_dict, close_price=price,
                                        close_time=close_time)
         else:
+            order_dict['status'] = OrderStatus.CANCELLED
             order_uid = self.__remove_pending_order__(order_dict)
 
         return EID_OK, dict(order_uid=order_uid, order_dict=order_dict, close_price=price, close_time=close_time)
@@ -1584,7 +1590,6 @@ class EATester(EABase):
             order_dict = self.get_order(order_uid=order_uid)
             self.close_order(order_uid, order_dict['volume'], price, comment=comment)
     #
-
     def __update_account_log(self, ticket):
         ''''''
         price = self.Close()

@@ -40,3 +40,10 @@ class RunModeValue(object):
 class PositionType(object):
     SHORT = 'SHORT'
     LONG = 'LONG'
+
+class OrderStatus(object):
+    OPENED = 0
+    CLOSED = 100
+    PENDING = 200
+    DELETED = 300
+    CANCELLED = 400
