@@ -32,10 +32,13 @@ if len(ood) == 0:
                             take_profit=take_profit, magic_number=magic_number,
                             symbol=Symbol(), slippage=3, arrow_color="white")
         assertEqual(errid, 0)
+        assertIsNotNone(result)
         errid = exec_command()
         assertEqual(errid, 0)
         oo = GetPendingOrderUIDs()
         assertTrue(result['order_uid'] in oo)
+        order = GetOrder(result['order_uid'])
+        assertEqual(order.status, OrderStatus.PENDING)
 
         #modify
         stop_loss = stop_loss - 15 * point
@@ -44,8 +47,10 @@ if len(ood) == 0:
         assertEqual(errid, EID_EAT_INVALID_LIMIT_ORDER_OPEN_PRICE)
         errid, result = ModifyOrder(result['order_uid'], price=Ask()-1*point, stop_loss=stop_loss, take_profit=take_profit)
         assertEqual(errid, 0)
+        assertIsNotNone(result['order_uid'])
         errid = exec_command()
         assertEqual(errid, 0)
+
         #
         order = GetOrder(result['order_uid'])
         assertEqual(order.symbol, Symbol())
@@ -55,6 +60,7 @@ if len(ood) == 0:
         assertEqual(order.take_profit, take_profit)
         assertIsNone(order.close_time)
         assertIsNone(order.close_price)
+        assertEqual(order.status, OrderStatus.PENDING)
 
         #close
         errid, ct = CloseOrder(result['order_uid'], volume=volume, price=Bid())
@@ -62,6 +68,8 @@ if len(ood) == 0:
         assertEqual(ct['order_uid'], result['order_uid'])
         errid = exec_command()
         assertEqual(errid, 0)
+        order = GetOrder(result['order_uid'])
+        assertEqual(order.status, OrderStatus.CANCELLED)
 
         # The order was closed ?
         oo = GetPendingOrderUIDs()
@@ -76,6 +84,8 @@ if len(ood) == 0:
         assertIsNotNone(result['order_uid'])
         errid = exec_command()
         assertEqual(errid, 0)
+        order = GetOrder(result['order_uid'])
+        assertEqual(order.status, OrderStatus.PENDING)
 
 else:
     pass

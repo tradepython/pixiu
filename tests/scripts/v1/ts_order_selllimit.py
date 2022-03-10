@@ -1,6 +1,7 @@
 ood = GetOpenedOrderUIDs()
 if len(ood) == 0:
     pod = GetPendingOrderUIDs()
+    assertIsNotNone(pod)
     if len(pod) == 0:
         #
         point = SymbolInfo("point")
@@ -9,6 +10,7 @@ if len(ood) == 0:
         # Buy all params
         stop_loss = Ask() + 15 * point
         take_profit = Bid() - 30 * point
+        comment = "test selllimit"
         magic_number = 4301250
         # failed
         price = Bid()
@@ -33,9 +35,10 @@ if len(ood) == 0:
         assertIsNotNone(result)
         errid = exec_command()
         assertEqual(errid, 0)
-
         oo = GetPendingOrderUIDs()
         assertTrue(result['order_uid'] in oo)
+        order = GetOrder(result['order_uid'])
+        assertEqual(order.status, OrderStatus.PENDING)
 
         # modify
         stop_loss = stop_loss + 15 * point
@@ -57,6 +60,7 @@ if len(ood) == 0:
         assertEqual(order.take_profit, take_profit)
         assertIsNone(order.close_time)
         assertIsNone(order.close_price)
+        assertEqual(order.status, OrderStatus.PENDING)
 
         #close
         errid, ct = CloseOrder(result['order_uid'], volume=volume, price=Ask())
@@ -64,6 +68,8 @@ if len(ood) == 0:
         assertEqual(ct['order_uid'], result['order_uid'])
         errid = exec_command()
         assertEqual(errid, 0)
+        order = GetOrder(result['order_uid'])
+        assertEqual(order.status, OrderStatus.CANCELLED)
 
         # The order was closed ?
         oo = GetPendingOrderUIDs()
@@ -78,6 +84,8 @@ if len(ood) == 0:
         assertIsNotNone(result['order_uid'])
         errid = exec_command()
         assertEqual(errid, 0)
+        order = GetOrder(result['order_uid'])
+        assertEqual(order.status, OrderStatus.PENDING)
 
 else:
     pass

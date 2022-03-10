@@ -121,6 +121,13 @@ class EABase():
             traceback.print_exc()
         return default
     #
+    def get_settings(self, name, default=None):
+        try:
+            pass
+        except:
+            traceback.print_exc()
+        return default
+    #
     # #
     def get_symbol_properties(self, symbol):
         ''''''

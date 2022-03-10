@@ -466,6 +466,16 @@ GetParam(self, name, default=None)
            Returns:
                    The EA parameter value.
 
+GetSettings(self, name, default=None)
+    Returns the EA Settings value.
+
+            Parameters:
+                    name (): The EA settings name.
+                    default (int): The EA settings default value.
+
+            Returns:
+                    The EA settings value.
+
 GetSymbol(self, symbol=None)
    Returns the symbol properties.
 

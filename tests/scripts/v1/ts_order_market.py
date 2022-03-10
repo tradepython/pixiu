@@ -141,6 +141,7 @@ assertIsNone(order.magic_number)
 assertIsNone(order.close_time)
 assertIsNone(order.close_price)
 assertEqual(order.tags['score'], score)
+assertEqual(order.status, OrderStatus.OPENED)
 
 #Sell with sl and tp
 stop_loss = Ask() + 15 * point
@@ -161,6 +162,7 @@ assertEqual(order.take_profit, take_profit)
 assertIsNone(order.close_time)
 assertIsNone(order.close_price)
 assertEqual(order.tags['score'], score)
+assertEqual(order.status, OrderStatus.OPENED)
 
 #Sell all params
 magic_number=4291652
@@ -182,6 +184,7 @@ assertEqual(order.magic_number, magic_number)
 assertIsNone(order.close_time)
 assertIsNone(order.close_price)
 assertEqual(order.tags['score'], score)
+assertEqual(order.status, OrderStatus.OPENED)
 
 #
 stop_loss = stop_loss + 15 * point
@@ -205,6 +208,7 @@ assertEqual(order.take_profit, take_profit)
 assertIsNone(order.close_time)
 assertIsNone(order.close_price)
 assertEqual(order.tags['score'], score)
+assertEqual(order.status, OrderStatus.OPENED)
 
 #close order
 # errid, result = CloseOrder(result['order_uid'], price=Bid(), volume=volume)
@@ -223,6 +227,7 @@ assertEqual(order.symbol, Symbol())
 assertIsNotNone(order.close_time)
 assertEqual(order.close_price, Ask())
 assertEqual(order.tags['score'], score)
+assertEqual(order.status, OrderStatus.CLOSED)
 
 #The order was closed ?
 oo = GetOpenedOrderUIDs()
@@ -242,6 +247,7 @@ for order_uid in orders:
     order = GetOrder(order_uid)
     assertIsNotNone(order)
     assertFalse(order.is_dirty)
+    assertEqual(order.status, OrderStatus.OPENED)
 
 errid, result = CloseMultiOrders(orders)
 assertEqual(errid, 0)
@@ -256,6 +262,7 @@ for order_uid in orders:
     assertIsNotNone(order)
     assertFalse(order.is_dirty)
     assertIsNotNone(order.close_time)
+    assertEqual(order.status, OrderStatus.CLOSED)
 
 #
 set_test_result("OK")

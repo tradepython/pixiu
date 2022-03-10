@@ -1,4 +1,15 @@
 
+### [2022-03-10]
+#### Version:
+#####   Package:
+#####    pixiu: 0.72.*.20220310
+#####
+#### **Descriptions：**
+    1.ts_order_buylimit.py,ts_order_buystop.py,ts_order_selllimit.py,ts_order_sellstop.py:
+      Add check order.status
+    2.api.py:
+      Add GetSettings
+
 ### [2022-03-09]
 #### Version:
 #####   Package:

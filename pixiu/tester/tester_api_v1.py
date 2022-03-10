@@ -145,6 +145,9 @@ class TesterAPI_V1(API_V1_Base):
         '''Get params'''
         return self.tester.get_param(name, default)
 
+    def GetSettings(self, name, default=None):
+        return self.tester.get_settings(name, default)
+
     def DeleteData(self, name, scope: int = DataScope.EA):
         return self.tester.delete_data(name, scope)
 

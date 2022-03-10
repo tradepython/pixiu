@@ -4,6 +4,7 @@ import math
 import json
 import threading
 import importlib
+import pkg_resources
 from datetime import (datetime, )
 import numpy as np
 from RestrictedPython import (compile_restricted, safe_globals, utility_builtins,)
@@ -1676,7 +1677,8 @@ class EATester(EABase):
         update_log_task = None
         try:
             test_start_time = datetime.now()
-            self.write_log(f"\n\n == PiXiu Backtesting Start: {test_start_time}, Ticket: {ticket}, Symbol: {self.symbol}, Period: {self.start_time} - {self.end_time}, "
+            pixiu_version = pkg_resources.get_distribution('pixiu').version
+            self.write_log(f"\n\n == PiXiu({pixiu_version}) Backtesting Start: {test_start_time}, Ticket: {ticket}, Symbol: {self.symbol}, Period: {self.start_time} - {self.end_time}, "
                            f"Timeframe: {self.tick_timeframe}, Mode: {self.tick_mode} == \n\n")
             self.init_data()
             self.update_log_task_running = True
