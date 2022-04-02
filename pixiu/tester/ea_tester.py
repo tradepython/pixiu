@@ -518,7 +518,10 @@ class EATester(EABase):
     def __remove_pending_order__(self, order):
         """"""
         order_list = self.get_order_dict(order['symbol'], 'pending')
-        order_list.pop(order['uid'])
+        # ret = order_list.pop(order['uid'])
+        ret = order_list.pop(order['uid'], None)
+        if ret is None:
+            return order['uid']
         #
         oid = int(order['uid'])
         ds = self.orders['pending']['__ds__']
@@ -919,7 +922,7 @@ class EATester(EABase):
         if stop_loss is not None:
             order_log['stop_loss'] = round(stop_loss, self.price_digits)
         if take_profit is not None:
-            order_log['take_profit'] = round(take_profit, self.price_digits),
+            order_log['take_profit'] = round(take_profit, self.price_digits)
         self.add_order_log(order_log)
         return EID_OK, dict(order_uid=order_uid, command_uid=None, sync=True)
     #

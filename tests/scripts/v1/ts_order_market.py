@@ -1,5 +1,6 @@
 #
-point = SymbolInfo("point")
+POINT = SymbolInfo("point")
+DIGITS = int(SymbolInfo("digits"))
 volume = 0.01
 
 assertEqual(AcquireLock("test"), True)
@@ -31,12 +32,10 @@ assertIsNone(order.close_time)
 assertIsNone(order.close_price)
 
 #
-
-
 score = score + 1
 #Buy with sl and tp
-stop_loss = Bid()-15*point
-take_profit = Ask()+30*point
+stop_loss = round(Bid() - 15 * POINT, DIGITS)
+take_profit = round(Ask() + 30 * POINT, DIGITS)
 errid, result = Buy(volume=0.01, price=Ask(), stop_loss=stop_loss,
                     take_profit=take_profit, tags={'score': score})
 assertEqual(errid, 0)
@@ -56,8 +55,8 @@ assertEqual(order.tags['score'], score)
 assertEqual(order.status, OrderStatus.OPENED)
 
 #Buy all params
-stop_loss = Bid()-15*point
-take_profit = Ask()+30*point
+stop_loss = round(Bid() - 15 * POINT, DIGITS)
+take_profit = round(Ask() + 30 * POINT, DIGITS)
 magic_number = 4291651
 errid, result = Buy(volume=0.01, price=Ask(), stop_loss=stop_loss,
                     take_profit=take_profit, magic_number=magic_number,
@@ -80,8 +79,8 @@ assertEqual(order.tags['score'], score)
 assertEqual(order.status, OrderStatus.OPENED)
 
 #
-stop_loss = stop_loss - 15 * point
-take_profit = take_profit + 30 * point
+stop_loss = round(stop_loss - 15 * POINT, DIGITS)
+take_profit = round(take_profit + 30 * POINT, DIGITS)
 errid, result = ModifyOrder(result['order_uid'], stop_loss=stop_loss, take_profit=take_profit, tags={'score': score})
 assertEqual(errid, 0)
 assertNotEqual(result['order_uid'], None)
@@ -144,10 +143,10 @@ assertEqual(order.tags['score'], score)
 assertEqual(order.status, OrderStatus.OPENED)
 
 #Sell with sl and tp
-stop_loss = Ask() + 15 * point
-take_profit = Bid() - 30 * point
-errid, result = Sell(volume=0.01, price=Bid(), stop_loss=Ask()+15*point,
-                    take_profit=Bid()-30*point, tags={'score': score})
+stop_loss = round(Ask() + 15 * POINT, DIGITS)
+take_profit = round(Bid() - 30 * POINT, DIGITS)
+errid, result = Sell(volume=0.01, price=Bid(), stop_loss=Ask()+15*POINT,
+                    take_profit=Bid()-30*POINT, tags={'score': score})
 assertEqual(errid, 0)
 assertNotEqual(result['order_uid'], None)
 errid = exec_command()
@@ -187,8 +186,8 @@ assertEqual(order.tags['score'], score)
 assertEqual(order.status, OrderStatus.OPENED)
 
 #
-stop_loss = stop_loss + 15 * point
-take_profit = take_profit - 30 * point
+stop_loss = round(stop_loss + 15 * POINT, DIGITS)
+take_profit = round(take_profit - 30 * POINT, DIGITS)
 errid, result = ModifyOrder(result['order_uid'], stop_loss=stop_loss, take_profit=take_profit, tags={'score': score})
 assertEqual(errid, 0)
 assertNotEqual(result['order_uid'], None)

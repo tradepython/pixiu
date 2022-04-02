@@ -1,4 +1,25 @@
 
+### [2022-04-02]
+#### Version:
+#####   Package:
+#####    pixiu: 0.74.*.20220402
+#####
+#### **Descriptions：**
+    1.ea_tester.py:
+       Fix modify_order order_log error
+
+### [2022-03-30]
+#### Version:
+#####   Package:
+#####    pixiu: 0.73.*.20220330
+#####
+#### **Descriptions：**
+    1.ea_tester.py:
+        __remove_pending_order__ pop add None
+    2.Add set:
+      env_dict["set"]
+
+
 ### [2022-03-10]
 #### Version:
 #####   Package:

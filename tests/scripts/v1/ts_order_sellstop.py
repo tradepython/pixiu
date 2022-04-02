@@ -1,15 +1,17 @@
+POINT = SymbolInfo("point")
+DIGITS = int(SymbolInfo("digits"))
+
 ood = GetOpenedOrderUIDs()
 if len(ood) == 0:
     pod = GetPendingOrderUIDs()
     assertIsNotNone(pod)
     if len(pod) == 0:
         #
-        point = SymbolInfo("point")
         volume = 0.01
 
         # Buy all params
-        stop_loss = Ask() + 15 * point
-        take_profit = Bid() - 30 * point
+        stop_loss = round(Ask() + 15 * POINT, DIGITS)
+        take_profit = round(Bid() - 30 * POINT, DIGITS)
         comment = "test sellstop"
         magic_number = 4301250
         # failed
@@ -20,7 +22,7 @@ if len(ood) == 0:
         assertEqual(errid, EID_EAT_INVALID_STOP_ORDER_OPEN_PRICE)
 
         # failed
-        price = Bid() + 10 * point
+        price = round(Bid() + 10 * POINT, DIGITS)
         errid, result = Sell(volume=0.01, type=OrderType.STOP, price=price, stop_loss=stop_loss,
                             take_profit=take_profit, magic_number=magic_number,
                             symbol=Symbol(), slippage=3, arrow_color="white")
@@ -41,11 +43,11 @@ if len(ood) == 0:
         assertEqual(order.status, OrderStatus.PENDING)
 
         # modify
-        stop_loss = stop_loss + 15 * point
-        take_profit = take_profit - 30 * point
-        errid, result = ModifyOrder(result['order_uid'], price=Bid()+1*point, stop_loss=stop_loss, take_profit=take_profit)
+        stop_loss = round(stop_loss + 15 * POINT, DIGITS)
+        take_profit = round(take_profit - 30 * POINT, DIGITS)
+        errid, result = ModifyOrder(result['order_uid'], price=Bid()+1*POINT, stop_loss=stop_loss, take_profit=take_profit)
         assertEqual(errid, EID_EAT_INVALID_STOP_ORDER_OPEN_PRICE)
-        errid, result = ModifyOrder(result['order_uid'], price=Bid()-1*point, stop_loss=stop_loss, take_profit=take_profit)
+        errid, result = ModifyOrder(result['order_uid'], price=Bid()-1*POINT, stop_loss=stop_loss, take_profit=take_profit)
         assertEqual(errid, 0)
         assertIsNotNone(result)
         errid = exec_command()
