@@ -1,4 +1,13 @@
 
+### [2022-04-03]
+#### Version:
+#####   Package:
+#####    pixiu: 0.75.*.20220403
+#####
+#### **Descriptions：**
+    1.ea_tester.py:
+        1) Add margin_so_so, margin_so_call checking
+
 ### [2022-04-02]
 #### Version:
 #####   Package:

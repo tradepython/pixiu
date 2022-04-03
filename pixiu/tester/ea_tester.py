@@ -76,6 +76,13 @@ class EATester(EABase):
         self.log_path = params.get("log_path", None)
         self.print_log_type = params.get("print_log_type", ['account', 'ea', 'order', 'report'])
         #
+        margin_so_so = params.get("margin_so_so", 1.0) #100%
+        if margin_so_so < 0:
+            margin_so_so = 1.0
+        margin_so_call = params.get("margin_so_call", margin_so_so*1.2) #120%
+        if margin_so_call < 0:
+            margin_so_call = margin_so_so * 1.2
+        #
         if self.log_path:
             self.log_file = open(self.log_path, mode='at')
 
@@ -132,8 +139,8 @@ class EATester(EABase):
                             'margin_so_mode': 0,
                             'trade_allowed': True,
                             'trade_expert': 1,
-                            'margin_so_call': 0.0,
-                            'margin_so_so': 0.0,
+                            'margin_so_call': margin_so_call,
+                            'margin_so_so': margin_so_so,
                             'commission': 0.0,
                             }
         else:
@@ -1519,6 +1526,26 @@ class EATester(EABase):
         ''''''
         return self.symbol_properties.get(symbol, self.default_symbol_properties[symbol])
 
+    def calculate_margin_level(self):
+        if self.account['margin'] == 0:
+            return 0
+        margin_level = self.account['equity'] / self.account['margin']
+        return margin_level
+
+    def __check_equity__(self, ):
+        margin_level = self.calculate_margin_level()
+        if margin_level == 0:
+            return True, None
+        if self.account['margin_so_so'] >= margin_level:
+            # so: 91.1%/6.8/7.5
+            # 91.1%, your equity at 6.8$ and your margin at 7.5$.
+            comment = f"so: {round(margin_level*100, 1)}%/{self.account['equity']}/{self.account['margin']}"
+            self.write_log(f"Stop Out: {comment}")
+            return False, comment
+        if self.account['margin_so_call'] >= margin_level:
+            self.write_log(f"Margin Call: {round(margin_level*100, 1)}%/{self.account['equity']}/{self.account['margin']}")
+            return True, None
+        return True, None
     #
     def __process_order__(self, price, last_price, ask, last_ask, bid, last_bid):
         ''''''
@@ -1530,6 +1557,22 @@ class EATester(EABase):
         profit = profit_buy + profit_sell
         self.account['profit'] = profit
         # account
+        check_next = True
+        while check_next:
+            ret, comment = self.__check_equity__()
+            if ret:
+                break
+            symbol_orders = self.get_order_dict(self.symbol)
+            check_next = False
+            for order_uid in symbol_orders:
+                order_dict = self.get_order(order_uid=order_uid)
+                if not order_is_market(order_dict['cmd']):
+                    continue
+                errid, ret =self.close_order(order_uid, order_dict['volume'], 0, comment=comment)
+                if errid == EID_OK:
+                    check_next = True
+                    break
+
         if self.account['balance'] <= self.balance_dead_line:
             dead = 1
             comment = "dead"
@@ -1538,7 +1581,8 @@ class EATester(EABase):
             comment = "margin"
 
         if dead > 0:
-            self.close_all_orders(price, comment=comment)
+            # self.close_all_orders(price, comment=comment)
+            self.close_all_orders(0, comment=comment)
             return dead
 
         #update pending orders
@@ -1586,6 +1630,74 @@ class EATester(EABase):
             self.__update_report__(key, order_report[key]['profit'], order_report[key]['trades'])
 
         return dead
+    # #
+    # def __process_order__(self, price, last_price, ask, last_ask, bid, last_bid):
+    #     ''''''
+    #     comment = None
+    #     dead = 0
+    #     # equity
+    #     profit_buy = self.__calculate_profit__(100, bid)
+    #     profit_sell = self.__calculate_profit__(200, ask)
+    #     profit = profit_buy + profit_sell
+    #     self.account['profit'] = profit
+    #     # account
+    #     if self.account['balance'] <= self.balance_dead_line:
+    #         dead = 1
+    #         comment = "dead"
+    #     elif self.account['balance'] + profit - self.account['margin'] <= self.balance_dead_line:
+    #         dead = 2
+    #         comment = "margin"
+    #
+    #     if dead > 0:
+    #         self.close_all_orders(price, comment=comment)
+    #         return dead
+    #
+    #     #update pending orders
+    #     ds = self.orders['pending'].get('__ds__', None)
+    #     if ds is not None:
+    #         # if last_price is not None:
+    #         #110-BUYLIMIT, 120-BUYSTOP, 210-SELLLIMIT, 220-SELLSTOP
+    #         try:
+    #             result = ds[((ds['cid'] == 110) & (last_ask > ds['o']) & (ds['o'] >= ask )) |
+    #                         ((ds['cid'] == 210) & (last_bid < ds['o']) & (ds['o'] <= bid )) |
+    #                         ((ds['cid'] == 120) & (last_ask < ds['o']) & (ds['o'] <= ask )) |
+    #                         ((ds['cid'] == 220) & (last_bid > ds['o']) & (ds['o'] >= bid ))
+    #                         ]
+    #             # result = ds[((ds['cid'] == 110) & (last_price > ds['o']) & (ds['o'] >= price )) |
+    #             #             ((ds['cid'] == 210) & (last_price < ds['o']) & (ds['o'] <= price )) |
+    #             #             ((ds['cid'] == 120) & (last_price < ds['o']) & (ds['o'] <= price )) |
+    #             #             ((ds['cid'] == 220) & (last_price > ds['o']) & (ds['o'] >= price ))
+    #             #             ]
+    #             for r in result:
+    #                 self.__active_pending_order__(str(r['oid']), price, comment='open')
+    #         except:
+    #             traceback.print_exc()
+    #
+    #     #update opened orders
+    #     order_report = {True: dict(profit=0.0, trades=0), False: dict(profit=0.0, trades=0)}
+    #
+    #     def update_report_func(is_long, profit, trades):
+    #         order_report[is_long]['profit'] += profit
+    #         order_report[is_long]['trades'] += trades
+    #
+    #     ds = self.orders['opened'].get('__ds__', None)
+    #     if ds is not None:
+    #         # result = ds[(ds['sl_p'] <= 0) | (ds['tp_p'] >= 0)]
+    #         result = ds[((ds['sl'] > 0) & (ds['sl_p'] <= 0)) | ((ds['tp'] > 0) & (ds['tp_p'] >= 0))]
+    #         for r in result:
+    #             self.close_order(str(r['oid']), r['v'], None,
+    #                              comment='sl' if r['sl_p'] <= 0 else 'tp',
+    #                              update_report_func=update_report_func)
+    #             # self.close_order(str(r['oid']), r['v'], price,
+    #             #                  comment='sl' if r['sl_p'] <= 0 else 'tp',
+    #             #                  update_report_func=update_report_func)
+    #
+    #     #update reports
+    #     for key in order_report:
+    #         self.__update_report__(key, order_report[key]['profit'], order_report[key]['trades'])
+    #
+    #     return dead
+
     #
     def close_all_orders(self, price, comment):
         ''''''

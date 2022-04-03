@@ -207,8 +207,8 @@ class PiXiuTests(TestCase):
                         'margin_so_mode': 0,
                         'trade_allowed': True,
                         'trade_expert': 1,
-                        'margin_so_call': 0.0,
-                        'margin_so_so': 0.0,
+                        'margin_so_call': 1.2,
+                        'margin_so_so': 1.0,
                         'commission': 0.0,
                         }
         self.symbol_properties = dict(USDCHF={'symbol': 'USDCHF', 'spread': 2, 'digits': 5, 'stop_level': 0, 'volume_min': 0.01,
