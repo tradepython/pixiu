@@ -76,10 +76,10 @@ class EATester(EABase):
         self.log_path = params.get("log_path", None)
         self.print_log_type = params.get("print_log_type", ['account', 'ea', 'order', 'report'])
         #
-        margin_so_so = params.get("margin_so_so", 1.0) #100%
+        margin_so_so = self.percent_str_to_float(params.get("margin_so_so", None), 1.0) #100%
         if margin_so_so < 0:
             margin_so_so = 1.0
-        margin_so_call = params.get("margin_so_call", margin_so_so*1.2) #120%
+        margin_so_call = self.percent_str_to_float(params.get("margin_so_call", None), margin_so_so*1.2) #120%
         if margin_so_call < 0:
             margin_so_call = margin_so_so * 1.2
         #
@@ -154,6 +154,16 @@ class EATester(EABase):
         self.current_api = TesterAPI_V1(tester=self, data_source={}, default_symbol=params["symbol"])
         self.data = {DataScope.EA_VERSION: {}, DataScope.EA: {}, DataScope.ACCOUNT: {}, DataScope.EA_SETTIGNS: {}}
 
+    def percent_str_to_float(self, val, default):
+        try:
+            if val is not None:
+                if isinstance(val, str) and '%' in val:
+                    return float(val.strip('%')) / 100
+                return float(val)
+        except:
+            traceback.print_exc()
+        return default
+
     def delete_data(self, name, scope):
         self.data[scope].pop(name)
         return 0
@@ -183,10 +193,13 @@ class EATester(EABase):
                         'currency': {'value': self.account['currency'], 'desc': 'Currency', 'type': 'str'}, #
                         'leverage': {'value': self.account['leverage'], 'desc': 'Leverage'}, #
                         'spread_point': {'value': self.spread_point, 'desc': 'Spread Points'}, #
+                        'margin_so_call': {'value': self.account['margin_so_call'], 'desc': 'Margin Call Level', 'type': '%'},  #
+                        'margin_so_so': {'value': self.account['margin_so_so'], 'desc': 'Stop Out Level', 'type': '%'},  #
                         'ticks': {'value': 0, 'desc': 'Ticks', 'precision': 0}, #
                         'balance': {'value': 0, 'desc': 'Balance'}, #
                         'total_net_profit': {'value': 0, 'desc': 'Total Net Profit'}, #
                         'total_net_profit_rate': {'value': 0, 'desc': 'Total Net Profit Rate', 'type': '%'}, #
+                        'sharpe_ratio': {'value': 0, 'desc': 'Sharpe Ratio', 'type': '%'}, #
                         'absolute_drawdown': {'value': 0, 'desc': 'Absolute Drawdown'}, #
                         'max_drawdown': {'value': 0, 'desc': 'Max Drawdown'}, #
                         'max_drawdown_rate': {'value': 0, 'desc': 'Max Drawdown Rate', 'type': '%'}, #
@@ -1367,6 +1380,8 @@ class EATester(EABase):
         if self.report['init_balance']['value'] > 0:
             self.report['total_net_profit_rate']['value'] = self.report['total_net_profit']['value'] / self.report['init_balance']['value']
         self.report['balance']['value'] = self.account['balance']
+        #
+        self.report['sharpe_ratio']['value'] = self.calculate_sharpe_ratio()
 
     # def __update_report__(self, is_long, profit, trades=1):
     #     if profit == 0:
@@ -1706,6 +1721,23 @@ class EATester(EABase):
             order_dict = self.get_order(order_uid=order_uid)
             self.close_order(order_uid, order_dict['volume'], price, comment=comment)
     #
+    def calculate_sharpe_ratio(self):
+        count = len(self.account_logs)
+        if count == 0:
+            return 0.0
+        mean = 0.0
+        for al in self.account_logs:
+            mean += al['balance']
+        mean = mean / count
+        std = 0.0
+        for al in self.account_logs:
+            std += math.pow(al['balance'] - mean, 2)
+        std = std / count
+        sharpe_ratio = (mean - self.report['init_balance']['value']) / std if std > 0 else 0.0
+        # sharpe_ratio = math.sqrt(count) * sharpe_ratio
+        return sharpe_ratio
+
+
     def __update_account_log(self, ticket):
         ''''''
         price = self.Close()

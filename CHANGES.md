@@ -1,4 +1,14 @@
 
+### [2022-04-06]
+#### Version:
+#####   Package:
+#####    pixiu: 0.76.*.20220406
+#####
+#### **Descriptions：**
+    1.ea_tester.py:
+        1) Add percent_str_to_float
+        2) Add calculate_sharpe_ratio
+
 ### [2022-04-03]
 #### Version:
 #####   Package:
