@@ -108,6 +108,7 @@ class EATester(EABase):
         self.order_logs = []
         self.charts_data = []
         self.account_logs = []
+        self.return_logs = []
         self.balance_dead_line = 0.0
         self.account = params.get("account", None)
         if self.account is None:
@@ -199,7 +200,8 @@ class EATester(EABase):
                         'balance': {'value': 0, 'desc': 'Balance'}, #
                         'total_net_profit': {'value': 0, 'desc': 'Total Net Profit'}, #
                         'total_net_profit_rate': {'value': 0, 'desc': 'Total Net Profit Rate', 'type': '%'}, #
-                        'sharpe_ratio': {'value': 0, 'desc': 'Sharpe Ratio', 'type': '%'}, #
+                        'sharpe_ratio': {'value': 0, 'desc': 'Sharpe Ratio', 'precision': 2}, #
+                        'sortino_ratio': {'value': 0, 'desc': 'Sortino Ratio', 'precision': 2}, #
                         'absolute_drawdown': {'value': 0, 'desc': 'Absolute Drawdown'}, #
                         'max_drawdown': {'value': 0, 'desc': 'Max Drawdown'}, #
                         'max_drawdown_rate': {'value': 0, 'desc': 'Max Drawdown Rate', 'type': '%'}, #
@@ -352,6 +354,9 @@ class EATester(EABase):
 
     def add_account_log(self, log_dict):
         """Add account log"""
+        prev_equity = 0 if len(self.account_logs) == 0 else self.account_logs[len(self.account_logs)-1]['equity']
+        if log_dict['equity'] != prev_equity:
+            self.return_logs.append(log_dict)
         self.account_logs.append(log_dict)
 
     def add_print_log(self):
@@ -1381,7 +1386,9 @@ class EATester(EABase):
             self.report['total_net_profit_rate']['value'] = self.report['total_net_profit']['value'] / self.report['init_balance']['value']
         self.report['balance']['value'] = self.account['balance']
         #
-        self.report['sharpe_ratio']['value'] = self.calculate_sharpe_ratio()
+        ratio = self.calculate_return_ratio()
+        self.report['sharpe_ratio']['value'] = ratio['sharpe_ratio']
+        self.report['sortino_ratio']['value'] = ratio['sortino_ratio']
 
     # def __update_report__(self, is_long, profit, trades=1):
     #     if profit == 0:
@@ -1721,22 +1728,75 @@ class EATester(EABase):
             order_dict = self.get_order(order_uid=order_uid)
             self.close_order(order_uid, order_dict['volume'], price, comment=comment)
     #
-    def calculate_sharpe_ratio(self):
-        count = len(self.account_logs)
-        if count == 0:
-            return 0.0
-        mean = 0.0
-        for al in self.account_logs:
-            mean += al['balance']
-        mean = mean / count
-        std = 0.0
-        for al in self.account_logs:
-            std += math.pow(al['balance'] - mean, 2)
-        std = std / count
-        sharpe_ratio = (mean - self.report['init_balance']['value']) / std if std > 0 else 0.0
-        # sharpe_ratio = math.sqrt(count) * sharpe_ratio
-        return sharpe_ratio
+    def calculate_returns(self, ):
+        count = len(self.return_logs)
+        if count < 2:
+            return None
+        column = 'equity'
+        ret = pd.DataFrame(self.return_logs, columns=[column, ])
+        ret['return'] = 0.0
+        # calculate returns
+        prev_return = 0.0
+        for i, row in ret.iterrows():
+            value = row[column]
+            r = math.log(value / prev_return) if prev_return != 0.0 else 0.0
+            ret.at[i, 'return'] = r
+            ret.at[i, 'negative_return'] = r if r < 0 else 0.0
+            # ret.at[i, 'return'] = value / prev_return - 1 if prev_return != 0.0 else 0.0
+            prev_return = value
+        return ret
 
+    # def calculate_returns(self, ):
+    #     count = len(self.account_logs)
+    #     if count < 2:
+    #         return None
+    #     ret = [0] * count
+    #     for i in range(1, count):
+    #         ret[i-1] = 0
+    #         if self.account_logs[i-1]['balance'] != 0:
+    #             delta = self.account_logs[i]['balance'] - self.account_logs[i-1]['balance']
+    #             ret[i-1] = delta / self.account_logs[i-1]['balance']
+    #     return ret
+    #
+    def calculate_return_ratio(self):
+        returns = self.calculate_returns()
+        if returns is None:
+            return 0.0
+        count = returns.shape[0] - 1
+        if count < 1:
+            return 0.0
+        #Sharpe
+        ret = {}
+        mean = returns[1:]['return'].mean()
+        for n in [('sharpe_ratio', 'return'), ('sortino_ratio', 'negative_return')]:
+            std = returns[1:][n[1]].std(ddof=0)
+            risk_free = 0.0
+            ratio = (mean - risk_free) / std if std > 0 else 0.0
+            ratio = math.sqrt(count) * ratio
+            ret[n[0]] = ratio
+        return ret
+
+    # def calculate_sharpe_ratio(self):
+    #     returns = self.calculate_returns()
+    #     if returns is None:
+    #         return 0.0
+    #     count = len(returns)
+    #     if count < 1:
+    #         return 0.0
+    #     mean = 0.0
+    #     for r in returns:
+    #         mean += r
+    #     mean = mean / count
+    #     #
+    #     std = 0.0
+    #     for r in returns:
+    #         std += math.pow(r - mean, 2)
+    #     std = math.sqrt(std / count)
+    #     risk_free = 0.0
+    #     sharpe_ratio = (mean - risk_free) / std if std > 0 else 0.0
+    #     sharpe_ratio = math.sqrt(count) * sharpe_ratio
+    #     return sharpe_ratio
+    #
 
     def __update_account_log(self, ticket):
         ''''''

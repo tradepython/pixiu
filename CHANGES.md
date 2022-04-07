@@ -1,4 +1,14 @@
 
+### [2022-04-07]
+#### Version:
+#####   Package:
+#####    pixiu: 0.77.*.20220407
+#####
+#### **Descriptions：**
+    1.ea_tester.py:
+        1) Fix calculate_return_ratio error
+        2) Add sortino_ratio
+
 ### [2022-04-06]
 #### Version:
 #####   Package:
