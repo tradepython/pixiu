@@ -67,6 +67,7 @@ class API_V1_Base(API_V1):
         env_dict["_getiter_"] = self.default_getiter
         env_dict["_unpack_sequence_"] = self.default_unpack_sequence
         #System Functions
+        env_dict["property"] = property
         env_dict["json"] = json
         env_dict["load_json"] = load_json
         env_dict["dump_json"] = dump_json

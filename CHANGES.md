@@ -1,4 +1,13 @@
 
+### [2022-04-18]
+#### Version:
+#####   Package:
+#####    pixiu: 0.78.*.20220418
+#####
+#### **Descriptions：**
+    1.api_base.py:
+      1) env_dictAdd property
+
 ### [2022-04-07]
 #### Version:
 #####   Package:
