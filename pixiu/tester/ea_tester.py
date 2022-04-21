@@ -205,6 +205,8 @@ class EATester(EABase):
                         'absolute_drawdown': {'value': 0, 'desc': 'Absolute Drawdown'}, #
                         'max_drawdown': {'value': 0, 'desc': 'Max Drawdown'}, #
                         'max_drawdown_rate': {'value': 0, 'desc': 'Max Drawdown Rate', 'type': '%'}, #
+                        'min_volume': {'value': math.inf, 'desc': 'Min Volume'},  #
+                        'max_volume': {'value': 0, 'desc': 'Max Volume'},  #
                         'total_trades': {'value': 0, 'desc': 'Total Trades', 'precision': 0},#
                         'profit_trades': {'value': 0, 'desc': 'Profit Trades', 'precision': 0},#
                         'win_rate': {'value': 0, 'desc': 'Win Rate', 'type': '%'},  #
@@ -229,6 +231,7 @@ class EATester(EABase):
             'consecutive_wins_money': 0,
             'consecutive_losses': 0,
             'consecutive_losses_money': 0,
+            'max_volume': 0,
             'max_drawdown': 0,
             'max_drawdown_rate': 0,
             'account_max_equity': self.account['equity'],
@@ -487,6 +490,11 @@ class EATester(EABase):
             self.report['long_positions']['value'] += 1
         else:
             self.report['short_positions']['value'] += 1
+        #
+        if self.report['max_volume']['value'] < new_order['volume']:
+            self.report['max_volume']['value'] = new_order['volume']
+        elif self.report['min_volume']['value'] > new_order['volume']:
+            self.report['min_volume']['value'] = new_order['volume']
 
         #
         return EID_OK, new_order['uid']
@@ -731,10 +739,16 @@ class EATester(EABase):
             if stage != 2:
                 if stop_loss > 0 and take_profit > 0 and stop_loss > take_profit:
                     return EID_EAT_INVALID_ORDER_STOP_LOSS
-                if take_profit > 0 and take_profit <= ask:
-                    return EID_EAT_INVALID_ORDER_TAKE_PROFIT
-                if stop_loss > 0 and stop_loss >= ask:
-                    return EID_EAT_INVALID_ORDER_STOP_LOSS
+                if order_is_market(order_dict['cmd']):
+                    if take_profit > 0 and take_profit <= ask:
+                        return EID_EAT_INVALID_ORDER_TAKE_PROFIT
+                    if stop_loss > 0 and stop_loss >= ask:
+                        return EID_EAT_INVALID_ORDER_STOP_LOSS
+                else:
+                    if take_profit > 0 and take_profit <= open_price:
+                        return EID_EAT_INVALID_ORDER_TAKE_PROFIT
+                    if stop_loss > 0 and stop_loss >= open_price:
+                        return EID_EAT_INVALID_ORDER_STOP_LOSS
         #sell
         elif order_is_short(order_dict['cmd']):
             # open
@@ -762,13 +776,20 @@ class EATester(EABase):
             if stage != 2:
                 if stop_loss > 0 and take_profit > 0 and stop_loss < take_profit:
                     return EID_EAT_INVALID_ORDER_STOP_LOSS
-                if stop_loss > 0 and stop_loss <= bid:
-                    return EID_EAT_INVALID_ORDER_TAKE_PROFIT
-                if take_profit > 0 and take_profit >= bid:
-                    return EID_EAT_INVALID_ORDER_STOP_LOSS
+                if order_is_market(order_dict['cmd']):
+                    if stop_loss > 0 and stop_loss <= bid:
+                        return EID_EAT_INVALID_ORDER_STOP_LOSS
+                    if take_profit > 0 and take_profit >= bid:
+                        return EID_EAT_INVALID_ORDER_TAKE_PROFIT
+                else:
+                    if stop_loss > 0 and stop_loss <= open_price:
+                        return EID_EAT_INVALID_ORDER_STOP_LOSS
+                    if take_profit > 0 and take_profit >= open_price:
+                        return EID_EAT_INVALID_ORDER_TAKE_PROFIT
+
 
         return EID_OK
-    # #
+    #
     # def __valid_order__(self, stage, order_dict, price):
     #     #buy
     #     ask = self.Ask()
@@ -803,7 +824,7 @@ class EATester(EABase):
     #
     #         #close
     #         elif stage == 2:
-    #             if price is not None:
+    #             if price is not None and order_is_market(order_dict['cmd']):
     #                 if price > 0 and price > bid:
     #                     return EID_EAT_INVALID_ORDER_CLOSE_PRICE
     #
@@ -833,7 +854,7 @@ class EATester(EABase):
     #                 return EID_EAT_INVALID_ORDER_TYPE
     #         #close
     #         elif stage == 2:
-    #             if price is not None:
+    #             if price is not None and order_is_market(order_dict['cmd']):
     #                 if price > 0 and price < ask:
     #                     return EID_EAT_INVALID_ORDER_CLOSE_PRICE
     #
@@ -842,13 +863,12 @@ class EATester(EABase):
     #             if stop_loss > 0 and take_profit > 0 and stop_loss < take_profit:
     #                 return EID_EAT_INVALID_ORDER_STOP_LOSS
     #             if stop_loss > 0 and stop_loss <= bid:
-    #                 return EID_EAT_INVALID_ORDER_TAKE_PROFIT
-    #             if take_profit > 0 and take_profit >= bid:
     #                 return EID_EAT_INVALID_ORDER_STOP_LOSS
+    #             if take_profit > 0 and take_profit >= bid:
+    #                 return EID_EAT_INVALID_ORDER_TAKE_PROFIT
     #
     #     return EID_OK
-    # #
-
+    #
     def __new_ticket__(self):
         return str(self.orders['counter'] + 1)
 

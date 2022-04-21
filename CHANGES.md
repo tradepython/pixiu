@@ -1,4 +1,22 @@
 
+### [2022-04-21]
+#### Version:
+#####   Package:
+#####    pixiu: 0.80.*.20220421
+#####
+#### **Descriptions：**
+    1.ea_tester.py:
+      1) report add max_volume
+
+### [2022-04-20]
+#### Version:
+#####   Package:
+#####    pixiu: 0.79.*.20220420
+#####
+#### **Descriptions：**
+    1.ea_tester.py:
+      1) Fix __valid_order__ pending order error
+
 ### [2022-04-18]
 #### Version:
 #####   Package:
