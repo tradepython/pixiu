@@ -106,39 +106,42 @@ class MainApp:
             compare_item = None
             if compare_reports:
                 compare_item = compare_reports[key][tn]
-            if item_type == 'value':
-                v = round(item['value'], precision)
-                total_value += v
-                #
-                if compare_item:
-                    cv = round(compare_item['value'], precision)
-                    diff = round(v - cv, precision)
-                    if cv < v:
-                        v = f"{v} ({diff}) ↑"
-                    elif cv > v:
-                        v = f"{v} ({diff}) ↓"
-            elif item_type == '%':  # %
-                v = round(item['value'] * 100, precision)
-                total_value += v
-                vs = f"{v} %"
-                if compare_item:
-                    cv = round(compare_item['value'] * 100, precision)
-                    diff = round(v - cv, precision)
-                    if cv < v:
-                        vs = f"{vs} ({diff}) ↑"
-                    elif cv > v:
-                        vs = f"{vs} ({diff}) ↓"
-                v = vs
-            else:  # str
+            v = None
+            if item['value'] is not None:
+                if item_type == 'value':
+                    v = round(item['value'], precision)
+                    total_value += v
+                    #
+                    if compare_item:
+                        cv = round(compare_item['value'], precision)
+                        diff = round(v - cv, precision)
+                        if cv < v:
+                            v = f"{v} ({diff}) ↑"
+                        elif cv > v:
+                            v = f"{v} ({diff}) ↓"
+                elif item_type == '%':  # %
+                    v = round(item['value'] * 100, precision)
+                    total_value += v
+                    vs = f"{v} %"
+                    if compare_item:
+                        cv = round(compare_item['value'] * 100, precision)
+                        diff = round(v - cv, precision)
+                        if cv < v:
+                            vs = f"{vs} ({diff}) ↑"
+                        elif cv > v:
+                            vs = f"{vs} ({diff}) ↓"
+                    v = vs
+            if v is None:
                 v = item['value']
                 total_value = v
             report_str += f"{v}  | "
             row.append(v)
         # total
-        if item_type == 'value':
-            total_value = f"{round(total_value, precision)} / {round(total_value / len(headers), precision)}"
-        if item_type == '%':
-            total_value = f"{round(total_value, precision)} % / {round(total_value / len(headers), precision)} %"
+        if total_value is not None:
+            if item_type == 'value':
+                total_value = f"{round(total_value, precision)} / {round(total_value / len(headers), precision)}"
+            if item_type == '%':
+                total_value = f"{round(total_value, precision)} % / {round(total_value / len(headers), precision)} %"
         row.append(total_value)
         return report_str
 

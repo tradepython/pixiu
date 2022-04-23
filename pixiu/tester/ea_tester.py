@@ -205,7 +205,7 @@ class EATester(EABase):
                         'absolute_drawdown': {'value': 0, 'desc': 'Absolute Drawdown'}, #
                         'max_drawdown': {'value': 0, 'desc': 'Max Drawdown'}, #
                         'max_drawdown_rate': {'value': 0, 'desc': 'Max Drawdown Rate', 'type': '%'}, #
-                        'min_volume': {'value': math.inf, 'desc': 'Min Volume'},  #
+                        'min_volume': {'value': None, 'desc': 'Min Volume'},  #
                         'max_volume': {'value': 0, 'desc': 'Max Volume'},  #
                         'total_trades': {'value': 0, 'desc': 'Total Trades', 'precision': 0},#
                         'profit_trades': {'value': 0, 'desc': 'Profit Trades', 'precision': 0},#
@@ -493,7 +493,7 @@ class EATester(EABase):
         #
         if self.report['max_volume']['value'] < new_order['volume']:
             self.report['max_volume']['value'] = new_order['volume']
-        elif self.report['min_volume']['value'] > new_order['volume']:
+        elif self.report['min_volume']['value'] is None or self.report['min_volume']['value'] > new_order['volume'] > 0:
             self.report['min_volume']['value'] = new_order['volume']
 
         #

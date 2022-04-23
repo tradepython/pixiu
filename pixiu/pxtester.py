@@ -211,12 +211,16 @@ class PXTester(EATester):
             #
             precision = item.get('precision', 2)
             item_type = item.get('type', 'value')
-            if item_type == 'value':
-                report_str += f"{idx:02d}). {item['desc']}: {round(item['value'], precision)}\n"
-            elif item_type == '%': #%
-                report_str += f"{idx:02d}). {item['desc']}: {round(item['value']*100, precision)} %\n"
-            else: #str
-                report_str += f"{idx:02d}). {item['desc']}: {item['value']}\n"
+            rs = None
+            if item['value'] is not None:
+                if item_type == 'value':
+                    rs = f"{idx:02d}). {item['desc']}: {round(item['value'], precision)}\n"
+                elif item_type == '%': #%
+                    rs = f"{idx:02d}). {item['desc']}: {round(item['value']*100, precision)} %\n"
+            #str
+            if rs is None:
+                rs = f"{idx:02d}). {item['desc']}: {item['value']}\n"
+            report_str += rs
 
             idx += 1
         self.write_log(f"{report_str}", type='report')

@@ -1,4 +1,30 @@
 
+### [2022-04-23]
+#### Version:
+#####   Package:
+#####    pixiu: 0.82.*.20220423
+#####
+#### **Descriptions：**
+    1.symbol.py:
+      1) Add to_dataframe
+    2.api_base.py:
+      1) env_dict add _iter_unpack_sequence_ # [abs(value - level) < ave for _, level in levels]
+    3.ea_node_transformer.py:
+      1) Add EARestrictingNodeTransformer
+
+### [2022-04-22]
+#### Version:
+#####   Package:
+#####    pixiu: 0.81.*.20220422
+#####
+#### **Descriptions：**
+    1.ea_tester.py:
+      1) Change min_volume initial value to None
+    2.pxtester.py:
+      1)  Fix on_end_execute item['value'] None error
+    3.main.py:
+      1)  Fix gen_report_row item['value'] None error
+
 ### [2022-04-21]
 #### Version:
 #####   Package:

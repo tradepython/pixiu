@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import numpy as np
+import pandas
 from pixiu.api.utils import (parse_timeframe, calculate_minute_intervals, timeframe_to_seconds)
 
 
@@ -166,6 +167,15 @@ class SymbolData(object):
                                        self.timeframe,
                                        self.timeframe_seconds,
                                        key)
+
+    def to_dataframe(self, size=None):
+        if size is None:
+            size = self.__size__
+        a = self.__data__[:size]
+        ret = pandas.DataFrame({'time': a['t'], 'symbol': a['s'],
+                                'open': a['o'], 'high': a['h'], 'low': a['l'], 'close': a['c'],
+                                'volume': a['v'], 'ask': a['a'], 'bid': a['b']})
+        return ret
 
     @property
     def timeframe(self):

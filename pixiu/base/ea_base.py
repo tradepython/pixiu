@@ -4,14 +4,17 @@ import time
 import traceback
 from RestrictedPython import (compile_restricted, safe_globals, utility_builtins,)
 from RestrictedPython.PrintCollector import PrintCollector
-
-
+#
+from .ea_node_transformer import EARestrictingNodeTransformer
 
 import logging
 log = logging.getLogger(__name__)
 
+
+
+
 #---------------------------------------------------------------------------------------------------------------------
-# EA Classes
+# EABase Classes
 #---------------------------------------------------------------------------------------------------------------------
 class EABase():
     """"""
@@ -136,7 +139,8 @@ class EABase():
     @staticmethod
     def compile(script, filename='<inline>'):
         '''编译脚本'''
-        return compile_restricted(script, filename, 'exec')
+        # return compile_restricted(script, filename, 'exec')
+        return compile_restricted(script, filename, 'exec', policy=EARestrictingNodeTransformer)
 
     def do_tick(self,):
         if not self.byte_code:
