@@ -28,7 +28,7 @@ tests_require = [
 
 setup(
     name='pixiu',
-    version='0.82.0',
+    version='0.83.1',
     description='PiXiu - A trading backtesting tool similar to MT4/MT5',
     long_description=README + '\n\n' + CHANGES,
     long_description_content_type="text/markdown",

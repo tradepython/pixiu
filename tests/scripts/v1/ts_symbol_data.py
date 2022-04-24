@@ -48,7 +48,29 @@ for timeframe in timeframe_data:
                 f'@ {c_time}, {timeframe}')
     assertEqual(symbol_data.volume[valid_shift], get_timeframe_value_by_time(timeframe, c_time, "volume"),
                 f'@ {c_time}, {timeframe}')
+    #
+    symbol_data.open + symbol_data.open
+
+    #test dataframe
+    df = symbol_data.to_dataframe(size=50)
+    # r = pandas.to_datetime(df['time'][0], unit='s')
+    assertEqual(df['time'][valid_shift], get_timeframe_value_by_time(timeframe, c_time, "time").timestamp(),
+                f'@ {c_time}, {timeframe}')
+    assertEqual(df['open'][valid_shift], get_timeframe_value_by_time(timeframe, c_time, "open"),
+                f'@ {c_time}, {timeframe}')
+    assertEqual(df['close'][valid_shift], get_timeframe_value_by_time(timeframe, c_time, "close"),
+                f'@ {c_time}, {timeframe}')
+    assertEqual(df['high'][valid_shift], get_timeframe_value_by_time(timeframe, c_time, "high"),
+                f'@ {c_time}, {timeframe}')
+    assertEqual(df['low'][valid_shift], get_timeframe_value_by_time(timeframe, c_time, "low"),
+                f'@ {c_time}, {timeframe}')
+    assertEqual(df['ask'][valid_shift], get_timeframe_value_by_time(timeframe, c_time, "ask"),
+                f'@ {c_time}, {timeframe}')
+    assertEqual(df['bid'][valid_shift], get_timeframe_value_by_time(timeframe, c_time, "bid"),
+                f'@ {c_time}, {timeframe}')
+    assertEqual(df['volume'][valid_shift], get_timeframe_value_by_time(timeframe, c_time, "volume"),
+                f'@ {c_time}, {timeframe}')
+#
 
 set_test_result("OK")
-#
 # StopTester()

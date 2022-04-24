@@ -94,7 +94,8 @@ class TesterAPI_V1(API_V1_Base):
 
     def GetSymbolData(self, symbol: str, timeframe: str, size: int):
         data = self.tester.get_data_info(symbol, timeframe)
-        return SymbolData(data, timeframe, getitem_callback=self.tester.symbol_datagetitem_callback)
+        return SymbolData(data, timeframe, getitem_callback=self.tester.symbol_datagetitem_callback,
+                          getitem_index=self.tester.symbol_datagetitem_index)
 
     def GetAccount(self):
         return Account(self.tester.get_account())
@@ -290,7 +291,9 @@ class TesterAPI_V1(API_V1_Base):
             ret = SymbolIndicator(self.__calculate_indicator__(indicator_id, price_data, *args, **kwargs),
                                   price_data.ts_index,
                                   price_data.timeframe,
-                                  getitem_callback=price_data.__getitem_callback__)
+                                  getitem_callback=price_data.__getitem_callback__,
+                                  getitem_index=price_data.__getitem_index__,
+                                  )
             price_data.indicators[cache_name] = ret
         if ret is not None and shift is not None:
             return ret[shift]

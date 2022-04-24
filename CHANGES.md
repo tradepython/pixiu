@@ -1,4 +1,27 @@
 
+### [2022-04-24]
+#### Version:
+#####   Package:
+#####    pixiu: 0.83.*.20220424
+#####
+#### **Descriptions：**
+    1.symbol.py:
+      1) SymbolIndicator, SymbolPrice, SymbolTime, SymbolData add getitem_index
+      2) SymbolPrice add:
+            <	__lt__(self, other)
+            >	__gt__(self, other)
+            <=	__le__(self, other)
+            >=	__ge__(self, other)
+            ==	__eq__(self, other)
+            !=	__ne__(self, other)
+            +	__add__(self, other)
+            –	__sub__(self, other)
+            * __mul__(self, other)
+            /	__truediv__(self, other)
+            //	__floordiv__(self, other)
+            %	__mod__(self, other)
+            **	__pow__(self, other)
+
 ### [2022-04-23]
 #### Version:
 #####   Package:

@@ -284,10 +284,14 @@ class PXTester(EATester):
             #                         ('l', float), ('v', float), ('a', float), ('b', float), ])
         return raw_data, data
 
-    def symbol_datagetitem_callback(self, data, data_index_ts, timeframe, timeframe_seconds, shift, fail_value):
+    def symbol_datagetitem_index(self, data_index_ts, timeframe, timeframe_seconds, shift):
         t = int(self.tick_info[self.current_tick_index]['t']/ timeframe_seconds)*timeframe_seconds
         cidx = np.where(data_index_ts == t)[0][0]
         idx = cidx - shift
+        return idx
+
+    def symbol_datagetitem_callback(self, data, data_index_ts, timeframe, timeframe_seconds, shift, fail_value):
+        idx = self.symbol_datagetitem_index(data_index_ts, timeframe, timeframe_seconds, shift)
         # idx = self.current_tick_index - shift
         if idx < 0:
             return fail_value

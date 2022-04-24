@@ -91,6 +91,7 @@ assertEqual(symbol.currency_profit, valid_symbols[Symbol()]['currency_profit'])
 assertEqual(symbol.currency_base, valid_symbols[Symbol()]['currency_base'])
 assertEqual(symbol.currency_margin, valid_symbols[Symbol()]['currency_margin'])
 
+
 #Data
 for scope in (DataScope.EA, DataScope.EA_VERSION, DataScope.ACCOUNT, DataScope.EA_SETTIGNS):
     name = hashlib.md5(str(uuid.uuid4()).encode("utf-8")).hexdigest()

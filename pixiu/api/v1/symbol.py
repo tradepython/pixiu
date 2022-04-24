@@ -59,12 +59,13 @@ class Symbol(object):
 # SymbolData
 #---------------------------------------------------------------------------------------------------------------------
 class SymbolIndicator(object):
-    def __init__(self, data, ts_index, timeframe, getitem_callback):
+    def __init__(self, data, ts_index, timeframe, getitem_callback, getitem_index):
         self.__timeframe__ = timeframe
         self.__timeframe_seconds__ = timeframe_to_seconds(timeframe)
         self.data = data
         self.__ts_index__ = ts_index
         self.__getitem_callback__ = getitem_callback
+        self.__getitem_index__ = getitem_index
 
     @property
     def ts_index(self):
@@ -87,13 +88,14 @@ class SymbolIndicator(object):
 
 
 class SymbolPrice(object):
-    def __init__(self, symbol_data, price, getitem_callback):
+    def __init__(self, symbol_data, price, getitem_callback, getitem_index):
         # self.__timeframe__ = timeframe
         # self.__timeframe_seconds__ = timeframe_to_seconds(timeframe)
         self.__price__ = price
         self.__symbol_data__ = symbol_data
         self.indicators = {}
         self.__getitem_callback__ = getitem_callback
+        self.__getitem_index__ = getitem_index
 
     @property
     def ts_index(self):
@@ -114,13 +116,53 @@ class SymbolPrice(object):
                                        key, fail_value=np.NaN)
         return ret
 
+    def __add__(self, other):
+        return self.__price__ + other.__price__
+
+    def __sub__(self, other):
+        return self.__price__ - other.__price__
+
+    def __mul__(self, other):
+        return self.__price__ * other.__price__
+
+    def __truediv__(self, other):
+        return self.__price__ / other.__price__
+
+    def __floordiv__(self, other):
+        return self.__price__ // other.__price__
+
+    def __mod__(self, other):
+        return self.__price__ % other.__price__
+
+    def __pow__(self, other):
+        return self.__price__ ** other.__price__
+
+    def __lt__(self, other):
+        return self.__price__ < other.__price__
+
+    def __gt__(self, other):
+        return self.__price__ > other.__price__
+
+    def __le__(self, other):
+        return self.__price__ <= other.__price__
+
+    def __ge__(self, other):
+        return self.__price__ >= other.__price__
+
+    def __eq__(self, other):
+        return self.__price__ == other.__price__
+
+    def __ne__(self, other):
+        return self.__price__ != other.__price__
+
 
 class SymbolTime(object):
-    def __init__(self, symbol_data, price, getitem_callback):
+    def __init__(self, symbol_data, price, getitem_callback, getitem_index):
         self.__time__ = price
         self.__symbol_data__ = symbol_data
         self.indicators = {}
         self.__getitem_callback__ = getitem_callback
+        self.__getitem_index__ = getitem_index
 
     @property
     def ts_index(self):
@@ -144,22 +186,30 @@ class SymbolTime(object):
         return datetime.fromtimestamp(ts)
 
 class SymbolData(object):
-    def __init__(self, data, timeframe, getitem_callback):
+    def __init__(self, data, timeframe, getitem_callback, getitem_index):
         self.__timeframe__ = timeframe
         self.__timeframe_seconds__ = timeframe_to_seconds(timeframe)
         self.__data__ = data
         self.__size__ = data.size
         self.__ts_index__ = data['t']
-        self.__time__ = SymbolTime(self, data['t'], getitem_callback=getitem_callback)
-        self.__close_price__ = SymbolPrice(self, data['c'], getitem_callback=getitem_callback)
-        self.__open_price__ = SymbolPrice(self, data['o'], getitem_callback=getitem_callback)
-        self.__high_price__ = SymbolPrice(self, data['h'], getitem_callback=getitem_callback)
-        self.__low_price__ = SymbolPrice(self, data['l'], getitem_callback=getitem_callback)
-        self.__ask_price__ = SymbolPrice(self, data['a'], getitem_callback=getitem_callback)
-        self.__bid_price__ = SymbolPrice(self, data['b'], getitem_callback=getitem_callback)
-        self.__volume__ = SymbolPrice(self, data['v'], getitem_callback=getitem_callback)
+        self.__time__ = SymbolTime(self, data['t'], getitem_callback=getitem_callback, getitem_index=getitem_index)
+        self.__close_price__ = SymbolPrice(self, data['c'], getitem_callback=getitem_callback,
+                                           getitem_index=getitem_index)
+        self.__open_price__ = SymbolPrice(self, data['o'], getitem_callback=getitem_callback,
+                                          getitem_index=getitem_index)
+        self.__high_price__ = SymbolPrice(self, data['h'], getitem_callback=getitem_callback,
+                                          getitem_index=getitem_index)
+        self.__low_price__ = SymbolPrice(self, data['l'], getitem_callback=getitem_callback,
+                                         getitem_index=getitem_index)
+        self.__ask_price__ = SymbolPrice(self, data['a'], getitem_callback=getitem_callback,
+                                         getitem_index=getitem_index)
+        self.__bid_price__ = SymbolPrice(self, data['b'], getitem_callback=getitem_callback,
+                                         getitem_index=getitem_index)
+        self.__volume__ = SymbolPrice(self, data['v'], getitem_callback=getitem_callback,
+                                      getitem_index=getitem_index)
         self.indicators = {}
         self.__getitem_callback__ = getitem_callback
+        self.__getitem_index__ = getitem_index
 
     def __getitem__(self, key):
         # return self.__getitem_callback__(self.__data__, key)
@@ -168,10 +218,21 @@ class SymbolData(object):
                                        self.timeframe_seconds,
                                        key)
 
-    def to_dataframe(self, size=None):
-        if size is None:
+    def to_dataframe(self, index=0, size=None):
+        if index < 0:
+            return None
+        if size is None or size > self.__size__:
             size = self.__size__
-        a = self.__data__[:size]
+        offset = self.__getitem_index__(self.__data__['t'],
+                                       self.timeframe,
+                                       self.timeframe_seconds,
+                                       index)
+        if offset >= 0:
+            idx = offset - size - 1
+            a = self.__data__[0 if idx < 0 else idx: offset+1]
+        else:
+            a = self.__data__[self.__size__ - size : self.__size__ - offset + 1]
+        a = a[::-1]
         ret = pandas.DataFrame({'time': a['t'], 'symbol': a['s'],
                                 'open': a['o'], 'high': a['h'], 'low': a['l'], 'close': a['c'],
                                 'volume': a['v'], 'ask': a['a'], 'bid': a['b']})
