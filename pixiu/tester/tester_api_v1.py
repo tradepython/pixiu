@@ -312,7 +312,7 @@ class TesterAPI_V1(API_V1_Base):
             symbol_data:
         '''
         # real = ADX(high, low, close, timeperiod=14)
-        return self.__get_indicator__(f"adx:", shift, IndicatiorID.ADX, symbol_data, timeperiod)
+        return self.__get_indicator__(f"adx:{timeperiod}", shift, IndicatiorID.ADX, symbol_data, timeperiod)
 
     def iATR(self, symbol_data, timeperiod, shift=0):
         '''
@@ -321,7 +321,7 @@ class TesterAPI_V1(API_V1_Base):
             symbol_data:
         '''
         # real = ADX(high, low, close, timeperiod=14)
-        return self.__get_indicator__(f"atr:", shift, IndicatiorID.ATR, symbol_data, timeperiod)
+        return self.__get_indicator__(f"atr:{timeperiod}", shift, IndicatiorID.ATR, symbol_data, timeperiod)
 
 
     def iBands(self, symbol_data, timeperiod, nbdevup, nbdevdn, matype, shift=0):
@@ -331,7 +331,7 @@ class TesterAPI_V1(API_V1_Base):
             symbol_data:
         '''
         # real = ADX(high, low, close, timeperiod=14)
-        return self.__get_indicator__(f"bands:", shift, IndicatiorID.BANDS, symbol_data, timeperiod, nbdevup,
+        return self.__get_indicator__(f"bands:{matype}:{timeperiod}:{nbdevup}:{nbdevdn}", shift, IndicatiorID.BANDS, symbol_data, timeperiod, nbdevup,
                                       nbdevdn, matype)
 
 
@@ -342,7 +342,7 @@ class TesterAPI_V1(API_V1_Base):
             symbol_data:
         '''
         # real = ADX(high, low, close, timeperiod=14)
-        return self.__get_indicator__(f"cci:", shift, IndicatiorID.CCI, symbol_data, timeperiod)
+        return self.__get_indicator__(f"cci:{timeperiod}", shift, IndicatiorID.CCI, symbol_data, timeperiod)
 
 
     def iChaikin(self, symbol_data, fastperiod, slowperiod, shift=0):
@@ -352,7 +352,7 @@ class TesterAPI_V1(API_V1_Base):
             symbol_data:
         '''
         # real = ADX(high, low, close, timeperiod=14)
-        return self.__get_indicator__(f"chaikin:", shift, IndicatiorID.CHAIKIN, symbol_data, fastperiod, slowperiod)
+        return self.__get_indicator__(f"chaikin:{fastperiod}:{slowperiod}", shift, IndicatiorID.CHAIKIN, symbol_data, fastperiod, slowperiod)
 
 
     def iDEMA(self, symbol_data, timeperiod, shift=0):
@@ -362,7 +362,7 @@ class TesterAPI_V1(API_V1_Base):
             symbol_data:
         '''
         # real = ADX(high, low, close, timeperiod=14)
-        return self.__get_indicator__(f"dema:", shift, IndicatiorID.DEMA, symbol_data, timeperiod)
+        return self.__get_indicator__(f"dema:{timeperiod}", shift, IndicatiorID.DEMA, symbol_data, timeperiod)
 
 
     def iMomentum(self, symbol_data, timeperiod, shift=0):
@@ -372,7 +372,7 @@ class TesterAPI_V1(API_V1_Base):
             symbol_data:
         '''
         # real = ADX(high, low, close, timeperiod=14)
-        return self.__get_indicator__(f"momentum:", shift, IndicatiorID.MOMENTUM, symbol_data, timeperiod)
+        return self.__get_indicator__(f"momentum:{timeperiod}", shift, IndicatiorID.MOMENTUM, symbol_data, timeperiod)
 
 
     def iMFI(self, symbol_data, timeperiod, shift=0):
@@ -382,7 +382,7 @@ class TesterAPI_V1(API_V1_Base):
             symbol_data:
         '''
         # real = ADX(high, low, close, timeperiod=14)
-        return self.__get_indicator__(f"mfi:", shift, IndicatiorID.MFI, symbol_data, timeperiod)
+        return self.__get_indicator__(f"mfi:{timeperiod}", shift, IndicatiorID.MFI, symbol_data, timeperiod)
 
 
     def iMACD(self, symbol_data, fastperiod, slowperiod, signalperiod, shift=0):
@@ -392,7 +392,7 @@ class TesterAPI_V1(API_V1_Base):
             symbol_data:
         '''
         # real = ADX(high, low, close, timeperiod=14)
-        return self.__get_indicator__(f"macd:", shift, IndicatiorID.MACD, symbol_data, fastperiod, slowperiod,
+        return self.__get_indicator__(f"macd:{fastperiod}:{slowperiod}:{signalperiod}", shift, IndicatiorID.MACD, symbol_data, fastperiod, slowperiod,
                                       signalperiod)
 
 
@@ -413,7 +413,7 @@ class TesterAPI_V1(API_V1_Base):
             symbol_data:
         '''
         # real = ADX(high, low, close, timeperiod=14)
-        return self.__get_indicator__(f"sar:", shift, IndicatiorID.SAR, symbol_data, acceleration, maximum)
+        return self.__get_indicator__(f"sar:{acceleration}:{maximum}", shift, IndicatiorID.SAR, symbol_data, acceleration, maximum)
 
 
     def iRSI(self, symbol_data, timeperiod, shift=0):
@@ -423,7 +423,7 @@ class TesterAPI_V1(API_V1_Base):
             symbol_data:
         '''
         # real = ADX(high, low, close, timeperiod=14)
-        return self.__get_indicator__(f"rsi:", shift, IndicatiorID.RSI, symbol_data, timeperiod)
+        return self.__get_indicator__(f"rsi:{timeperiod}", shift, IndicatiorID.RSI, symbol_data, timeperiod)
 
     def iStdDev(self, symbol_data, timeperiod, nbdev, shift=0):
         '''
@@ -431,7 +431,7 @@ class TesterAPI_V1(API_V1_Base):
         Parameters
             symbol_data:
         '''
-        return self.__get_indicator__(f"stddev:", shift, IndicatiorID.STDDEV, symbol_data, timeperiod, nbdev)
+        return self.__get_indicator__(f"stddev:{timeperiod}:{nbdev}", shift, IndicatiorID.STDDEV, symbol_data, timeperiod, nbdev)
 
     def iStochastic(self, symbol_data, fastk_period, slowk_period, slowk_matype, slowd_period, slowd_matype, shift=0):
         '''
@@ -440,7 +440,7 @@ class TesterAPI_V1(API_V1_Base):
             symbol_data:
         '''
         # real = ADX(high, low, close, timeperiod=14)
-        return self.__get_indicator__(f"stochastic:", shift, IndicatiorID.STOCHASTIC, symbol_data,
+        return self.__get_indicator__(f"stochastic:{fastk_period}:{slowk_period}:{slowk_matype}:{slowd_period}:{slowd_matype}", shift, IndicatiorID.STOCHASTIC, symbol_data,
                                       fastk_period, slowk_period, slowk_matype, slowd_period, slowd_matype)
 
     def iTEMA(self, symbol_data, timeperiod, shift=0):
@@ -450,7 +450,7 @@ class TesterAPI_V1(API_V1_Base):
             symbol_data:
         '''
         # real = ADX(high, low, close, timeperiod=14)
-        return self.__get_indicator__(f"tema:", shift, IndicatiorID.TEMA, symbol_data, timeperiod)
+        return self.__get_indicator__(f"tema:{timeperiod}", shift, IndicatiorID.TEMA, symbol_data, timeperiod)
 
     def iWPR(self, symbol_data, timeperiod, shift=0):
         '''
@@ -459,5 +459,5 @@ class TesterAPI_V1(API_V1_Base):
             symbol_data:
         '''
         # real = ADX(high, low, close, timeperiod=14)
-        return self.__get_indicator__(f"wpr:", shift, IndicatiorID.WPR, symbol_data, timeperiod)
+        return self.__get_indicator__(f"wpr:{timeperiod}", shift, IndicatiorID.WPR, symbol_data, timeperiod)
 

@@ -1,4 +1,13 @@
 
+### [2022-04-26]
+#### Version:
+#####   Package:
+#####    pixiu: 0.84.*.20220426
+#####
+#### **Descriptions：**
+    1.tester_api_v1.py:
+        1) Fix __get_indicator__ cache_name error
+
 ### [2022-04-24]
 #### Version:
 #####   Package:
