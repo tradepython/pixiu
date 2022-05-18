@@ -1759,12 +1759,41 @@ class EATester(EABase):
         prev_return = 0.0
         for i, row in ret.iterrows():
             value = row[column]
-            r = math.log(value / prev_return) if prev_return != 0.0 else 0.0
+            # r = math.log(value / prev_return) if prev_return != 0.0 else 0.0
+            v = value / prev_return if prev_return != 0.0 else 0.0
+            if v <= 0:
+                r = v
+            else:
+                r = math.log(v)
             ret.at[i, 'return'] = r
             ret.at[i, 'negative_return'] = r if r < 0 else 0.0
             # ret.at[i, 'return'] = value / prev_return - 1 if prev_return != 0.0 else 0.0
             prev_return = value
         return ret
+
+    # def calculate_returns(self, ):
+    #     count = len(self.return_logs)
+    #     if count < 2:
+    #         return None
+    #     column = 'equity'
+    #     ret = pd.DataFrame(self.return_logs, columns=[column, ])
+    #     ret['return'] = 0.0
+    #     # calculate returns
+    #     prev_return = 0.0
+    #     for i, row in ret.iterrows():
+    #         value = row[column]
+    #         # r = math.log(value / prev_return) if prev_return != 0.0 else 0.0
+    #         try:
+    #             r = math.log(value / prev_return) if prev_return != 0.0 else 0.0
+    #         except:
+    #             r = 0
+    #             print(f"value={value}, prev_return={prev_return}")
+    #             traceback.print_exc()
+    #         ret.at[i, 'return'] = r
+    #         ret.at[i, 'negative_return'] = r if r < 0 else 0.0
+    #         # ret.at[i, 'return'] = value / prev_return - 1 if prev_return != 0.0 else 0.0
+    #         prev_return = value
+    #     return ret
 
     # def calculate_returns(self, ):
     #     count = len(self.account_logs)

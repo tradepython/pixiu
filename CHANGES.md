@@ -1,4 +1,14 @@
 
+### [2022-05-18]
+#### Version:
+#####   Package:
+#####    pixiu: 0.85.*.20220518
+#####
+#### **Descriptions：**
+    1.ea_tester.py:
+        1) Fix calculate_returns calculation error
+
+
 ### [2022-04-26]
 #### Version:
 #####   Package:
