@@ -1,4 +1,14 @@
 
+### [2022-06-20]
+#### Version:
+#####   Package:
+#####    pixiu: 0.86.*.20220620
+#####
+#### **Descriptions：**
+    1.Add ea_tester_graph
+       support dash + plotly
+        
+
 ### [2022-05-18]
 #### Version:
 #####   Package:

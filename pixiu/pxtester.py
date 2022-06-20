@@ -14,15 +14,21 @@ from pathlib import Path
 
 #
 from pixiu.api import (TimeFrame, )
-from pixiu.tester import (EATester, )
+from pixiu.tester import (EATester, EATesterGraphServer)
 
 
 class PXTester(EATester):
-    def __init__(self, test_config_path, test_name, script_path, log_path=None, print_log_type=None, test_result=None):
+    def __init__(self, test_config_path, test_name, script_path, log_path=None, print_log_type=None, test_result=None,
+                 tester_graph_server=None, test_graph_data=None):
         self.test_name = test_name
         self.test_result = test_result
+        self.test_graph_data = test_graph_data
         self.parse_test_config(test_config_path, test_name, script_path, log_path, print_log_type)
         super(PXTester, self).__init__(self.eat_params)
+        self.tester_graph_server = tester_graph_server
+        self.tick_order_logs = []
+        name = f"{self.test_name} ({self.eat_params['script_path']})"
+        self.graph_data = dict(ticks=[], name=name, symbol=self.symbol, group=self.test_name)
 
     def lib_path(self, name, version):
         return f"libs/{name}/{name}_V{version}.py"
@@ -30,6 +36,8 @@ class PXTester(EATester):
     def add_order_log(self, log_dict):
         super(PXTester, self).add_order_log(log_dict)
         self.write_log(f"Order Log: #{log_dict['id']}: {log_dict}", type='order')
+        self.tick_order_logs.append(log_dict)
+
 
     def add_account_log(self, log_dict):
         super(PXTester, self).add_account_log(log_dict)
@@ -175,6 +183,7 @@ class PXTester(EATester):
 
     def init_data(self):
         super(PXTester, self).init_data()
+        self.tick_order_logs = []
 
     def on_load_ticks(self, *args, **kwargs):
         self.tick_info = self.get_data_info(symbol=self.symbol, timeframe=self.tick_timeframe,
@@ -194,12 +203,44 @@ class PXTester(EATester):
                 self.write_log(l, type='ea')
             self.last_update_print_log_index += len(logs)
             # #
-
             #
             self.update_log_time = time.time()
+    #
+    # def __update_execuate_log__(self, ticket, count=20, force=False):
+    #     if force or time.time() - self.update_log_time > 2:  # 1s
+    #         if count is not None:
+    #             eidx = self.last_update_print_log_index + count
+    #         else:
+    #             eidx = None
+    #         logs = self.print_logs[self.last_update_print_log_index:eidx]
+    #         # OEOEHuiEATester.add_logs(self.ticket, 'print', logs)
+    #         for l in logs:
+    #             self.write_log(l, type='ea')
+    #         self.last_update_print_log_index += len(logs)
+    #         # #
+    #
+    #         #
+    #         self.update_log_time = time.time()
+
 
     def on_end_tick(self, *args, **kwargs):
-        self.__update_execuate_log__(self.ticket, count=20, force=False)
+        try:
+            self.__update_execuate_log__(self.ticket, count=20, force=False)
+            tick = dict(t=self.Time().timestamp(), o=self.Open(), c=self.Close(),
+                                                                    h=self.High(), l=self.Low(), v=self.Volume(),
+                                                                    equity=self.account['equity'],
+                                                                    balance=self.account['balance'],
+                                                                    margin=self.account['margin'],
+                                                                    orders=self.tick_order_logs)
+            self.graph_data['ticks'].append(tick)
+            if self.tester_graph_server is not None:
+                data = dict(cmd='update_data', name=self.graph_data['name'],
+                            symbol=self.graph_data['symbol'], group=self.graph_data['group'],
+                                                data=dict(price=tick))
+                self.tester_graph_server.send_message(json.dumps(data))
+            self.tick_order_logs = []
+        except:
+            traceback.print_exc()
         return 0
 
     def on_end_execute(self, *args, **kwargs):
@@ -226,6 +267,8 @@ class PXTester(EATester):
         self.write_log(f"{report_str}", type='report')
         if self.test_result is not None:
             self.test_result.value = json.dumps(dict(report=self.report))
+        if self.test_graph_data is not None:
+            self.test_graph_data.value = json.dumps(dict(graph_data=self.graph_data))
 
         return 0
     #

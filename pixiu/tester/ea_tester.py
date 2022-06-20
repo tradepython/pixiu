@@ -154,6 +154,7 @@ class EATester(EABase):
         #
         self.current_api = TesterAPI_V1(tester=self, data_source={}, default_symbol=params["symbol"])
         self.data = {DataScope.EA_VERSION: {}, DataScope.EA: {}, DataScope.ACCOUNT: {}, DataScope.EA_SETTIGNS: {}}
+        #
 
     def percent_str_to_float(self, val, default):
         try:
@@ -1870,6 +1871,8 @@ class EATester(EABase):
                                    profit=profit))
 
         self.add_print_log()
+        #
+
 
     def last_price_time(self, symbol):
         if symbol == self.symbol:
