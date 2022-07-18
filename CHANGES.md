@@ -1,4 +1,12 @@
 
+### [2022-07-18]
+#### Version:
+#####   Package:
+#####    pixiu: 0.87.*.20220718
+#####
+#### **Descriptions：**
+    1. Fix gen_report_row total_value bug
+
 ### [2022-06-20]
 #### Version:
 #####   Package:

@@ -166,7 +166,7 @@ class MainApp:
                             vs = f"{vs} ({diff}) ↓"
                     v = vs
             if v is None:
-                v = item['value']
+                v = 0 if item['value'] is None else item['value']
                 total_value = v
             report_str += f"{v}  | "
             row.append(v)
@@ -210,6 +210,7 @@ class MainApp:
 
     def run_tester(self, test_config_path, test_name, script_path, log_path, print_log_type, result_value, graph,
                    message_queue, graph_data):
+        graph_server = None
         if graph:
             graph_server = EATesterGraphServer(message_queue)
         pxt = PXTester(test_config_path=test_config_path, test_name=test_name, script_path=script_path,
