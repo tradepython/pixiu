@@ -83,9 +83,11 @@ class PXTester(EATester):
             self.eat_params['print_log_type'] = print_log_type
         #
         if "start_time" not in self.eat_params.keys():
-            self.eat_params['start_time'] = str(datetime.fromtimestamp(self.new_a[0]['t']))
+            # self.eat_params['start_time'] = str(datetime.fromtimestamp(self.new_a[0]['t']))
+            self.eat_params['start_time'] = str(datetime.utcfromtimestamp(self.new_a[0]['t']))
         if "end_time" not in self.eat_params.keys():
-            self.eat_params['end_time'] = str(datetime.fromtimestamp(self.new_a[-1]['t']))
+            # self.eat_params['end_time'] = str(datetime.fromtimestamp(self.new_a[-1]['t']))
+            self.eat_params['end_time'] = str(datetime.utcfromtimestamp(self.new_a[-1]['t']))
 
     def get_url_data(self, url, timeout=90):
         try:

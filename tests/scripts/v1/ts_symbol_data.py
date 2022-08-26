@@ -28,6 +28,7 @@ timeframe_data = {TimeFrame.S1: {'seconds': 1}, TimeFrame.M1: {'seconds': 60}, T
                        TimeFrame.M15: {'seconds': 900}, TimeFrame.M30: {'seconds': 1800},
                        TimeFrame.H1: {'seconds': 3600}, TimeFrame.H4: {'seconds': 14400},
                        TimeFrame.D1: {'seconds': 86400}}
+#
 for timeframe in timeframe_data:
     symbol_data = GetSymbolData(Symbol(), timeframe, 50)
 
@@ -54,7 +55,7 @@ for timeframe in timeframe_data:
     #test dataframe
     df = symbol_data.to_dataframe(size=50)
     # r = pandas.to_datetime(df['time'][0], unit='s')
-    assertEqual(df['time'][valid_shift], get_timeframe_value_by_time(timeframe, c_time, "time").timestamp(),
+    assertEqual(df['time'][valid_shift], get_timeframe_value_by_time(timeframe, c_time, "time").replace(tzinfo=timezone('UTC')).timestamp(),
                 f'@ {c_time}, {timeframe}')
     assertEqual(df['open'][valid_shift], get_timeframe_value_by_time(timeframe, c_time, "open"),
                 f'@ {c_time}, {timeframe}')

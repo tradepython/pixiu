@@ -1,4 +1,52 @@
 
+### [2022-08-26]
+#### Version:
+#####   Package:
+#####    pixiu: 0.90.*.20220826
+#####
+#### **Descriptions：**
+    1.test_pixiu.py:
+     1) test_ea_tester_func_base: datetime.utcfromtimestamp(new_a['t'][idx])
+     2) test_ea_tester_func_indicators: datetime.utcfromtimestamp(new_a['t'][idx])
+    2.ts_symbol_data.py:
+     1) Change 
+            assertEqual(df['time'][valid_shift], get_timeframe_value_by_time(timeframe, c_time, "time").timestamp(),
+                f'@ {c_time}, {timeframe}')
+        to 
+            assertEqual(df['time'][valid_shift], get_timeframe_value_by_time(timeframe, c_time, "time").replace(tzinfo=timezone('UTC')).timestamp(),
+                f'@ {c_time}, {timeframe}')
+    3.setup.py:
+     1) Add requires: dash, plotly
+
+
+### [2022-08-02]
+#### Version:
+#####   Package:
+#####    pixiu: 0.89.*.20220802
+#####
+#### **Descriptions：**
+    1.ea_tester.py:
+     1) Fix calculate_return_ratio return value error
+
+### [2022-07-28]
+#### Version:
+#####   Package:
+#####    pixiu: 0.88.*.20220728
+#####
+#### **Descriptions：**
+    1.pxtester.py:
+      1) Change datetime.fromtimestamp to datetime.utcfromtimestamp
+    2.account.py:
+      1) Change datetime.fromtimestamp to datetime.utcfromtimestamp
+    3.order.py:
+      1) Change datetime.fromtimestamp to datetime.utcfromtimestamp
+    4.symbol.py:
+      1) Change datetime.fromtimestamp to datetime.utcfromtimestamp
+    5.ea_tester.py:
+      1) Change datetime.fromtimestamp to datetime.utcfromtimestamp
+    6.test_pixiu.py:
+      1) Change datetime.fromtimestamp to datetime.utcfromtimestamp
+
 ### [2022-07-18]
 #### Version:
 #####   Package:

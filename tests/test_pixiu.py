@@ -4,6 +4,7 @@
 
 import os
 import argparse
+import pytz
 from datetime import (datetime, timedelta)
 import sys
 from unittest import (TestCase, TestLoader, TestSuite, TextTestRunner, skip, skipIf)
@@ -180,7 +181,8 @@ class EATTester(EATester):
 
     def t_check(self, name, value, *args, **kwargs):
         if name == "Close":
-            self.test_obj.assertEqual(value, self.Close(), msg=f"{name}: {datetime.fromtimestamp(self.current_time())}: error!")
+            # self.test_obj.assertEqual(value, self.Close(), msg=f"{name}: {datetime.fromtimestamp(self.current_time())}: error!")
+            self.test_obj.assertEqual(value, self.Close(), msg=f"{name}: {datetime.fromtimestamp(self.current_time(), tz=pytz.utc)}: error!")
 
 class PiXiuTests(TestCase):
     def setUp(self):
@@ -231,6 +233,7 @@ class PiXiuTests(TestCase):
              symbol_properties=self.symbol_properties,
              global_values=dict(
                  assertEqual=np.testing.assert_equal,
+                 assertAlmostEqual=self.assertAlmostEqual,
                  assertNotEqual=self.assertNotEqual,
                  assertIsNone=self.assertIsNone,
                  assertIsNotNone=self.assertIsNotNone,
@@ -367,9 +370,11 @@ class PiXiuTests(TestCase):
         # ma_matype = 1
         # ma_values = talib.MA(new_a['c'], timeperiod=ma_timeperiod, matype=ma_matype)
         for idx in range(new_a.size):
-            values[datetime.fromtimestamp(new_a['t'][idx])] = {}
+            # values[datetime.fromtimestamp(new_a['t'][idx])] = {}
+            values[datetime.utcfromtimestamp(new_a['t'][idx])] = {}
             for ti in test_items:
-                values[datetime.fromtimestamp(new_a['t'][idx])][ti['name']] = ti['values'][idx]
+                # values[datetime.fromtimestamp(new_a['t'][idx])][ti['name']] = ti['values'][idx]
+                values[datetime.utcfromtimestamp(new_a['t'][idx])][ti['name']] = ti['values'][idx]
 
         self.eat_params['script_path'] = os.path.abspath("scripts/v1/ts_indicators.py")
         self.eat_params['global_values'].update(dict(valid_symbol=self.symbol,
@@ -417,11 +422,14 @@ class PiXiuTests(TestCase):
                 bid = close
             if ask == 0:
                 ask = bid + (self.spread_point * self.symbol_properties[self.symbol]['point'])
-            values[datetime.fromtimestamp(new_a['t'][idx])] = dict(open=a['o'], close=close,
+            # values[datetime.fromtimestamp(new_a['t'][idx])] = dict(open=a['o'], close=close,
+            # values[datetime.fromtimestamp(new_a['t'][idx], tz=pytz.utc)] = dict(open=a['o'], close=close,
+            values[datetime.utcfromtimestamp(new_a['t'][idx])] = dict(open=a['o'], close=close,
                                                                    high=a['h'], low=a['l'],
                                                                    ask=ask, bid=bid,
                                                                    volume=a['v'],
-                                                                   time=datetime.fromtimestamp(a['t'])
+                                                                   # time=datetime.fromtimestamp(a['t'])
+                                                                   time=datetime.utcfromtimestamp(a['t'])
                                                                    )
 
         #
@@ -439,7 +447,10 @@ class PiXiuTests(TestCase):
     def get_timeframe_value_by_time(self, timeframe, v_time, item_name):
         tfd = self.timeframe_data.get(timeframe, None)
         seconds = tfd['seconds']
-        ts = int(v_time.timestamp() / seconds) * seconds
+        # print(f"{v_time}, {v_time.replace(tzinfo=pytz.utc).timestamp()}")
+        # print(f"{datetime.utcfromtimestamp(tfd['data']['t'][0])}, {tfd['data']['t'][0]}")
+        # ts = int(v_time.timestamp() / seconds) * seconds
+        ts = int(v_time.replace(tzinfo=pytz.utc).timestamp() / seconds) * seconds
         a = tfd['data'][tfd['data']['t'] == ts][0]
         close = a['c']
         ask = a['a']
@@ -450,10 +461,11 @@ class PiXiuTests(TestCase):
         #     ask = bid + (self.spread_point * self.symbol_properties[self.symbol]['point'])
         v = dict(open=a['o'], close=close,
                             high=a['h'], low=a['l'],
-                                                               ask=ask, bid=bid,
-                                                               volume=a['v'],
-                                                               time=datetime.fromtimestamp(a['t'])
-                                                               )
+                   ask=ask, bid=bid,
+                   volume=a['v'],
+                   # time=datetime.fromtimestamp(a['t'])
+                   time=datetime.utcfromtimestamp(a['t'])
+                   )
         return v[item_name]
 
     def init_values(self):
@@ -475,11 +487,13 @@ class PiXiuTests(TestCase):
             #     bid = close
             # if ask == 0:
             #     ask = bid + (self.spread_point * self.symbol_properties[self.symbol]['point'])
-            self.values[datetime.fromtimestamp(new_a['t'][idx])] = dict(open=a['o'], close=close,
+            # self.values[datetime.fromtimestamp(new_a['t'][idx])] = dict(open=a['o'], close=close,
+            self.values[datetime.utcfromtimestamp(new_a['t'][idx])] = dict(open=a['o'], close=close,
                                                                    high=a['h'], low=a['l'],
                                                                    ask=ask, bid=bid,
                                                                    volume=a['v'],
-                                                                   time=datetime.fromtimestamp(a['t'])
+                                                                   # time=datetime.fromtimestamp(a['t'])
+                                                                   time=datetime.utcfromtimestamp(a['t'])
                                                                    )
 
 
@@ -527,7 +541,8 @@ class PiXiuTests(TestCase):
             p = new_a[idx]['a']
             if p < a:
                 buylimit_price = p
-                buylimit_time = datetime.fromtimestamp(new_a[idx]['t'])
+                # buylimit_time = datetime.fromtimestamp(new_a[idx]['t'])
+                buylimit_time = datetime.utcfromtimestamp(new_a[idx]['t'])
                 break
         #
         self.eat_params['script_path'] = os.path.abspath("scripts/v1/ts_order_buylimit.py")
@@ -548,7 +563,8 @@ class PiXiuTests(TestCase):
             p = new_a[idx]['a']
             if p > a:
                 buystop_price = p
-                buystop_time = datetime.fromtimestamp(new_a[idx]['t'])
+                # buystop_time = datetime.fromtimestamp(new_a[idx]['t'])
+                buystop_time = datetime.utcfromtimestamp(new_a[idx]['t'])
                 break
         #
         self.eat_params['script_path'] = os.path.abspath("scripts/v1/ts_order_buystop.py")
@@ -568,7 +584,8 @@ class PiXiuTests(TestCase):
             p = new_a[idx]['b']
             if p > b:
                 selllimit_price = p
-                selllimit_time = datetime.fromtimestamp(new_a[idx]['t'])
+                # selllimit_time = datetime.fromtimestamp(new_a[idx]['t'])
+                selllimit_time = datetime.utcfromtimestamp(new_a[idx]['t'])
                 break
         #
         self.eat_params['script_path'] = os.path.abspath("scripts/v1/ts_order_selllimit.py")
@@ -587,7 +604,8 @@ class PiXiuTests(TestCase):
             p = new_a[idx]['b']
             if p < b:
                 sellstop_price = p
-                sellstop_time = datetime.fromtimestamp(new_a[idx]['t'])
+                # sellstop_time = datetime.fromtimestamp(new_a[idx]['t'])
+                sellstop_time = datetime.utcfromtimestamp(new_a[idx]['t'])
                 break
         #
         self.eat_params['script_path'] = os.path.abspath("scripts/v1/ts_order_sellstop.py")

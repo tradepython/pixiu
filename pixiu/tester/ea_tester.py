@@ -523,7 +523,8 @@ class EATester(EABase):
             return errid, order_uid
         #
         self.add_order_log(dict(uid=order_uid, ticket=order_dict['ticket'],
-                                 time=str(datetime.fromtimestamp(order_dict['open_time'])),
+                                 # time=str(datetime.fromtimestamp(order_dict['open_time'])),
+                                 time=str(datetime.utcfromtimestamp(order_dict['open_time'])),
                                  type=order_dict['cmd'], volume=order_dict['volume'],
                                  price=price,
                                  stop_loss=round(order_dict['stop_loss'], self.price_digits),
@@ -901,7 +902,8 @@ class EATester(EABase):
             return errid, dict(order_uid=order_uid, command_uid=None, sync=True)
         #add order log
         self.add_order_log(dict(uid=order_uid, ticket=order_dict['ticket'],
-                                 time=str(datetime.fromtimestamp(order_dict['open_time'])),
+                                 # time=str(datetime.fromtimestamp(order_dict['open_time'])),
+                                 time=str(datetime.utcfromtimestamp(order_dict['open_time'])),
                                  type=cmd, volume=volume,
                                  price=round(price, self.price_digits),
                                  stop_loss=round(stop_loss, self.price_digits),
@@ -957,7 +959,8 @@ class EATester(EABase):
 
         #
         order_log = dict(uid=order_uid, ticket=order_dict['ticket'],
-                                 time=str(datetime.fromtimestamp(self.current_time())),
+                                 # time=str(datetime.fromtimestamp(self.current_time())),
+                                 time=str(datetime.utcfromtimestamp(self.current_time())),
                                  type="MODIFY",
                                  volume=order_dict['volume'], price=round(price, self.price_digits),
                                  # stop_loss=round(stop_loss, self.price_digits),
@@ -1170,7 +1173,8 @@ class EATester(EABase):
         close_price = ret['close_price']
         #
         self.add_order_log(dict(uid=order_dict['uid'], ticket=order_dict['ticket'],
-                                    time=str(datetime.fromtimestamp(close_time)),
+                                    # time=str(datetime.fromtimestamp(close_time)),
+                                    time=str(datetime.utcfromtimestamp(close_time)),
                                     type="CLOSE", volume=order_dict['volume'],
                                     price=round(close_price, self.price_digits),
                                     stop_loss=round(order_dict['stop_loss'], self.price_digits),
@@ -1245,7 +1249,8 @@ class EATester(EABase):
                 close_price = ret['close_price']
                 #
                 self.add_order_log(dict(uid=order_dict['uid'], ticket=order_dict['ticket'],
-                                            time=str(datetime.fromtimestamp(close_time)),
+                                            # time=str(datetime.fromtimestamp(close_time)),
+                                            time=str(datetime.utcfromtimestamp(close_time)),
                                             type="CLOSE_MULTI_ORDERS", volume=order_dict['volume'],
                                             price=round(close_price, self.price_digits),
                                             stop_loss=round(order_dict['stop_loss'], self.price_digits),
@@ -1308,7 +1313,9 @@ class EATester(EABase):
     def Time(self, shift=0, symbol=None) -> datetime:
         if symbol is not None and symbol != self.symbol:
             return None
-        return datetime.fromtimestamp(self.tick_info['t'][self.current_tick_index - shift])
+        # return datetime.fromtimestamp(self.tick_info['t'][self.current_tick_index - shift])
+        return datetime.utcfromtimestamp(self.tick_info['t'][self.current_tick_index - shift])
+        # return datetime.utcfromtimestamp(self.tick_info['t'][self.current_tick_index - shift]).replace(tzinfo=pytz.utc)
 
     def Volume(self, shift=0, symbol=None) -> float:
         if symbol is not None and symbol != self.symbol:
@@ -1809,14 +1816,14 @@ class EATester(EABase):
     #     return ret
     #
     def calculate_return_ratio(self):
+        ret = {'sharpe_ratio': 0, 'sortino_ratio': 0}
         returns = self.calculate_returns()
         if returns is None:
-            return 0.0
+            return ret
         count = returns.shape[0] - 1
         if count < 1:
-            return 0.0
+            return ret
         #Sharpe
-        ret = {}
         mean = returns[1:]['return'].mean()
         for n in [('sharpe_ratio', 'return'), ('sortino_ratio', 'negative_return')]:
             std = returns[1:][n[1]].std(ddof=0)
@@ -1866,7 +1873,8 @@ class EATester(EABase):
             # self.account['margin_level'] = round(equity / margin * 100, self.default_digits)
             self.account['margin_level'] = round((equity - margin) / margin * 100, self.default_digits)
 
-        self.add_account_log(dict(time=str(datetime.fromtimestamp(time)), balance=balance, margin=margin,
+        # self.add_account_log(dict(time=str(datetime.fromtimestamp(time)), balance=balance, margin=margin,
+        self.add_account_log(dict(time=str(datetime.utcfromtimestamp(time)), balance=balance, margin=margin,
                                    equity=equity, free_margin=free_margin,
                                    profit=profit))
 

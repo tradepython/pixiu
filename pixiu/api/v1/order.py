@@ -13,13 +13,15 @@ class Order(object):
         open_time = self.order_dict.get("open_time", None)
         if open_time is not None:
             if isinstance(open_time, int) or isinstance(open_time, float):
-                self.order_dict["open_time"] = datetime.fromtimestamp(open_time)
+                # self.order_dict["open_time"] = datetime.fromtimestamp(open_time)
+                self.order_dict["open_time"] = datetime.utcfromtimestamp(open_time)
             else:
                 self.order_dict["open_time"] = parse_datetime_string(open_time)
         close_time = self.order_dict.get("close_time", None)
         if close_time is not None:
             if isinstance(close_time, int) or isinstance(close_time, float):
-                self.order_dict["close_time"] = datetime.fromtimestamp(close_time)
+                # self.order_dict["close_time"] = datetime.fromtimestamp(close_time)
+                self.order_dict["close_time"] = datetime.utcfromtimestamp(close_time)
             else:
                 self.order_dict["close_time"] = parse_datetime_string(close_time)
         self.order_dict["commission"] = self.order_dict.get("commission", 0.0)

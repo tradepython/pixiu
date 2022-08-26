@@ -137,7 +137,8 @@ class AccountDataTime(object):
                                        key)
         if ts is None:
             return None
-        return datetime.fromtimestamp(ts)
+        # return datetime.fromtimestamp(ts)
+        return datetime.utcfromtimestamp(ts)
 
 class AccountData(object):
     def __init__(self, data, timeframe, getitem_callback):

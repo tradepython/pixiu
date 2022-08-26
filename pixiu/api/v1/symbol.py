@@ -183,7 +183,9 @@ class SymbolTime(object):
                                        key, fail_value=None)
         if ts is None:
             return None
-        return datetime.fromtimestamp(ts)
+        # return datetime.fromtimestamp(ts)
+
+        return datetime.utcfromtimestamp(ts)
 
 class SymbolData(object):
     def __init__(self, data, timeframe, getitem_callback, getitem_index):
