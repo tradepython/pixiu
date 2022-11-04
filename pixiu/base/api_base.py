@@ -25,6 +25,7 @@ class API_V1_Base(API_V1):
     def __init__(self, data_source, default_symbol):
         self.data_source = data_source
         self.default_symbol = default_symbol
+        self._safe_modules = frozenset(('time', '_strptime',))
 
     def dict_to_order(self, order_dict):
         return Order(order_dict)
@@ -54,13 +55,19 @@ class API_V1_Base(API_V1):
 
     def lock_object(self):
         return LockObject
-    #
+
+    def _safe_import(self, name, *args, **kwargs):
+        if name not in self._safe_modules:
+            raise Exception(f"Can not import module {name!r}")
+        return __import__(name, *args, **kwargs)
+
     def set_fun(self, env_dict):
         #BuildIn
         #see: https://github.com/zopefoundation/RestrictedPython/blob/9d3d403a97d7f030b6ed0f82900b2efac151dec3/tests/transformer/test_classdef.py
         env_dict["__metaclass__"] = type #support class
         env_dict["__name__"] = "ea_script" #support class
         env_dict["_write_"] = lambda x: x
+        env_dict["__builtins__"]["__import__"] = self._safe_import
         #support print
         env_dict["_print_"] = self._print_
         env_dict["_getitem_"] = self.default_guarded_getitem

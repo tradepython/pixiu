@@ -1,4 +1,22 @@
 
+### [2022-11-04]
+#### Version:
+#####   Package:
+#####    pixiu: 0.92.*.20221104
+#####
+#### **Descriptions：**
+    1.api_base.py:
+     1) Add _safe_import
+
+### [2022-10-25]
+#### Version:
+#####   Package:
+#####    pixiu: 0.91.*.20221025
+#####
+#### **Descriptions：**
+    1.ea_tester.py:
+     1)Add execute_script
+
 ### [2022-08-26]
 #### Version:
 #####   Package:

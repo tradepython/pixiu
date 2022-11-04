@@ -1912,6 +1912,18 @@ class EATester(EABase):
                              args=(self.ticket,))
             thread.start()
         return self.ticket
+
+    def execute_script(self, ticket, sync=False):
+        self.ticket = ticket
+        if self.on_before_execute(sync) != 0:
+            return None
+        if sync:
+            self.execute_script_(self.ticket, )
+        else:
+            thread = threading.Thread(target=self.execute_script_,
+                             args=(self.ticket,))
+            thread.start()
+        return self.ticket
     #
 
     def get_price_count(self, symbol, tf_str='1m'):
@@ -1936,6 +1948,20 @@ class EATester(EABase):
 
     def on_execute_status(self, ticket, status, *args, **kwargs):
         self.write_log(f"{ticket}: {status}")
+
+    def on_execute_exception(self):
+        id = 0
+        for exc in sys.exc_info():
+            log.error(f"exc:{id}: {str(exc)}")
+            id += 1
+        tb_next = sys.exc_info()[2]
+        exception = "Exception:\n"
+        while tb_next is not None:
+            if tb_next.tb_frame.f_code.co_filename == '<inline>':
+                exception += "  line %d, in %s \n" % (tb_next.tb_lineno, tb_next.tb_frame.f_code.co_name)
+            tb_next = tb_next.tb_next
+        return exception
+
 
     def execute_(self, ticket):
         """"""
@@ -2030,15 +2056,58 @@ class EATester(EABase):
             status["stop"] = 1
             self.on_execute_status(ticket, status)
 
-    def on_execute_exception(self):
-        id = 0
-        for exc in sys.exc_info():
-            log.error(f"exc:{id}: {str(exc)}")
-            id += 1
-        tb_next = sys.exc_info()[2]
-        exception = "Exception:\n"
-        while tb_next is not None:
-            if tb_next.tb_frame.f_code.co_filename == '<inline>':
-                exception += "  line %d, in %s \n" % (tb_next.tb_lineno, tb_next.tb_frame.f_code.co_name)
-            tb_next = tb_next.tb_next
-        return exception
+    def execute_script_(self, ticket):
+        """"""
+        try:
+            test_start_time = datetime.now()
+            pixiu_version = pkg_resources.get_distribution('pixiu').version
+            self.write_log(
+                f"\n\n == PiXiu({pixiu_version}) Backtesting Start: {test_start_time}, Ticket: {ticket}, Symbol: {self.symbol}, Period: {self.start_time} - {self.end_time}, "
+                f"Timeframe: {self.tick_timeframe}, Mode: {self.tick_mode} == \n\n")
+            self.init_data()
+            self.update_log_task_running = True
+            self.on_pre_load_ticks()
+            #
+            expiration = 900  # 900s
+            self.on_load_ticks()
+            #
+            count = self.tick_info.size
+            #
+            self.write_log(f"Tick Count: {count}, Tick Max Count: {self.tick_max_count}")
+            status = dict(current=self.current_tick_index, max=count, errid=0)
+            self.report['ticks']['value'] = status['max']
+            self.on_execute_status(ticket, status)
+            self.on_begin_execute()
+            last_call_status_time = 0
+            try:
+                #
+                self.do_tick()
+                while True:
+                    # if self.stop:
+                    #     raise PXErrorCode(EID_EAT_TEST_STOP)
+                    #read command
+                    # cmd = input('p>>')
+                    cmd = f"print(GetOpenedOrderUIDs())"
+                    byte_code = EABase.compile(cmd)
+                    #execute command
+                    # exec(cmd, self.safe_globals)
+                    exec(byte_code, self.safe_globals)
+                    #output result
+            except Exception as exc:
+                if isinstance(exc, AssertionError):
+                    raise exc
+                traceback.print_exc()
+                exception_msg = self.on_execute_exception()
+                errid = EID_EAT_ERROR
+            self.on_end_execute()
+
+        except Exception as exc:
+            if isinstance(exc, AssertionError):
+                raise exc
+            # traceback.print_exc()
+            # status = {}
+            # status["exception"] = "Unknown errors, terminated. \n"
+            # status["errid"] = 0
+            # status["stop"] = 1
+            # self.on_execute_status(ticket, status)
+

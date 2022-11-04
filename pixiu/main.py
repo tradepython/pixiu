@@ -209,15 +209,30 @@ class MainApp:
     #     print(tabulate(data, headers=headers, tablefmt="pretty"))
 
     def run_tester(self, test_config_path, test_name, script_path, log_path, print_log_type, result_value, graph,
-                   message_queue, graph_data):
+                   message_queue, graph_data, exec):
         graph_server = None
         if graph:
             graph_server = EATesterGraphServer(message_queue)
         pxt = PXTester(test_config_path=test_config_path, test_name=test_name, script_path=script_path,
                        log_path=log_path, print_log_type=print_log_type, test_result=result_value,
                        tester_graph_server=graph_server, test_graph_data=graph_data)
-        pxt.execute("", sync=True)
+        if exec:
+            # pxt.execute("", sync=True)
+            pxt.execute_script("", sync=True)
+        else:
+            pxt.execute("", sync=True)
 
+    #
+    # def run_tester(self, test_config_path, test_name, script_path, log_path, print_log_type, result_value, graph,
+    #                message_queue, graph_data, exec):
+    #     graph_server = None
+    #     if graph:
+    #         graph_server = EATesterGraphServer(message_queue)
+    #     pxt = PXTester(test_config_path=test_config_path, test_name=test_name, script_path=script_path,
+    #                    log_path=log_path, print_log_type=print_log_type, test_result=result_value,
+    #                    tester_graph_server=graph_server, test_graph_data=graph_data)
+    #     pxt.execute("", sync=True)
+    #
     def get_script_path(self, args):
         if not args.scriptpath:
             return None
@@ -261,7 +276,7 @@ class MainApp:
             gd = manager.Value(c_wchar_p, '')
             graph_data = manager.Value(c_wchar_p, '')
             pool_args.append((args.testconfig, test_name, script_path, args.logpath, args.printlogtype, tr,
-                              args.graph, message_queue, gd))
+                              args.graph, message_queue, gd, args.exec))
             # results[test_name] = tr
             results[test_name] = dict(result=tr, graph_data=gd)
         #
@@ -318,7 +333,7 @@ class MainApp:
             tr = manager.Value(c_wchar_p, '')
             gd = manager.Value(c_wchar_p, '')
             pool_args.append((args.testconfig, test_name, script_path, args.logpath, args.printlogtype, tr,
-                              args.graph, message_queue, gd))
+                              args.graph, message_queue, gd, args.exec))
             # results[test_name] = tr
             results[test_name] = dict(result=tr, graph_data=gd)
 
@@ -407,6 +422,7 @@ def main(*args, **kwargs):
     parser.add_argument('-l', '--datafile', type=str, default='_pixiu_data.json', help='Data file name')
     parser.add_argument('-r', '--compare', nargs='+', help='Compare with the tags list')
     parser.add_argument('-g', '--graph', type=MainApp.str2bool, default=False, help='Display tester graph')
+    parser.add_argument('-x', '--exec', type=str, required=False, help='Exec command')
     args = parser.parse_args()
     manager = Manager()
 
