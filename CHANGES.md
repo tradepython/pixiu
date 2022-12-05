@@ -1,4 +1,13 @@
 
+### [2022-12-02]
+#### Version:
+#####   Package:
+#####    pixiu: 0.93.*.20221202
+#####
+#### **Descriptions：**
+   1.pxtester.py:
+     1) Fix get_data_info tzinfo error
+
 ### [2022-11-04]
 #### Version:
 #####   Package:

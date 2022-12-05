@@ -2,6 +2,7 @@
 import csv
 import json
 import time
+import pytz
 import dateutil
 import hashlib
 import traceback
@@ -379,7 +380,8 @@ class PXTester(EATester):
         if data is None:
             st = dateutil.parser.parse(self.start_time)
             et = dateutil.parser.parse(self.end_time)
-            ary = self.new_a[(self.new_a['t'] >= st.timestamp()) & (self.new_a['t'] < et.timestamp())]
+            # ary = self.new_a[(self.new_a['t'] >= st.timestamp()) & (self.new_a['t'] < et.timestamp())]
+            ary = self.new_a[(self.new_a['t'] >= st.replace(tzinfo=pytz.utc).timestamp()) & (self.new_a['t'] < et.replace(tzinfo=pytz.utc).timestamp())]
             #
             data = self.pandas_to_tf_data(ary, timeframe)
             self.symbol_data[symbol][timeframe] = data
