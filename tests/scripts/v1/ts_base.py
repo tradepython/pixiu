@@ -1,5 +1,36 @@
 # SetMetadata("copyright", "2022")
 
+# settings = {"charts":{"price":{"series":[{"name":"top_signal","color":"#89F3DAFF"},{"name":"bottom_signal","color":"#e7dc48"}]}},
+#             "params":{"debug": {"value": true, "config": {"type": "bool", "required": true}},
+#                       "notify": {"value": false, "config": {"type": "bool", "required": true}},
+#                       "brake_hedging_orders": {"value": 99, "config": {"type": "int", "required": true, "min": 0}},
+#                       "return_ratio": {"value": 1.0, "config": {"type": "float", "required": true, "min": 0.5}},
+#                       "group_max_loss_orders": 15, "group_max_loss": 0, "group_max_order_size": 5.0, "group_size_calc_mode": {"value": 100, "config": {"type": "int", "options": {"0": "Group Loss Orders", "100": "Group Profit"}}}, "group_main_order_direction": {"value": 0, "config": {"type": "int", "options": {"0": "Breakout", "100": "Reverse"}}}, "brake_hedging_volume": 99, "brake_hedging_time": 0, "brake_hedging_margin_level": 10, "brake_amount": 20, "brake_cold_down_minute": 240, "clean_group_id": 0, "cmd_exec": "", "group_target_profit": 0, "profit_protection": "40:30:pips", "risk_open_pause": "", "risk_recal_offset_pips": 25, "open_direction": {"value": 0, "config": {"type": "int", "options": {"0": "LONG & SHORT", "1": "LONG ONLY", "2": "SHORT ONLY", "3": "DISABLE"}}}, "trading_style": {"value": 1.3, "config": {"type": "float", "options": {"1.3": "Greedy (1.3)", "1.25": "Robust (1.25)", "1.2": "Conservative (1.2)", "1.1": "!!Loss (1.1)"}}}}}
+
+#AddSettings("charts", "price", {"series":[{"name":"top_signal","color":"#89F3DAFF"},{"name":"bottom_signal","color":"#e7dc48"}]})
+AddChart(name="price", chart={"series":[{"name":"top_signal","color":"#89F3DAFF"},{"name":"bottom_signal","color":"#e7dc48"}]})
+# AddSettings("debug", {"value": True, "config": {"type": "bool", "required": True}})
+AddParam("debug", value=True, type="bool", required=True)
+AddParam("notify", param={"value": False, "config": {"type": "bool", "required": True}})
+#
+def PX_ValidScriptSettings():
+    success = True
+    if success:
+        cmd_exec = GetParam("cmd_exec", None)
+        if cmd_exec is None:
+            success = False
+            errmsg = ''
+    if success:
+        pass
+    return dict(success=success, errmsg=errmsg)
+
+def PX_InitScriptSettings():
+    return {"charts":{"price":{"series":[{"name":"top_signal","color":"#89F3DAFF"},{"name":"bottom_signal","color":"#e7dc48"}]}},
+            "params":{"debug": {"value": True, "config": {"type": "bool", "required": True}}, "notify": {"value": False, "config": {"type": "bool", "required": True}},  "brake_hedging_orders": {"value": 99, "config": {"type": "int", "required": True, "min": 0}},  "return_ratio": {"value": 1.0, "config": {"type": "float", "required": True, "min": 0.5}}, "group_max_loss_orders": 20, "group_max_loss": "-10%", "group_max_order_size": 5.0, "group_size_calc_mode": {"value": 100, "config": {"type": "int", "options": {"0": "Group Loss Orders", "100": "Group Profit"}}}, "group_main_order_direction": {"value": 0, "config": {"type": "int", "options": {"0": "Breakout", "100": "Reverse"}}}, "brake_hedging_volume": 99, "brake_hedging_time": 0, "brake_hedging_margin_level": 10, "brake_amount": 20, "brake_cold_down_minute": 240, "clean_group_id": 0, "cmd_exec": "", "group_target_profit": 0, "profit_protection": "40:30:pips", "risk_open_pause": "", "risk_recal_offset_pips": 25, "open_direction": {"value": 0, "config": {"type": "int", "options": {"0": "LONG & SHORT", "1": "LONG ONLY", "2": "SHORT ONLY", "3": "DISABLE"}}}, "trading_style": {"value": 1.3, "config": {"type": "float", "options": {"1.3": "Greedy (1.3)", "1.25": "Robust (1.25)", "1.2": "Conservative (1.2)", "1.1": "!!Loss (1.1)"}}}}}
+
+# def PX_OnCommand(command, params):
+#     return True
+
 def test_timezone():
     tz = timezone('EST')
     d = Time().astimezone(tz)

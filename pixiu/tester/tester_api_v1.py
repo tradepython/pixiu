@@ -142,9 +142,16 @@ class TesterAPI_V1(API_V1_Base):
     def Plot(self, series):
         self.tester.plot('default', series)
 
+    def AddChart(self, name, **kwargs):
+        return self.tester.add_chart(name, **kwargs)
+
+    def AddParam(self, name, **kwargs):
+        return self.tester.add_param(name, **kwargs)
+
     def GetParam(self, name, default=None):
         '''Get params'''
         return self.tester.get_param(name, default)
+
 
     def GetSettings(self, name, default=None):
         return self.tester.get_settings(name, default)

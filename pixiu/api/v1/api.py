@@ -32,6 +32,7 @@ class DataScope():
     EA_VERSION = 200
     ACCOUNT = 300
     EA_SETTIGNS = 400
+    EA_SETTINGS = 400
 
 
 ErrorID = NewType('ErrorID', int)
@@ -253,6 +254,34 @@ class APIStub(abc.ABC):
 
                 Returns:
                         The symbol information.
+        '''
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def AddChart(self, name, **kwargs):
+        '''
+        Add Chart parameter.
+
+                Parameters:
+                        name (str): The Chart name.
+
+
+                Returns:
+                        The EA parameter value.
+        '''
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def AddParam(self, name, **kwargs):
+        '''
+        Add EA parameter.
+
+                Parameters:
+                        name (str): The EA parameter name.
+
+
+                Returns:
+                        The EA parameter value.
         '''
         raise NotImplementedError
 

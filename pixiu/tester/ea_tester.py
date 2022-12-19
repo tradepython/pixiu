@@ -75,6 +75,9 @@ class EATester(EABase):
         self.log_file = None
         self.log_path = params.get("log_path", None)
         self.print_log_type = params.get("print_log_type", ['account', 'ea', 'order', 'report'])
+        self.print_collection = None
+        self.add_ea_settings = None
+
         #
         margin_so_so = self.percent_str_to_float(params.get("margin_so_so", None), 1.0) #100%
         if margin_so_so < 0:
@@ -98,7 +101,7 @@ class EATester(EABase):
         self.script_settings = None
         try:
             ss = params.get("script_settings", self.script_metadata.get('script_settings', None))
-            if ss:
+            if isinstance(ss, str):
                 self.script_settings = json.loads(ss)
         except:
             traceback.print_exc()
@@ -150,11 +153,110 @@ class EATester(EABase):
                 if k not in self.account:
                     self.account[k] = default_value[k]
         #
-        self.print_collection = None
         #
         self.current_api = TesterAPI_V1(tester=self, data_source={}, default_symbol=params["symbol"])
         self.data = {DataScope.EA_VERSION: {}, DataScope.EA: {}, DataScope.ACCOUNT: {}, DataScope.EA_SETTIGNS: {}}
         #
+
+    def parse_script(self, script_text):
+        ret = {}
+        try:
+            ret = EABase.parse_script_text(script_text)
+            script_init_settings = {}
+            r = self.get_script_init_settings(script_text)
+            if 'script_settings' in r:
+                ret['script_settings'] = r['script_settings']
+        except:
+            traceback.print_exc()
+        return ret
+
+    def add_chart(self, name, **kwargs):
+        try:
+            if self.add_ea_settings is None:
+                return False
+            if 'chart' in kwargs:
+                self.add_ea_settings['charts'][name] = kwargs['chart']
+        except:
+            traceback.print_exc()
+            return False
+        return True
+
+    def add_param(self, name, **kwargs):
+        try:
+            if self.add_ea_settings is None:
+                return False
+            if 'param' in kwargs:
+                self.add_ea_settings['params'][name] = kwargs['param']
+        except:
+            traceback.print_exc()
+            return False
+        return True
+
+    def get_script_init_settings(self, script_text):
+        ret = {}
+        try:
+            if not script_text or not isinstance(script_text, str):
+                return ret
+            sg = safe_globals.copy()
+            # sg['AddChart'] = EABase({}).add_chart
+            # sg['AddParam'] = EABase({}).add_param
+            # sg['_print_'] = EABase({}).fake
+            # sg['assertTrue'] = EABase({}).fake
+            # sg['assertEqual'] = EABase({}).fake
+            # sg['RunMode'] = EABase({}).fake
+            # sg['RunModeValue'] = EABase({}).fake
+            # sg['TimeFrame'] = EABase({}).fake
+            loc = {}
+            # self.import_module('pixiu.api.errors', self.safe_globals)
+            api = TesterAPI_V1(tester=self, data_source={}, default_symbol="")
+            api.set_fun(sg)
+            for k in self.global_values:
+                sg[k] = self.global_values[k]
+            #
+            self.current_tick_index = 0
+            # self.tick_info = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0]],
+            self.tick_info = np.zeros((1,),
+                     dtype=[('s', object), ('t', float), ('o', float), ('h', float), ('c', float),
+                        ('l', float), ('v', float), ('a', float), ('b', float), ])
+            self.account_info = None
+            self.add_ea_settings = dict(charts={}, params={})
+
+            #
+            # for k in sg:
+            #     sg[k] = self.global_values[k]
+
+            # keywords = ['author', 'copyright', 'name', 'version', 'label', 'script_settings', 'lib', 'library']
+            lib_bc = EABase.compile(script_text, 'init_script')
+            # ret = eval(lib_bc, "InitConfig()")
+            try:
+                exec(lib_bc, sg)
+            except:
+                traceback.print_exc()
+            # exec PX_InitScriptSettings
+            script_settings = {}
+            try:
+                settings = eval("PX_InitScriptSettings()", sg)
+                if isinstance(settings, dict):
+                    script_settings = settings.copy()
+            except:
+                traceback.print_exc()
+
+            #copy add ea settings
+            for cn in self.add_ea_settings['charts']:
+                script_settings['charts'][cn] = self.add_ea_settings['charts'][cn].copy()
+            for pn in self.add_ea_settings['params']:
+                script_settings['params'][pn] = self.add_ea_settings['params'][pn].copy()
+            # ret2 = eval("EA_InitScriptSettings", sg)()
+            try:
+                valid_ret = eval(f"PX_ValidScriptSettings()", sg)
+                if valid_ret is not None:
+                    pass
+            except:
+                traceback.print_exc()
+            ret['script_settings'] = script_settings
+        except:
+            traceback.print_exc()
+        return ret
 
     def percent_str_to_float(self, val, default):
         try:

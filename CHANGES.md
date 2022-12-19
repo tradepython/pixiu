@@ -1,4 +1,42 @@
 
+### [2022-12-19]
+#### Version:
+#####   Package:
+#####    pixiu: 0.97.*.20221219
+#####
+#### **Descriptions：**
+     1.Add global API:
+      PX_InitScriptSettings, PX_ValidScriptSettings
+      Call order:
+       PX_InitScriptSettings -> AddChart/AddParam -> PX_ValidScriptSettings
+
+### [2022-12-07]
+#### Version:
+#####   Package:
+#####    pixiu: 0.96.*.20221207
+#####
+#### **Descriptions：**
+    1.api.py:
+      Add AddChart, AddParam
+
+### [2022-12-06]
+#### Version:
+#####   Package:
+#####    pixiu: 0.95.*.20221206
+#####
+#### **Descriptions：**
+    1.api.py:
+      Add AddChart, AddParam
+
+### [2022-12-05]
+#### Version:
+#####   Package:
+#####    pixiu: 0.94.*.20221205
+#####
+#### **Descriptions：**
+   1.pxtester.py:
+     1) Replace json with json5
+
 ### [2022-12-02]
 #### Version:
 #####   Package:

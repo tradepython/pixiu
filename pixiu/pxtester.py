@@ -1,6 +1,7 @@
 # env
 import csv
-import json
+# import json
+import json5 as json
 import time
 import pytz
 import dateutil
@@ -65,9 +66,18 @@ class PXTester(EATester):
         #
         tick_data = test_params['tick_data']
         if isinstance(tick_data, str):
-            data = np.genfromtxt(tick_data, delimiter=',',
-                                 dtype=[('s', object), ('t', float), ('o', float), ('h', float), ('c', float),
-                                        ('l', float), ('v', float), ('a', float), ('b', float), ], skip_header=1)
+            # data = np.genfromtxt(tick_data, delimiter=',',
+            #                      dtype=[('s', object), ('t', float), ('o', float), ('h', float), ('c', float),
+            #                             ('l', float), ('v', float), ('a', float), ('b', float), ], skip_header=1)
+            try:
+                data = np.genfromtxt(tick_data, delimiter=',',
+                                     dtype=[('s', object), ('t', 'datetime64[s]'), ('o', float), ('h', float), ('c', float),
+                                            ('l', float), ('v', float), ('a', float), ('b', float), ], skip_header=1)
+            except ValueError as ex:
+                data = np.genfromtxt(tick_data, delimiter=',',
+                                     dtype=[('s', object), ('t', float), ('o', float), ('h', float), ('c', float),
+                                            ('l', float), ('v', float), ('a', float), ('b', float), ], skip_header=1)
+
         else:
             data = self.get_tick_data_from_channel(symbol, tick_data)
 
@@ -240,7 +250,7 @@ class PXTester(EATester):
                 data = dict(cmd='update_data', name=self.graph_data['name'],
                             symbol=self.graph_data['symbol'], group=self.graph_data['group'],
                                                 data=dict(price=tick))
-                self.tester_graph_server.send_message(json.dumps(data))
+                self.tester_graph_server.send_message(json.dumps(data, quote_keys=True))
             self.tick_order_logs = []
         except:
             traceback.print_exc()
@@ -269,9 +279,9 @@ class PXTester(EATester):
             idx += 1
         self.write_log(f"{report_str}", type='report')
         if self.test_result is not None:
-            self.test_result.value = json.dumps(dict(report=self.report))
+            self.test_result.value = json.dumps(dict(report=self.report), quote_keys=True)
         if self.test_graph_data is not None:
-            self.test_graph_data.value = json.dumps(dict(graph_data=self.graph_data))
+            self.test_graph_data.value = json.dumps(dict(graph_data=self.graph_data), quote_keys=True)
 
         return 0
     #

@@ -11,7 +11,22 @@ import logging
 log = logging.getLogger(__name__)
 
 
+from ..base.api_base import (API_V1_Base)
 
+# class InitApi(API_V1_Base):
+#     def __init__(self, controller):
+#         super(InitApi, self).__init__(data_source=None, default_symbol=None)
+#         self.controller = controller
+#
+#     def _print_(self, *args, **kwargs):
+#         """"""
+#         return self.controller.get_print_factory(*args, **kwargs)
+#
+#     def AddChart(self, name, **kwargs):
+#         return self.controller.add_chart(name, **kwargs)
+#
+#     def AddParam(self, name, **kwargs):
+#         return self.controller.add_param(name, **kwargs)
 
 #---------------------------------------------------------------------------------------------------------------------
 # EABase Classes
@@ -83,10 +98,11 @@ class EABase():
             lib_metadata = self.parse_script(code)
             lib_data = dict(name=lib_name, version=lib_version, path=lib_path, code=code, metadata=lib_metadata)
             ret.append(lib_data)
+            #
         return ret
 
     @staticmethod
-    def parse_script(script_text):
+    def parse_script_text(script_text):
         ret = {}
         try:
             if not script_text or not isinstance(script_text, str):
@@ -107,6 +123,63 @@ class EABase():
         except:
             traceback.print_exc()
         return ret
+
+    # @staticmethod
+    # def parse_script(script_text):
+    #     ret = {}
+    #     try:
+    #         ret = EABase.parse_script_text(script_text)
+    #         EABase.init_script(script_text)
+    #     except:
+    #         traceback.print_exc()
+    #     return ret
+
+    # def fake(self, *args, **kwargs):
+    #     return PrintCollector(None)
+    #
+    # def add_chart(self, name, **kwargs):
+    #     self.chart = {'name': name, 'charts': kwargs['charts']}
+    #
+    # def add_param(self, name, **kwargs):
+    #     pass
+
+
+    # @staticmethod
+    # def init_script(script_text):
+    #     ret = {}
+    #     try:
+    #         if not script_text or not isinstance(script_text, str):
+    #             return ret
+    #         sg = safe_globals.copy()
+    #         # sg['AddChart'] = EABase({}).add_chart
+    #         # sg['AddParam'] = EABase({}).add_param
+    #         # sg['_print_'] = EABase({}).fake
+    #         # sg['assertTrue'] = EABase({}).fake
+    #         # sg['assertEqual'] = EABase({}).fake
+    #         # sg['RunMode'] = EABase({}).fake
+    #         # sg['RunModeValue'] = EABase({}).fake
+    #         # sg['TimeFrame'] = EABase({}).fake
+    #         loc = {}
+    #         # self.import_module('pixiu.api.errors', self.safe_globals)
+    #         init_api = InitApi(EABase({}))
+    #         init_api.set_fun(sg)
+    #         #
+    #         # for k in sg:
+    #         #     sg[k] = self.global_values[k]
+    #
+    #         # keywords = ['author', 'copyright', 'name', 'version', 'label', 'script_settings', 'lib', 'library']
+    #         lib_bc = EABase.compile(script_text, 'init_script')
+    #         # ret = eval(lib_bc, "InitConfig()")
+    #         exec(lib_bc, sg)
+    #     except:
+    #         traceback.print_exc()
+    #     return ret
+
+    # def add_chart(self, name, **kwargs):
+    #     return True, None
+    #
+    # def add_param(self, name, **kwargs):
+    #     return True, None
 
     def get_param(self, name, default=None):
         try:
