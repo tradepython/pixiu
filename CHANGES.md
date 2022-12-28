@@ -1,4 +1,16 @@
 
+### [2022-12-28]
+#### Version:
+#####   Package:
+#####    pixiu: 0.98.*.20221228
+#####
+#### **Descriptions：**
+     1.Add global API:
+      PX_InitScriptSettings, PX_ValidScriptSettings
+      Call order:
+       PX_InitScriptSettings -> AddChart/AddParam -> PX_ValidScriptSettings
+     2.Add ts_settings.py
+
 ### [2022-12-19]
 #### Version:
 #####   Package:

@@ -103,6 +103,9 @@ class EATester(EABase):
             ss = params.get("script_settings", self.script_metadata.get('script_settings', None))
             if isinstance(ss, str):
                 self.script_settings = json.loads(ss)
+            else:
+                self.script_settings = ss
+
         except:
             traceback.print_exc()
         #
@@ -186,7 +189,30 @@ class EATester(EABase):
             if self.add_ea_settings is None:
                 return False
             if 'param' in kwargs:
-                self.add_ea_settings['params'][name] = kwargs['param']
+                # self.add_ea_settings['params'][name] = kwargs['param']
+                param = kwargs['param']
+            else:
+                param = {"value": None, "config": {"type": "bool", "required": True}}
+                if 'value' in kwargs:
+                    param['value'] = kwargs['value']
+                else:
+                    return False
+                if 'type' in kwargs:
+                    param['config']['type'] = kwargs['type']
+                else:
+                    param['config']['type'] = 'str'
+                if 'min' in kwargs:
+                    param['config']['min'] = kwargs['min']
+                if 'max' in kwargs:
+                    param['config']['max'] = kwargs['max']
+                if 'options' in kwargs:
+                    param['config']['options'] = kwargs['options']
+                #
+                param['config']['required'] = kwargs.get('required', False)
+                # AddParam("debug", value=True, type="bool", required=True)
+                # AddParam("notify", param={"value": False, "config": {"type": "bool", "required": True}})
+            self.add_ea_settings['params'][name] = param
+
         except:
             traceback.print_exc()
             return False
@@ -231,7 +257,8 @@ class EATester(EABase):
             try:
                 exec(lib_bc, sg)
             except:
-                traceback.print_exc()
+                # traceback.print_exc()
+                pass
             # exec PX_InitScriptSettings
             script_settings = {}
             try:
@@ -248,11 +275,14 @@ class EATester(EABase):
                 script_settings['params'][pn] = self.add_ea_settings['params'][pn].copy()
             # ret2 = eval("EA_InitScriptSettings", sg)()
             try:
-                valid_ret = eval(f"PX_ValidScriptSettings()", sg)
+                valid_ret = eval(f"PX_ValidScriptSettings", sg)(script_settings)
                 if valid_ret is not None:
-                    pass
+                    if not valid_ret['success']:
+                        print(f"PX_ValidScriptSettings: errmsg={valid_ret.get('errmsg', None)}")
+                        return None
             except:
-                traceback.print_exc()
+                # traceback.print_exc()
+                pass
             ret['script_settings'] = script_settings
         except:
             traceback.print_exc()

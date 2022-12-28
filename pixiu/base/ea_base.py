@@ -6,6 +6,7 @@ from RestrictedPython import (compile_restricted, safe_globals, utility_builtins
 from RestrictedPython.PrintCollector import PrintCollector
 #
 from .ea_node_transformer import EARestrictingNodeTransformer
+import numpy as np
 
 import logging
 log = logging.getLogger(__name__)
@@ -47,6 +48,7 @@ class EABase():
         self.loc = {}
         self.df_columns = ('t', 's', 'o', 'h', 'l', 'c', 'v', 'a', 'b')
         self.ea_log_callback = params.get('ea_log_callback', None)
+        self.add_ea_settings = None
         #
 
     def get_print_factory(self, _getattr_=None):
@@ -124,28 +126,54 @@ class EABase():
             traceback.print_exc()
         return ret
 
-    # @staticmethod
-    # def parse_script(script_text):
-    #     ret = {}
-    #     try:
-    #         ret = EABase.parse_script_text(script_text)
-    #         EABase.init_script(script_text)
-    #     except:
-    #         traceback.print_exc()
-    #     return ret
 
-    # def fake(self, *args, **kwargs):
-    #     return PrintCollector(None)
+    def add_chart(self, name, **kwargs):
+        try:
+            if self.add_ea_settings is None:
+                return False
+            if 'chart' in kwargs:
+                self.add_ea_settings['charts'][name] = kwargs['chart']
+        except:
+            traceback.print_exc()
+            return False
+        return True
+
+    def add_param(self, name, **kwargs):
+        try:
+            if self.add_ea_settings is None:
+                return False
+            if 'param' in kwargs:
+                # self.add_ea_settings['params'][name] = kwargs['param']
+                param = kwargs['param']
+            else:
+                param = {"value": None, "config": {"type": "bool", "required": True}}
+                if 'value' in kwargs:
+                    param['value'] = kwargs['value']
+                else:
+                    return False
+                if 'type' in kwargs:
+                    param['config']['type'] = kwargs['type']
+                else:
+                    param['config']['type'] = 'str'
+                if 'min' in kwargs:
+                    param['config']['min'] = kwargs['min']
+                if 'max' in kwargs:
+                    param['config']['max'] = kwargs['max']
+                if 'options' in kwargs:
+                    param['config']['options'] = kwargs['options']
+                #
+                param['config']['required'] = kwargs.get('required', False)
+                # AddParam("debug", value=True, type="bool", required=True)
+                # AddParam("notify", param={"value": False, "config": {"type": "bool", "required": True}})
+            self.add_ea_settings['params'][name] = param
+
+        except:
+            traceback.print_exc()
+            return False
+        return True
+
     #
-    # def add_chart(self, name, **kwargs):
-    #     self.chart = {'name': name, 'charts': kwargs['charts']}
-    #
-    # def add_param(self, name, **kwargs):
-    #     pass
-
-
-    # @staticmethod
-    # def init_script(script_text):
+    # def get_script_init_settings(self, script_text):
     #     ret = {}
     #     try:
     #         if not script_text or not isinstance(script_text, str):
@@ -161,8 +189,19 @@ class EABase():
     #         # sg['TimeFrame'] = EABase({}).fake
     #         loc = {}
     #         # self.import_module('pixiu.api.errors', self.safe_globals)
-    #         init_api = InitApi(EABase({}))
-    #         init_api.set_fun(sg)
+    #         api = self.get_api()
+    #         api.set_fun(sg)
+    #         for k in self.global_values:
+    #             sg[k] = self.global_values[k]
+    #         #
+    #         self.current_tick_index = 0
+    #         # self.tick_info = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0]],
+    #         self.tick_info = np.zeros((1,),
+    #                  dtype=[('s', object), ('t', float), ('o', float), ('h', float), ('c', float),
+    #                     ('l', float), ('v', float), ('a', float), ('b', float), ])
+    #         self.account_info = None
+    #         self.add_ea_settings = dict(charts={}, params={})
+    #
     #         #
     #         # for k in sg:
     #         #     sg[k] = self.global_values[k]
@@ -170,16 +209,135 @@ class EABase():
     #         # keywords = ['author', 'copyright', 'name', 'version', 'label', 'script_settings', 'lib', 'library']
     #         lib_bc = EABase.compile(script_text, 'init_script')
     #         # ret = eval(lib_bc, "InitConfig()")
-    #         exec(lib_bc, sg)
+    #         try:
+    #             exec(lib_bc, sg)
+    #         except:
+    #             # traceback.print_exc()
+    #             pass
+    #         # exec PX_InitScriptSettings
+    #         script_settings = {}
+    #         try:
+    #             settings = eval("PX_InitScriptSettings()", sg)
+    #             if isinstance(settings, dict):
+    #                 script_settings = settings.copy()
+    #         except:
+    #             traceback.print_exc()
+    #
+    #         #copy add ea settings
+    #         for cn in self.add_ea_settings['charts']:
+    #             script_settings['charts'][cn] = self.add_ea_settings['charts'][cn].copy()
+    #         for pn in self.add_ea_settings['params']:
+    #             script_settings['params'][pn] = self.add_ea_settings['params'][pn].copy()
+    #         # ret2 = eval("EA_InitScriptSettings", sg)()
+    #         try:
+    #             valid_ret = eval(f"PX_ValidScriptSettings", sg)(script_settings)
+    #             if valid_ret is not None:
+    #                 if not valid_ret['success']:
+    #                     print(f"PX_ValidScriptSettings: errmsg={valid_ret.get('errmsg', None)}")
+    #                     return None
+    #         except:
+    #             # traceback.print_exc()
+    #             pass
+    #         ret['script_settings'] = script_settings
     #     except:
     #         traceback.print_exc()
     #     return ret
 
-    # def add_chart(self, name, **kwargs):
-    #     return True, None
-    #
-    # def add_param(self, name, **kwargs):
-    #     return True, None
+    def init_script_env(self, script_text):
+        ret = {}
+        try:
+            if not script_text or not isinstance(script_text, str):
+                return None
+            sg = safe_globals.copy()
+            loc = {}
+            # self.import_module('pixiu.api.errors', self.safe_globals)
+            api = self.get_api()
+            api.set_fun(sg)
+            for k in self.global_values:
+                sg[k] = self.global_values[k]
+            #
+            self.current_tick_index = 0
+            # self.tick_info = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0]],
+            self.tick_info = np.zeros((1,),
+                     dtype=[('s', object), ('t', float), ('o', float), ('h', float), ('c', float),
+                        ('l', float), ('v', float), ('a', float), ('b', float), ])
+            self.account_info = None
+            self.add_ea_settings = dict(charts={}, params={})
+
+            #
+            # for k in sg:
+            #     sg[k] = self.global_values[k]
+
+            # keywords = ['author', 'copyright', 'name', 'version', 'label', 'script_settings', 'lib', 'library']
+            lib_bc = EABase.compile(script_text, 'init_script')
+            # ret = eval(lib_bc, "InitConfig()")
+            try:
+                exec(lib_bc, sg)
+            except:
+                # traceback.print_exc()
+                pass
+            # exec PX_InitScriptSettings
+            script_settings = {}
+            try:
+                settings = eval("PX_InitScriptSettings()", sg)
+                if isinstance(settings, dict):
+                    script_settings = settings.copy()
+            except:
+                traceback.print_exc()
+
+            #copy add ea settings
+            for cn in self.add_ea_settings['charts']:
+                script_settings['charts'][cn] = self.add_ea_settings['charts'][cn].copy()
+            for pn in self.add_ea_settings['params']:
+                script_settings['params'][pn] = self.add_ea_settings['params'][pn].copy()
+            ret['script_settings'] = script_settings
+            ret['globals'] = sg
+            ret['locals'] = loc
+        except:
+            traceback.print_exc()
+        return ret
+
+    def valid_script_settings(self, script_settings, script_env):
+        try:
+            valid_ret = eval(f"PX_ValidScriptSettings", script_env['globals'])(script_settings)
+            return valid_ret
+            # if valid_ret is not None:
+            #     if not valid_ret['success']:
+            #         print(f"PX_ValidScriptSettings: errmsg={valid_ret.get('errmsg', None)}")
+            #         return None
+        except:
+            traceback.print_exc()
+        return None
+
+    def get_script_init_settings(self, script_text):
+        ret = {}
+        try:
+            env = self.init_script_env(script_text)
+            if env is None:
+                return ret
+            valid_ret = self.valid_script_settings(env['script_settings'], env)
+            if valid_ret is not None:
+                if not valid_ret['success']:
+                    print(f"PX_ValidScriptSettings: errmsg={valid_ret.get('errmsg', None)}")
+                    ret['valid_script_settings'] = valid_ret
+            ret['script_settings'] = env['script_settings']
+        except:
+            traceback.print_exc()
+        return ret
+
+    def parse_script(self, script_text):
+        ret = {}
+        try:
+            ret = EABase.parse_script_text(script_text)
+            script_init_settings = {}
+            r = self.get_script_init_settings(script_text)
+            for name in ('script_settings', 'valid_script_settings'):
+                if name in r:
+                    ret[name] = r[name]
+        except:
+            traceback.print_exc()
+        return ret
+
 
     def get_param(self, name, default=None):
         try:

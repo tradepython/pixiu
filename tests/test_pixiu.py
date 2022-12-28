@@ -444,6 +444,21 @@ class PiXiuTests(TestCase):
         self.assertEqual(self.test_result, "OK")
 
 
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_ea_settings(self):
+        """Test EA Tester"""
+        #
+        self.eat_params['script_path'] = os.path.abspath("scripts/v1/ts_settings.py")
+        self.eat_params['global_values'].update(dict(valid_shift=0, valid_symbol=self.symbol,
+                                                     valid_values=None, valid_account=self.account,
+                                                     valid_symbols=self.symbol_properties,
+                                                     get_value_by_time=self.get_value_by_time))
+        self.eat_params['log_path'] = 'tmp_log.txt'
+        eatt = EATTester(self, self.eat_params)
+        eatt.execute("123456", sync=True)
+        self.assertEqual(self.test_result, "OK")
+
+
     def get_timeframe_value_by_time(self, timeframe, v_time, item_name):
         tfd = self.timeframe_data.get(timeframe, None)
         seconds = tfd['seconds']
