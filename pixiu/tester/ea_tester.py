@@ -2147,8 +2147,9 @@ class EATester(EABase):
                             raise PXErrorCode(EID_EAT_NOT_ENOUGH_MONEY)
                         else:
                             raise PXErrorCode(EID_EAT_EA_DEAD)
-                    self.current_tick_index += 1
+                    # self.current_tick_index += 1
                     self.on_end_tick()
+                    self.current_tick_index += 1
                 except Exception as exc:
                     if isinstance(exc, AssertionError):
                         raise exc

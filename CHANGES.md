@@ -1,4 +1,13 @@
 
+### [2023-01-11]
+#### Version:
+#####   Package:
+#####    pixiu: 0.99.*.20230111
+#####
+#### **Descriptions：**
+     1.ea_tester.py:
+       1) Fix self.current_tick_index exception in execute_(self, ticket)
+
 ### [2022-12-28]
 #### Version:
 #####   Package:
