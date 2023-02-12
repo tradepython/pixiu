@@ -1,4 +1,13 @@
 
+### [2023-02-12]
+#### Version:
+#####   Package:
+#####    pixiu: 0.100.*.20230212
+#####
+#### **Descriptions：**
+     1.ea_tester.py:
+       1) Fix get_api missing error.
+
 ### [2023-01-11]
 #### Version:
 #####   Package:

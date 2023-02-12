@@ -100,7 +100,8 @@ class EATester(EABase):
         #
         self.script_settings = None
         try:
-            ss = params.get("script_settings", self.script_metadata.get('script_settings', None))
+            # ss = params.get("script_settings", self.script_metadata.get('script_settings', None))
+            ss = self.script_metadata.get('script_settings', params.get("script_settings", None))
             if isinstance(ss, str):
                 self.script_settings = json.loads(ss)
             else:
@@ -157,9 +158,13 @@ class EATester(EABase):
                     self.account[k] = default_value[k]
         #
         #
-        self.current_api = TesterAPI_V1(tester=self, data_source={}, default_symbol=params["symbol"])
+        # self.current_api = TesterAPI_V1(tester=self, data_source={}, default_symbol=self.symbol)
+        self.current_api = self.get_api()
         self.data = {DataScope.EA_VERSION: {}, DataScope.EA: {}, DataScope.ACCOUNT: {}, DataScope.EA_SETTIGNS: {}}
         #
+
+    def get_api(self):
+        return TesterAPI_V1(tester=self, data_source={}, default_symbol=self.symbol)
 
     def parse_script(self, script_text):
         ret = {}
