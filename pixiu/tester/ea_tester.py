@@ -106,7 +106,6 @@ class EATester(EABase):
                 self.script_settings = json.loads(ss)
             else:
                 self.script_settings = ss
-
         except:
             traceback.print_exc()
         #
@@ -166,17 +165,17 @@ class EATester(EABase):
     def get_api(self):
         return TesterAPI_V1(tester=self, data_source={}, default_symbol=self.symbol)
 
-    def parse_script(self, script_text):
-        ret = {}
-        try:
-            ret = EABase.parse_script_text(script_text)
-            script_init_settings = {}
-            r = self.get_script_init_settings(script_text)
-            if 'script_settings' in r:
-                ret['script_settings'] = r['script_settings']
-        except:
-            traceback.print_exc()
-        return ret
+    # def parse_script(self, script_text):
+    #     ret = {}
+    #     try:
+    #         ret = EABase.parse_script_text(script_text)
+    #         script_init_settings = {}
+    #         r = self.get_script_init_settings(script_text)
+    #         if 'script_settings' in r:
+    #             ret['script_settings'] = r['script_settings']
+    #     except:
+    #         traceback.print_exc()
+    #     return ret
 
     def add_chart(self, name, **kwargs):
         try:
@@ -223,75 +222,75 @@ class EATester(EABase):
             return False
         return True
 
-    def get_script_init_settings(self, script_text):
-        ret = {}
-        try:
-            if not script_text or not isinstance(script_text, str):
-                return ret
-            sg = safe_globals.copy()
-            # sg['AddChart'] = EABase({}).add_chart
-            # sg['AddParam'] = EABase({}).add_param
-            # sg['_print_'] = EABase({}).fake
-            # sg['assertTrue'] = EABase({}).fake
-            # sg['assertEqual'] = EABase({}).fake
-            # sg['RunMode'] = EABase({}).fake
-            # sg['RunModeValue'] = EABase({}).fake
-            # sg['TimeFrame'] = EABase({}).fake
-            loc = {}
-            # self.import_module('pixiu.api.errors', self.safe_globals)
-            api = TesterAPI_V1(tester=self, data_source={}, default_symbol="")
-            api.set_fun(sg)
-            for k in self.global_values:
-                sg[k] = self.global_values[k]
-            #
-            self.current_tick_index = 0
-            # self.tick_info = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0]],
-            self.tick_info = np.zeros((1,),
-                     dtype=[('s', object), ('t', float), ('o', float), ('h', float), ('c', float),
-                        ('l', float), ('v', float), ('a', float), ('b', float), ])
-            self.account_info = None
-            self.add_ea_settings = dict(charts={}, params={})
-
-            #
-            # for k in sg:
-            #     sg[k] = self.global_values[k]
-
-            # keywords = ['author', 'copyright', 'name', 'version', 'label', 'script_settings', 'lib', 'library']
-            lib_bc = EABase.compile(script_text, 'init_script')
-            # ret = eval(lib_bc, "InitConfig()")
-            try:
-                exec(lib_bc, sg)
-            except:
-                # traceback.print_exc()
-                pass
-            # exec PX_InitScriptSettings
-            script_settings = {}
-            try:
-                settings = eval("PX_InitScriptSettings()", sg)
-                if isinstance(settings, dict):
-                    script_settings = settings.copy()
-            except:
-                traceback.print_exc()
-
-            #copy add ea settings
-            for cn in self.add_ea_settings['charts']:
-                script_settings['charts'][cn] = self.add_ea_settings['charts'][cn].copy()
-            for pn in self.add_ea_settings['params']:
-                script_settings['params'][pn] = self.add_ea_settings['params'][pn].copy()
-            # ret2 = eval("EA_InitScriptSettings", sg)()
-            try:
-                valid_ret = eval(f"PX_ValidScriptSettings", sg)(script_settings)
-                if valid_ret is not None:
-                    if not valid_ret['success']:
-                        print(f"PX_ValidScriptSettings: errmsg={valid_ret.get('errmsg', None)}")
-                        return None
-            except:
-                # traceback.print_exc()
-                pass
-            ret['script_settings'] = script_settings
-        except:
-            traceback.print_exc()
-        return ret
+    # def get_script_init_settings(self, script_text):
+    #     ret = {}
+    #     try:
+    #         if not script_text or not isinstance(script_text, str):
+    #             return ret
+    #         sg = safe_globals.copy()
+    #         # sg['AddChart'] = EABase({}).add_chart
+    #         # sg['AddParam'] = EABase({}).add_param
+    #         # sg['_print_'] = EABase({}).fake
+    #         # sg['assertTrue'] = EABase({}).fake
+    #         # sg['assertEqual'] = EABase({}).fake
+    #         # sg['RunMode'] = EABase({}).fake
+    #         # sg['RunModeValue'] = EABase({}).fake
+    #         # sg['TimeFrame'] = EABase({}).fake
+    #         loc = {}
+    #         # self.import_module('pixiu.api.errors', self.safe_globals)
+    #         api = TesterAPI_V1(tester=self, data_source={}, default_symbol="")
+    #         api.set_fun(sg)
+    #         for k in self.global_values:
+    #             sg[k] = self.global_values[k]
+    #         #
+    #         self.current_tick_index = 0
+    #         # self.tick_info = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0]],
+    #         self.tick_info = np.zeros((1,),
+    #                  dtype=[('s', object), ('t', float), ('o', float), ('h', float), ('c', float),
+    #                     ('l', float), ('v', float), ('a', float), ('b', float), ])
+    #         self.account_info = None
+    #         self.add_ea_settings = dict(charts={}, params={})
+    #
+    #         #
+    #         # for k in sg:
+    #         #     sg[k] = self.global_values[k]
+    #
+    #         # keywords = ['author', 'copyright', 'name', 'version', 'label', 'script_settings', 'lib', 'library']
+    #         lib_bc = EABase.compile(script_text, 'init_script')
+    #         # ret = eval(lib_bc, "InitConfig()")
+    #         try:
+    #             exec(lib_bc, sg)
+    #         except:
+    #             # traceback.print_exc()
+    #             pass
+    #         # exec PX_InitScriptSettings
+    #         script_settings = {}
+    #         try:
+    #             settings = eval("PX_InitScriptSettings()", sg)
+    #             if isinstance(settings, dict):
+    #                 script_settings = settings.copy()
+    #         except:
+    #             traceback.print_exc()
+    #
+    #         #copy add ea settings
+    #         for cn in self.add_ea_settings['charts']:
+    #             script_settings['charts'][cn] = self.add_ea_settings['charts'][cn].copy()
+    #         for pn in self.add_ea_settings['params']:
+    #             script_settings['params'][pn] = self.add_ea_settings['params'][pn].copy()
+    #         # ret2 = eval("EA_InitScriptSettings", sg)()
+    #         try:
+    #             valid_ret = eval(f"PX_ValidScriptSettings", sg)(script_settings)
+    #             if valid_ret is not None:
+    #                 if not valid_ret['success']:
+    #                     print(f"PX_ValidScriptSettings: errmsg={valid_ret.get('errmsg', None)}")
+    #                     return None
+    #         except:
+    #             # traceback.print_exc()
+    #             pass
+    #         ret['script_settings'] = script_settings
+    #     except:
+    #         traceback.print_exc()
+    #     return ret
 
     def percent_str_to_float(self, val, default):
         try:
@@ -2105,11 +2104,21 @@ class EATester(EABase):
         exception_msg = None
         errid = EID_OK
         update_log_task = None
+        exception_message = None
         try:
             test_start_time = datetime.now()
             pixiu_version = pkg_resources.get_distribution('pixiu').version
             self.write_log(f"\n\n == PiXiu({pixiu_version}) Backtesting Start: {test_start_time}, Ticket: {ticket}, Symbol: {self.symbol}, Period: {self.start_time} - {self.end_time}, "
                            f"Timeframe: {self.tick_timeframe}, Mode: {self.tick_mode} == \n\n")
+            self.write_log(f"\n Script Settings:  {self.script_settings} \n\n")
+            #
+            valid_script_settings = self.script_metadata.get('valid_script_settings', None)
+            if valid_script_settings is not None:
+                if not valid_script_settings['success']:
+                    errmsg = valid_script_settings.get('errmsg', None)
+                    exception_message = f"ValidScriptSettings Error: {errmsg}"
+                    raise Exception(exception_message)
+            #
             self.init_data()
             self.update_log_task_running = True
             self.on_pre_load_ticks()
@@ -2189,7 +2198,9 @@ class EATester(EABase):
                 raise exc
             traceback.print_exc()
             status = {}
-            status["exception"] = "Unknown errors, terminated. \n"
+            if exception_message is None:
+                exception_message = "Unknown errors, terminated. \n"
+            status["exception"] = exception_message
             status["errid"] = 0
             status["stop"] = 1
             self.on_execute_status(ticket, status)
