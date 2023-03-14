@@ -39,6 +39,19 @@
       "currency_profit": "CHF",
       "currency_base": "USD",
       "currency_margin": "USD"
+    },
+    "F": {
+      "symbol": "F",
+      "type": "stock",
+      "spread": 2,
+      "digits": 5,
+      "stop_level": 0,
+      "volume_min": 0.01,
+      "trade_contract_size": 100000,
+      "point": 0.00001,
+      "currency_profit": "USD",
+      "currency_base": "USD",
+      "currency_margin": "USD"
     }
   },
   "tests": {
@@ -80,6 +93,21 @@
          "format": "json",
          "period": 30,
          "timeframe": "m1"
+      },
+      "max_tick": 100,
+      "balance": 10000,
+      "leverage": 100,
+      "currency": "USD",
+      "account": "default",
+      "spread_point": 15
+    },
+    "testF_yfinance": {
+      "symbol": "F",
+      "tick_data": {
+         "channel": "yfinance",
+         "start_time": "2010-01-01",
+         "end_time": "2010-07-01",
+        "timeframe": "1m"
       },
       "max_tick": 100,
       "balance": 10000,

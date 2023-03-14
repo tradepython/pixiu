@@ -211,16 +211,21 @@ class MainApp:
     def run_tester(self, test_config_path, test_name, script_path, log_path, print_log_type, result_value, graph,
                    message_queue, graph_data, exec):
         graph_server = None
-        if graph:
-            graph_server = EATesterGraphServer(message_queue)
-        pxt = PXTester(test_config_path=test_config_path, test_name=test_name, script_path=script_path,
-                       log_path=log_path, print_log_type=print_log_type, test_result=result_value,
-                       tester_graph_server=graph_server, test_graph_data=graph_data)
-        if exec:
-            # pxt.execute("", sync=True)
-            pxt.execute_script("", sync=True)
-        else:
-            pxt.execute("", sync=True)
+        try:
+            if graph:
+                graph_server = EATesterGraphServer(message_queue)
+            pxt = PXTester(test_config_path=test_config_path, test_name=test_name, script_path=script_path,
+                           log_path=log_path, print_log_type=print_log_type, test_result=result_value,
+                           tester_graph_server=graph_server, test_graph_data=graph_data)
+            if exec:
+                # pxt.execute("", sync=True)
+                pxt.execute_script("", sync=True)
+            else:
+                pxt.execute("", sync=True)
+            return True
+        except:
+            traceback.print_exc()
+        return False
 
     #
     # def run_tester(self, test_config_path, test_name, script_path, log_path, print_log_type, result_value, graph,
@@ -289,10 +294,13 @@ class MainApp:
         ri = {}
         graph_data = {}
         for tn in results:
-            res = json.loads(results[tn]['result'].value)
-            ri[tn] = res
-            #
-            graph_data[tn] = json.loads(results[tn]['graph_data'].value)
+            try:
+                res = json.loads(results[tn]['result'].value)
+                ri[tn] = res
+                #
+                graph_data[tn] = json.loads(results[tn]['graph_data'].value)
+            except:
+                traceback.print_exc()
         #
         tag_data = dict(result=ri, utc_time=datetime.utcnow().isoformat())
         self.save_tag_data(self.tag, tag_data)
@@ -345,9 +353,12 @@ class MainApp:
         ri = {}
         graph_data = {}
         for tn in results:
-            res = json.loads(results[tn]['result'].value)
-            ri[tn] = res
-            graph_data[tn] = json.loads(results[tn]['graph_data'].value)
+            try:
+                res = json.loads(results[tn]['result'].value)
+                ri[tn] = res
+                graph_data[tn] = json.loads(results[tn]['graph_data'].value)
+            except:
+                traceback.print_exc()
         #
         tag_data = dict(result=ri, utc_time=datetime.utcnow().isoformat())
         self.save_tag_data(self.tag, tag_data)

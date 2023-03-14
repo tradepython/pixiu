@@ -87,7 +87,8 @@ class EATester(EABase):
             margin_so_call = margin_so_so * 1.2
         #
         if self.log_path:
-            self.log_file = open(self.log_path, mode='at')
+            # self.log_file = open(self.log_path, mode='at')
+            self.log_file = open(self.log_path, mode='wt')
 
         if self.script_path is None:
             self.script = params["script"]

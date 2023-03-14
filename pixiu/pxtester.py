@@ -186,8 +186,64 @@ class PXTester(EATester):
         else:
             raise Exception('get_url_data error')
 
+    def get_tick_data_from_yfinance(self, symbol, tick_source):
+        import yfinance as yf
+        channel = "yfinance"
+        # api_token = tick_source['api_token']
+        # source = tick_source['source']
+        # if isinstance(source, dict):
+        #     source_type = source['type']
+        #     source_name = source['name']
+        # else:
+        #     source_type = "private"
+        #     source_name = source
+        #
+        timeframe = tick_source.get('timeframe', 'm1')
+        format = tick_source.get('format', 'json')
+        period = tick_source.get('period', None)
+        if period is not None:
+            end_time = datetime.now().date()
+            start_time = end_time - timedelta(days=period)
+        else:
+            end_time = tick_source.get('end_time', datetime.now().date())
+            if isinstance(end_time, str):
+                end_time = dateutil.parser.parse(end_time)
+            start_time = tick_source.get('start_time', end_time - timedelta(days=7))
+            if isinstance(start_time, str):
+                start_time = dateutil.parser.parse(start_time)
+        #
+        cache_file_name = f"{channel}-{symbol}-{timeframe}-{start_time}-{end_time}"
+        data = self.load_channel_cache_file(channel, cache_file_name)
+        if data is not None:
+            return data
+        # url = "http://www.tradepython.com/logger/api/v2/tick/get"
+        # url_params = dict(ats=hashlib.md5(api_token.encode("utf-8")).hexdigest(), s=symbol, f=format,
+        #                   tf=timeframe,
+        #                   st=start_time, et=end_time,
+        #                   srt=source_type, srn=source_name)
+        #
+        yfObj = yf.Ticker(symbol)
+        data = yfObj.history(start=start_time, end=end_time)
+        # url = f"http://www.tradepython.com/logger/api/v2/tick/get?{urlencode(url_params)}"
+        # http_code, content_type, ret = self.get_url_data(url)
+        if data is not None:
+            json_data = self.covert_yfinance_data_to_json(symbol, data)
+            self.save_channel_cache_file(channel, cache_file_name, json_data)
+            return self.load_channel_cache_file(channel, cache_file_name)
+        else:
+            raise Exception('get_url_data error')
+
+    def covert_yfinance_data_to_json(self, symbol, data):
+        # s,t,o,h,c,l,v,a,b
+        d = dict(columns=['s','t','o','h','c','l','v','a','b'], rows=[])
+        for i in range(data.index.size):
+            d['rows'].append([symbol, str(data.index[i]), data.Open[i], data.High[i], data.Close[i], data.Low[i], data.Volume[i], 0, 0])
+        return d
+
+
     def get_tick_data_from_channel(self, symbol, tick_source):
-        channels = {"tradepython.com": self.get_tick_data_from_tradepython, }
+        channels = {"tradepython.com": self.get_tick_data_from_tradepython,
+                    "yfinance": self.get_tick_data_from_yfinance, }
         channel = channels.get(tick_source['channel'], None)
         if channel is None:
             raise NotImplementedError

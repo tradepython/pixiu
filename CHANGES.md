@@ -1,13 +1,32 @@
 
-### [2023-02-25]
+### [2023-03-13]
 #### Version:
 #####   Package:
-#####    pixiu: 0.102.*.20230225
+#####    pixiu: 0.104.*.20230313
+#####
+#### **Descriptions：**
+     1.pxtester.py:
+      1) Add get_tick_data_from_yfinance, covert_yfinance_data_to_json 
+
+### [2023-02-26]
+#### Version:
+#####   Package:
+#####    pixiu: 0.103.*.20230226
+#####
+#### **Descriptions：**
+     1.main.py:
+      1) start_mp, start_sp: results add exception 
+
+### [2023-02-28]
+#### Version:
+#####   Package:
+#####    pixiu: 0.102.*.20230228
 #####
 #### **Descriptions：**
      1.ea_tester.py:
        1) Remove parse_script, get_script_init_settings
        2) execute_: Add ValidScriptSettings Error
+       3) __init__: self.log_file = open(self.log_path, mode='wt')
 
 
 ### [2023-02-22]
