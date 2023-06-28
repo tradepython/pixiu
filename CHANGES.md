@@ -1,4 +1,14 @@
 
+### [2023-06-23]
+#### Version:
+#####   Package:
+#####    pixiu: 0.105.*.20230623
+#####
+#### **Descriptions：**
+     1.ea_tester.py:
+      1)  Add tick_test_start_index in params
+      2)  Add test_period in pixiu config file
+
 ### [2023-03-13]
 #### Version:
 #####   Package:

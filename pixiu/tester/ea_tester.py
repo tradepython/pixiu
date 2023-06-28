@@ -66,6 +66,7 @@ class EATester(EABase):
         self.tick_mode = params.get("tick_mode", TickMode.EVERY_TICK)
         self.tick_timeframe = params.get("tick_timeframe", TimeFrame.M1)
         self.tick_max_count = params.get('tick_max_count', None)
+        self.tick_test_start_index = params.get('tick_test_start_index', 0)
         self.start_time = params["start_time"]
         self.end_time = params["end_time"]
 
@@ -2128,6 +2129,7 @@ class EATester(EABase):
             self.on_load_ticks()
 
             count = self.tick_info.size
+            self.current_tick_index = self.tick_test_start_index
 
             self.write_log(f"Tick Count: {count}, Tick Max Count: {self.tick_max_count}")
             status = dict(current=self.current_tick_index, max=count, errid=0)
@@ -2135,13 +2137,18 @@ class EATester(EABase):
             self.on_execute_status(ticket, status)
             self.on_begin_execute()
             last_call_status_time = 0
-            for i in range(count):
+            # for i in range(count):
+            for i in range(self.tick_test_start_index, count):
                 try:
                     #
                     if self.tick_max_count is not None and i >= self.tick_max_count:
                         break
                     if self.stop:
                         raise PXErrorCode(EID_EAT_TEST_STOP)
+                    #
+                    # if i < self.tick_test_start_index:
+                    #     self.current_tick_index += 1
+                    #     continue
                     self.on_begin_tick()
                     self.set_account(self.account, expiration=expiration)
                     # #
