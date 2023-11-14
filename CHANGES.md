@@ -1,4 +1,21 @@
 
+### [2023-11-14]
+#### Version:
+#####   Package:
+#####    pixiu: 0.106.*.20231114
+#####
+#### **Descriptions：**
+     1.ea_tester.py:
+       1) Fix order_to_ndarray KeyError: 'magic_number'
+       2) __close_order__:
+          Change order comment from 'close by #xxx' to 'from #xxx'
+          Remove the tags of closed order
+       3) __add_market_order__:
+          Add comment checking
+     2.ts_order_market.py:
+       1) Add close partial order test
+
+
 ### [2023-06-23]
 #### Version:
 #####   Package:

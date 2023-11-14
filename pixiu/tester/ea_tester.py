@@ -531,7 +531,7 @@ class EATester(EABase):
         tp = np.nan if new_order['take_profit'] is None else new_order['take_profit']
         mar = np.nan if new_order['margin'] is None else new_order['margin']
         com = None if new_order['comment'] is None else new_order['comment']
-        mn = 0 if new_order['magic_number'] is None else new_order['magic_number']
+        mn = 0 if new_order.get('magic_number', None) is None else new_order['magic_number']
         ot = new_order['open_time']
         ct = 0
         c = np.nan
@@ -589,7 +589,8 @@ class EATester(EABase):
         if margin > self.account['balance'] - self.account['margin']:
             return EID_EAT_NOT_ENOUGH_MONEY, -1
         new_order['uid'] = str(new_order['ticket'])
-        new_order['comment'] = f"uid#{new_order['uid']}|"
+        if not new_order.get('comment', None):
+            new_order['comment'] = f"uid#{new_order['uid']}|"
         new_order['margin'] = margin
         new_order['status'] = OrderStatus.OPENED
 
@@ -1193,8 +1194,10 @@ class EATester(EABase):
             if errid != EID_OK:
                 return errid, dict(order_uid=order_uid, order_dict=order_dict, close_price=price,
                                    close_time=close_time)
-            if tags is not None:
-                order_dict['tags'] = tags
+            # if tags is not None:
+            #     order_dict['tags'] = tags
+            original_volume = order_dict['volume']
+            order_dict['volume'] = volume
             order_dict['dirty'] = False
             order_dict['comment'] = comment
             order_dict['close_time'] = close_time
@@ -1206,7 +1209,7 @@ class EATester(EABase):
             self.account["margin"] = round(self.account["margin"] - closed_margin, self.default_digits)
             # self.account["margin"] = self.account["margin"] - closed_margin
             new_margin = order_dict['margin'] - closed_margin
-            new_volume = order_dict['volume'] - volume
+            new_volume = original_volume - volume
         #
             #report
             if update_report_func:
@@ -1216,15 +1219,22 @@ class EATester(EABase):
 
             #
             if new_volume > 0:
-                new_order_dict = dict(ticket=self.__new_ticket__(), symbol=symbol, cmd=order_dict['cmd'], open_price=price,
+                original_order_uid = order_uid
+                new_order_dict = dict(ticket=self.__new_ticket__(), symbol=symbol, cmd=order_dict['cmd'],
+                                  open_price=price,
                                   volume=new_volume, stop_loss=order_dict['stop_loss'],
                                   take_profit=order_dict['take_profit'], margin=new_margin,
-                                  comment=f"close by#{order_dict['ticket']}",
-                                  open_time=close_time)
+                                  comment=f"from #{order_dict['ticket']}",
+                                  open_time=order_dict['open_time'])
+                if tags is not None:
+                    new_order_dict['tags'] = tags
                 errid, order_uid = self.__add_market_order__(new_order_dict)
                 if errid != EID_OK:
                     return errid, dict(order_uid=order_uid, order_dict=order_dict, close_price=price,
                                        close_time=close_time)
+                #
+                order_dict = self.get_order(order_uid=original_order_uid)
+                order_dict['comment'] = f"to #{new_order_dict['ticket']}"
         else:
             order_dict['status'] = OrderStatus.CANCELLED
             order_uid = self.__remove_pending_order__(order_dict)

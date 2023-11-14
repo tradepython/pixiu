@@ -1,7 +1,7 @@
 #
 POINT = SymbolInfo("point")
 DIGITS = int(SymbolInfo("digits"))
-volume = 0.01
+volume = 1
 
 assertEqual(AcquireLock("test"), True)
 ReleaseLock("test")
@@ -36,7 +36,7 @@ score = score + 1
 #Buy with sl and tp
 stop_loss = round(Bid() - 15 * POINT, DIGITS)
 take_profit = round(Ask() + 30 * POINT, DIGITS)
-errid, result = Buy(volume=0.01, price=Ask(), stop_loss=stop_loss,
+errid, result = Buy(volume=volume, price=Ask(), stop_loss=stop_loss,
                     take_profit=take_profit, tags={'score': score})
 assertEqual(errid, 0)
 assertNotEqual(result['order_uid'], None)
@@ -58,7 +58,7 @@ assertEqual(order.status, OrderStatus.OPENED)
 stop_loss = round(Bid() - 15 * POINT, DIGITS)
 take_profit = round(Ask() + 30 * POINT, DIGITS)
 magic_number = 4291651
-errid, result = Buy(volume=0.01, price=Ask(), stop_loss=stop_loss,
+errid, result = Buy(volume=volume, price=Ask(), stop_loss=stop_loss,
                     take_profit=take_profit, magic_number=magic_number,
                     symbol=Symbol(), slippage=3, arrow_color="white", tags={'score': score})
 assertEqual(errid, 0)
@@ -99,8 +99,8 @@ assertEqual(order.tags['score'], score)
 assertEqual(order.status, OrderStatus.OPENED)
 
 #close order
-# errid, result = CloseOrder(result['order_uid'], price=Ask(), volume=volume)
-errid, result = CloseOrder(result['order_uid'], tags={'score': score})
+split_volume = volume / 2
+errid, result = CloseOrder(result['order_uid'], volume=split_volume, tags={'score': score+1})
 assertEqual(errid, 0)
 assertNotEqual(result['order_uid'], None)
 order = GetOrder(result['order_uid'])
@@ -116,15 +116,24 @@ assertIsNotNone(order.close_time)
 assertEqual(order.close_price, Bid())
 assertEqual(order.tags['score'], score)
 assertEqual(order.status, OrderStatus.CLOSED)
+assertEqual(order.volume, split_volume)
+
+#
+new_order_found = 0
 
 #The order was closed ?
 oo = GetOpenedOrderUIDs()
 for t in oo:
     assertNotEqual(t, result['order_uid'])
-
+    o = GetOrder(t)
+    if o.comment == f"from #{order.ticket}":
+        new_order_found = new_order_found + 1
+        assertEqual(o.tags['score'], score+1)
+        assertEqual(o.volume, split_volume)
+assertEqual(new_order_found, 1)
 
 # Sell
-errid, result = Sell(volume=0.01, tags={'score': score})
+errid, result = Sell(volume=volume, tags={'score': score})
 assertEqual(errid, 0)
 assertNotEqual(result['order_uid'], None)
 errid = exec_command()
@@ -145,7 +154,7 @@ assertEqual(order.status, OrderStatus.OPENED)
 #Sell with sl and tp
 stop_loss = round(Ask() + 15 * POINT, DIGITS)
 take_profit = round(Bid() - 30 * POINT, DIGITS)
-errid, result = Sell(volume=0.01, price=Bid(), stop_loss=Ask()+15*POINT,
+errid, result = Sell(volume=volume, price=Bid(), stop_loss=Ask()+15*POINT,
                     take_profit=Bid()-30*POINT, tags={'score': score})
 assertEqual(errid, 0)
 assertNotEqual(result['order_uid'], None)
@@ -211,7 +220,7 @@ assertEqual(order.status, OrderStatus.OPENED)
 
 #close order
 # errid, result = CloseOrder(result['order_uid'], price=Bid(), volume=volume)
-errid, result = CloseOrder(result['order_uid'], tags={'score': score})
+errid, result = CloseOrder(result['order_uid'], volume=split_volume, tags={'score': score+1})
 assertEqual(errid, 0)
 assertNotEqual(result['order_uid'], None)
 order = GetOrder(result['order_uid'])
@@ -225,18 +234,27 @@ assertFalse(order.is_dirty)
 assertEqual(order.symbol, Symbol())
 assertIsNotNone(order.close_time)
 assertEqual(order.close_price, Ask())
-assertEqual(order.tags['score'], score)
 assertEqual(order.status, OrderStatus.CLOSED)
+assertEqual(order.volume, split_volume)
+
+#
+new_order_found = 0
 
 #The order was closed ?
 oo = GetOpenedOrderUIDs()
 for t in oo:
     assertNotEqual(t, result['order_uid'])
+    o = GetOrder(t)
+    if o.comment == f"from #{order.ticket}":
+        new_order_found = new_order_found + 1
+        assertEqual(o.tags['score'], score+1)
+        assertEqual(o.volume, split_volume)
+assertEqual(new_order_found, 1)
 
 #close multiple orders
 orders = []
 for i in range(5):
-    errid, result = Buy(volume=0.01, price=Ask())
+    errid, result = Buy(volume=volume, price=Ask())
     assertEqual(errid, 0)
     assertNotEqual(result['order_uid'], None)
     orders.append(result['order_uid'])
@@ -248,6 +266,7 @@ for order_uid in orders:
     assertFalse(order.is_dirty)
     assertEqual(order.status, OrderStatus.OPENED)
 
+#test split order
 errid, result = CloseMultiOrders(orders)
 assertEqual(errid, 0)
 for order_uid in orders:
