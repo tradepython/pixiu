@@ -1014,7 +1014,8 @@ class EATester(EABase):
         return str(self.orders['counter'] + 1)
 
     def open_order(self, symbol, cmd, price, volume, stop_loss, take_profit, comment=None, ext_check_open_range=0,
-                       ext_check_order_hold_count=0, magic_number=None, slippage=None, arrow_color=None, tags=None):
+                       ext_check_order_hold_count=0, magic_number=None, slippage=None, arrow_color=None, tags=None,
+                       from_uid=None, to_uid=None):
         """"""
         order_uid = None
         account = self.account
@@ -1028,7 +1029,8 @@ class EATester(EABase):
         order_dict = dict(ticket=self.__new_ticket__(), symbol=symbol, cmd=cmd, open_price=price,
                          volume=volume, stop_loss=stop_loss, take_profit=take_profit, margin=0, comment=comment,
                          magic_number=magic_number, open_time=self.current_time(), commission=0,
-                         close_time=None, close_price=np.nan, profit=0.0, tags=tags, dirty=False)
+                         close_time=None, close_price=np.nan, profit=0.0, tags=tags, dirty=False,
+                         from_uid=from_uid, to_uid=to_uid)
         errid = self.__valid_order__(0, order_dict, None)
         if errid != EID_OK:
             return errid, dict(order_uid=order_uid, command_uid=None, sync=True)
@@ -1209,7 +1211,7 @@ class EATester(EABase):
             self.account["margin"] = round(self.account["margin"] - closed_margin, self.default_digits)
             # self.account["margin"] = self.account["margin"] - closed_margin
             new_margin = order_dict['margin'] - closed_margin
-            new_volume = original_volume - volume
+            new_volume = round(original_volume - volume, self.volume_precision)
         #
             #report
             if update_report_func:
@@ -1221,11 +1223,12 @@ class EATester(EABase):
             if new_volume > 0:
                 original_order_uid = order_uid
                 new_order_dict = dict(ticket=self.__new_ticket__(), symbol=symbol, cmd=order_dict['cmd'],
-                                  open_price=price,
+                                  open_price=order_dict['open_price'],
                                   volume=new_volume, stop_loss=order_dict['stop_loss'],
                                   take_profit=order_dict['take_profit'], margin=new_margin,
                                   comment=f"from #{order_dict['ticket']}",
-                                  open_time=order_dict['open_time'])
+                                  open_time=order_dict['open_time'],
+                                  from_uid=order_dict['uid'], to_uid=None)
                 if tags is not None:
                     new_order_dict['tags'] = tags
                 errid, order_uid = self.__add_market_order__(new_order_dict)
@@ -1235,6 +1238,7 @@ class EATester(EABase):
                 #
                 order_dict = self.get_order(order_uid=original_order_uid)
                 order_dict['comment'] = f"to #{new_order_dict['ticket']}"
+                order_dict['to_uid'] = order_uid
         else:
             order_dict['status'] = OrderStatus.CANCELLED
             order_uid = self.__remove_pending_order__(order_dict)

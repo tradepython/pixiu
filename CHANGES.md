@@ -1,4 +1,16 @@
 
+### [2023-11-15]
+#### Version:
+#####   Package:
+#####    pixiu: 0.107.*.20231115
+#####
+#### **Descriptions：**
+     1.ea_tester.py:
+       1) __close_order__:
+          Fix new order open_price error
+     2.ts_order_market.py:
+       1) Add from_uid, to_uid test
+
 ### [2023-11-14]
 #### Version:
 #####   Package:

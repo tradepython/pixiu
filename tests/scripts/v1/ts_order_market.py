@@ -128,6 +128,9 @@ for t in oo:
     o = GetOrder(t)
     if o.comment == f"from #{order.ticket}":
         new_order_found = new_order_found + 1
+        assertEqual(o.from_uid, order.uid)
+        assertEqual(o.uid, order.to_uid)
+        assertEqual(o.open_price, order.open_price)
         assertEqual(o.tags['score'], score+1)
         assertEqual(o.volume, split_volume)
 assertEqual(new_order_found, 1)
@@ -247,6 +250,9 @@ for t in oo:
     o = GetOrder(t)
     if o.comment == f"from #{order.ticket}":
         new_order_found = new_order_found + 1
+        assertEqual(o.from_uid, order.uid)
+        assertEqual(o.uid, order.to_uid)
+        assertEqual(o.open_price, order.open_price)
         assertEqual(o.tags['score'], score+1)
         assertEqual(o.volume, split_volume)
 assertEqual(new_order_found, 1)
