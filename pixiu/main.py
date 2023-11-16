@@ -146,7 +146,7 @@ class MainApp:
                     v = round(item['value'], precision)
                     total_value += v
                     #
-                    if compare_item:
+                    if compare_item and compare_item['value']:
                         cv = round(compare_item['value'], precision)
                         diff = round(v - cv, precision)
                         if cv < v:

@@ -1,4 +1,14 @@
 
+### [2023-11-16]
+#### Version:
+#####   Package:
+#####    pixiu: 0.108.*.20231116
+#####
+#### **Descriptions：**
+     1.main.py:
+       1) gen_report_row: 
+          Add compare_item['value'] checking
+
 ### [2023-11-15]
 #### Version:
 #####   Package:
