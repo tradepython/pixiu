@@ -1,4 +1,15 @@
 
+### [2023-12-07]
+#### Version:
+#####   Package:
+#####    pixiu: 0.109.*.20231207
+#####
+#### **Descriptions：**
+     1.ea_taster.py:
+       1) __close_order__
+         Fix profit calculation error when closing partitioned volumes  
+       
+
 ### [2023-11-16]
 #### Version:
 #####   Package:
