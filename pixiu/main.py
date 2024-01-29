@@ -2,6 +2,7 @@ import argparse
 from multiprocessing import (Pool, Process, Manager, Queue, Value)
 from pixiu.tester.ea_tester_graph import EATesterGraphServer
 from pixiu.pxtester import PXTester
+from pixiu.builder import EABuilder
 from tabulate import tabulate
 from ctypes import c_wchar_p
 import json
@@ -16,9 +17,10 @@ graph_server = None
 
 class MainApp:
     def __init__(self, args):
-        self.test_names = []
-        self.data_file = args.datafile
-        self.set_tag(args.tag)
+        if args.action_name == 'test':
+            self.test_names = []
+            self.data_file = args.datafile
+            self.set_tag(args.tag)
 
     @staticmethod
     def str2bool(v):
@@ -419,46 +421,66 @@ class MainApp:
     #     self.get_compare_reports(args, compare_reports)
     #     self.output_report(reports, compare_reports)
     #
+    def build_ea(self, build_config_file):
+        ea_builder = EABuilder({})
+        with open(build_config_file) as f:
+            build_config_string = f.read()
+            build_config = json.loads(build_config_string)
+            ea_builder.build(build_config)
+
+
+
 def main(*args, **kwargs):
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--testconfig', type=str, required=True, help='Test config path')
+    subparsers = parser.add_subparsers(help='', dest='action_name', required=True)
+    parser_test = subparsers.add_parser('test', help='Test EA')
+    parser_test.add_argument('-c', '--testconfig', type=str, required=True, help='Test config path')
     # parser.add_argument('-n', '--testname', type=str, required=True, help='Test name')
-    parser.add_argument('-n', '--testname',  nargs='+', required=True, help='Test name')
-    parser.add_argument('-s', '--scriptpath', type=str, required=False, help='Script path')
-    parser.add_argument('-o', '--logpath', type=str, help='Log path')
-    parser.add_argument('-p', '--printlogtype', nargs='+', default=['ea', 'report'], required=False,
+    parser_test.add_argument('-n', '--testname',  nargs='+', required=True, help='Test name')
+    parser_test.add_argument('-s', '--scriptpath', type=str, required=False, help='Script path')
+    parser_test.add_argument('-o', '--logpath', type=str, help='Log path')
+    parser_test.add_argument('-p', '--printlogtype', nargs='+', default=['ea', 'report'], required=False,
                         help='Print log type,  account order ea report')
-    parser.add_argument('-m', '--multiprocessing', type=MainApp.str2bool, default=True, help='Multiprocessing mode')
-    parser.add_argument('-t', '--tag', type=str, help='Tag')
-    parser.add_argument('-l', '--datafile', type=str, default='_pixiu_data.json', help='Data file name')
-    parser.add_argument('-r', '--compare', nargs='+', help='Compare with the tags list')
-    parser.add_argument('-g', '--graph', type=MainApp.str2bool, default=False, help='Display tester graph')
-    parser.add_argument('-x', '--exec', type=str, required=False, help='Exec command')
+    parser_test.add_argument('-m', '--multiprocessing', type=MainApp.str2bool, default=True, help='Multiprocessing mode')
+    parser_test.add_argument('-t', '--tag', type=str, help='Tag')
+    parser_test.add_argument('-l', '--datafile', type=str, default='_pixiu_data.json', help='Data file name')
+    parser_test.add_argument('-r', '--compare', nargs='+', help='Compare with the tags list')
+    parser_test.add_argument('-g', '--graph', type=MainApp.str2bool, default=False, help='Display tester graph')
+    parser_test.add_argument('-x', '--exec', type=str, required=False, help='Exec command')
+    #
+    parser_build = subparsers.add_parser('build', help='Build EA')
+    parser_build.add_argument('-c', '--buildconfig', type=str, required=True, help='Build config path')
+    # parser_build.add_argument('-b', '--build', type=str, required=False, help='Build EA')
+
     args = parser.parse_args()
-    manager = Manager()
-
-    graph_server = None
-    message_queue = None
-    if args.graph:
-        message_queue = manager.Queue()
-        graph_server = EATesterGraphServer(message_queue)
-        graph_server.start()
-
-    if args.scriptpath:
-        if args.multiprocessing:
-            MainApp(args).start_mp(args, manager, message_queue)
-        else:
-            MainApp(args).start_sp(args, manager, message_queue)
-    elif len(args.compare) > 0 and args.tag:
-        MainApp(args).compare_result(args)
-        if graph_server is not None:
-            MainApp(args).load_graph_data(args, graph_server)
-            graph_server.join()
+    if args.action_name == 'build':
+        MainApp(args).build_ea(args.buildconfig)
     else:
-        print("Error")
+        manager = Manager()
 
-    if graph_server:
-        graph_server.stop()
+        graph_server = None
+        message_queue = None
+
+        if args.graph:
+            message_queue = manager.Queue()
+            graph_server = EATesterGraphServer(message_queue)
+            graph_server.start()
+
+        if args.scriptpath:
+            if args.multiprocessing:
+                MainApp(args).start_mp(args, manager, message_queue)
+            else:
+                MainApp(args).start_sp(args, manager, message_queue)
+        elif len(args.compare) > 0 and args.tag:
+            MainApp(args).compare_result(args)
+            if graph_server is not None:
+                MainApp(args).load_graph_data(args, graph_server)
+                graph_server.join()
+        else:
+            print("Error")
+
+        if graph_server:
+            graph_server.stop()
     # pxt = PXTester(test_config_path=args.testconfig, test_name=args.testname, script_path=args.scriptpath,
     #                log_path=args.logpath, print_log_type=args.printlogtype)
     # pxt.execute("", sync=True)

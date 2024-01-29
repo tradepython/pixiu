@@ -1,4 +1,30 @@
 
+### [2024-01-29]
+#### Version:
+#####   Package:
+#####    pixiu: 0.112.*.20240129
+#####
+#### **Descriptions：**
+     1.Modify ea_builder.py
+
+### [2024-01-26]
+#### Version:
+#####   Package:
+#####    pixiu: 0.111.*.20240126
+#####
+#### **Descriptions：**
+     1.Create ea_builder.py
+       
+
+### [2024-01-25]
+#### Version:
+#####   Package:
+#####    pixiu: 0.110.*.20240125
+#####
+#### **Descriptions：**
+     1.Add builder
+       
+
 ### [2023-12-07]
 #### Version:
 #####   Package:
