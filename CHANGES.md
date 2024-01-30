@@ -1,4 +1,13 @@
 
+### [2024-01-30]
+#### Version:
+#####   Package:
+#####    pixiu: 0.113.*.20240130
+#####
+#### **Descriptions：**
+     1.Modify ea_builder.py:
+       1) EntryBuilder, FunctionBuilder
+
 ### [2024-01-29]
 #### Version:
 #####   Package:

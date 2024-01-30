@@ -28,12 +28,28 @@ class IndicatorModule:
     def __init__(self,):
         pass
 
-    def adx(self, symbol_data, period, shift):
+    def adx(self, options):
+        params = options['params']
+        symbol_data = params['symbol_data']
+        period = params['period']
+        shift = params['shift']
         code = f"iATR({symbol_data}, timeperiod={period}, shift={shift})"
+        variables = options.get('variables', None)
+        if variables:
+            code = f"{variables[0]['name']} = {code}"
         return code
 
-    def ma(self, symbol_data, period, matype, shift):
-        codes = (f"iMA({symbol_data}, timeperiod={period}, matype={matype}, shift={shift})", )
+    def ma(self, options):
+        params = options['params']
+        symbol_data = params['symbol_data']
+        period = params['period']
+        matype = params['matype']
+        shift = params['shift']
+        code = f"iMA({symbol_data}, timeperiod={period}, matype={matype}, shift={shift})"
+        variables = options.get('variables', None)
+        if variables:
+            code = f"{variables[0]['name']} = {code}"
+        codes = (code, )
         return codes
 
 class ElementBuilder:
@@ -42,7 +58,7 @@ class ElementBuilder:
         self.config = config
         self.index = index
 
-    def build_code(self):
+    def build_code(self, options):
         return None
 
 
@@ -67,7 +83,7 @@ class SymbolBuilder(ElementBuilder):
     def get_variable_name(self):
         return f"symbol_{self.index}"
 
-    def build_code(self):
+    def build_code(self, options):
         code = f"{self.get_variable_name()} = GetSymbolData('{self.symbol}', timeframe={self.timeframe}, size={self.size})"
         return code
 
@@ -92,22 +108,47 @@ class FunctionBuilder(ElementBuilder):
         params = self.config['params']
         return params
 
+    def get_module_config(self, module):
+        return module_config[module]
+
+    def get_function_config(self, module, name):
+        return self.get_module_config(module)['functions'][name]
+
     def get_module(self, module):
-        cls = eval(module_config[module]['class'])
+        cls = eval(self.get_module_config(module)['class'])
         return cls
 
-    def call_function(self, module, name):
-        func_config = module_config[module]['functions'][name]
+    def call_function(self, module, name, options):
+        func_config = self.get_function_config(module, name)
         cls = self.get_module(module)
         func = getattr(cls, func_config['method'])
         param_dict = {}
         for key in func_config['params']:
             param_dict[key] = self.params[key]
+        options['params'] = param_dict
 
-        return func(cls, **param_dict)
+        return func(cls, options)
 
-    def build_code(self):
-        code = self.call_function(self.module, self.name)
+    def get_variables(self, module, name):
+        func_config = self.get_function_config(module, name)
+        return_config = func_config.get('return', None)
+        if return_config is None:
+            return None
+        if isinstance(return_config, dict):
+            return_config = [return_config, ]
+        ret = []
+        for rc in return_config:
+            var = rc.get('variable', dict(prefix=func_config['method']))
+            var_name = f"{var['prefix']}_{self.index}"
+            ret.append(dict(name=var_name))
+
+        return ret
+
+    def build_code(self, options):
+        if 'variables' not in options.keys():
+            variables = self.get_variables(self.module, self.name)
+            options['variables'] = variables
+        code = self.call_function(self.module, self.name, options)
         return code
 
 
@@ -115,6 +156,49 @@ class EntryBuilder(ElementBuilder):
 
     def __init__(self, config, index):
         super(EntryBuilder, self).__init__(config, index)
+
+    @property
+    def long(self):
+        long = self.config['long']
+        return long
+
+    @property
+    def short(self):
+        short = self.config['short']
+        return short
+
+    def generate_operation_element_code(self, element):
+        c = f"{element[0]} {element[1]} {element[2]}"
+        # code = f"{code} {op} {c}" if code else f"{c}"
+        return c
+
+    def generate_condition_elements_code(self, code,  condition_elements):
+        op = condition_elements['op']
+        values = condition_elements['values']
+        for val in values:
+            if isinstance(val, list):
+                c = self.generate_operation_element_code(val)
+            else:
+                c = self.generate_condition_elements_code('', val)
+            code = f"{code} {op} {c}" if code else f"{c}"
+        return f"({code})"
+
+    def generate_condition_code(self, condition_config):
+        code = ''
+        for cc in condition_config:
+            code = self.generate_condition_elements_code(code, cc)
+        return code
+
+    def build_code(self, options):
+        long_config = self.long
+        condition_config = long_config['condition']
+        long_code = self.generate_condition_code(condition_config)
+        short_config = self.short
+        condition_config = short_config['condition']
+        short_code = self.generate_condition_code(condition_config)
+        codes = (f"if {long_code}:", f"    open_long()", f"if {short_code}:", f"    open_short()")
+
+        return codes
 
 
 class EABuilder:
@@ -184,12 +268,7 @@ runner.run()
         return build_data
 
     def parse_entry_config(self, build_data, entry_config):
-        entry = {}
-        index = 0
-        for key in entry_config:
-            entry[key] = EntryBuilder(entry_config[key], index)
-            index += 1
-        build_data['entry'] = entry
+        build_data['entry'] = EntryBuilder(entry_config, 0)
         return build_data
 
     def parse_build_config(self, config):
@@ -205,13 +284,19 @@ runner.run()
             self.parse_entry_config(build_data, trading['entry'])
             #
             codes = []
+            options = {}
             for key in build_data['symbols']:
                 sd = build_data['symbols'][key]
-                codes.append(sd.build_code())
+                codes.append(sd.build_code(options))
 
             for key in build_data['functions']:
+                options = {}
                 fd = build_data['functions'][key]
-                codes.append(fd.build_code())
+                codes.append(fd.build_code(options))
+
+            options = {}
+            ed = build_data['entry']
+            codes.append(ed.build_code(options))
 
             for c in codes:
                 if isinstance(c, tuple):
