@@ -22,6 +22,7 @@ requires = [
     'dash',
     'plotly',
     'json5',
+    'jinja2'
 ]
 
 tests_require = [

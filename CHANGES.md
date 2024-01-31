@@ -1,4 +1,13 @@
 
+### [2024-01-31]
+#### Version:
+#####   Package:
+#####    pixiu: 0.114.*.20240131
+#####
+#### **Descriptions：**
+     1.Modify ea_builder.py:
+     2.Add jinja2
+
 ### [2024-01-30]
 #### Version:
 #####   Package:

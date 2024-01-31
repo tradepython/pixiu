@@ -6,6 +6,9 @@ import json5 as json
 from tokenize import generate_tokens
 from token import tok_name
 import traceback
+from jinja2 import Template
+
+file_dir = os.path.dirname(__file__)
 
 
 def LoadModuleConfig(config_path):
@@ -54,9 +57,25 @@ class IndicatorModule:
 
 class ElementBuilder:
 
-    def __init__(self, config, index):
+    def __init__(self, config, index, build_data):
         self.config = config
         self.index = index
+        self.build_data = build_data
+
+    def get_value(self, config, value):
+        ret = value
+        if isinstance(value, str):
+            va = value.split('/')
+            if len(va) > 1:
+                if va[0] == '@symbols':
+                    symbol_builder = self.build_data['symbols'][va[1]]
+                    ret = symbol_builder.get_variable_name()
+                elif va[0] == '@functions':
+                    func_builder = self.build_data['functions'][va[1]]
+                    var_list = func_builder.get_variables(func_builder.module, func_builder.name)
+                    ret = var_list[0]['name']
+
+        return ret
 
     def build_code(self, options):
         return None
@@ -64,8 +83,8 @@ class ElementBuilder:
 
 class SymbolBuilder(ElementBuilder):
 
-    def __init__(self, config, index):
-        super(SymbolBuilder, self).__init__(config, index)
+    def __init__(self, config, index, build_data):
+        super(SymbolBuilder, self).__init__(config, index, build_data)
 
     @property
     def symbol(self):
@@ -90,8 +109,8 @@ class SymbolBuilder(ElementBuilder):
 
 class FunctionBuilder(ElementBuilder):
 
-    def __init__(self, config, index):
-        super(FunctionBuilder, self).__init__(config, index)
+    def __init__(self, config, index, build_data):
+        super(FunctionBuilder, self).__init__(config, index, build_data)
 
     @property
     def module(self):
@@ -124,7 +143,7 @@ class FunctionBuilder(ElementBuilder):
         func = getattr(cls, func_config['method'])
         param_dict = {}
         for key in func_config['params']:
-            param_dict[key] = self.params[key]
+            param_dict[key] = self.get_value(func_config['params'][key], self.params[key])
         options['params'] = param_dict
 
         return func(cls, options)
@@ -154,8 +173,8 @@ class FunctionBuilder(ElementBuilder):
 
 class EntryBuilder(ElementBuilder):
 
-    def __init__(self, config, index):
-        super(EntryBuilder, self).__init__(config, index)
+    def __init__(self, config, index, build_data):
+        super(EntryBuilder, self).__init__(config, index, build_data)
 
     @property
     def long(self):
@@ -167,12 +186,16 @@ class EntryBuilder(ElementBuilder):
         short = self.config['short']
         return short
 
+
     def generate_operation_element_code(self, element):
-        c = f"{element[0]} {element[1]} {element[2]}"
+        v0 = self.get_value(None, element[0])
+        v1 = self.get_value(None, element[1])
+        v2 = self.get_value(None, element[2])
+        c = f"{v0} {v1} {v2}"
         # code = f"{code} {op} {c}" if code else f"{c}"
         return c
 
-    def generate_condition_elements_code(self, code,  condition_elements):
+    def generate_condition_elements_code(self, code,   condition_elements):
         op = condition_elements['op']
         values = condition_elements['values']
         for val in values:
@@ -196,7 +219,11 @@ class EntryBuilder(ElementBuilder):
         short_config = self.short
         condition_config = short_config['condition']
         short_code = self.generate_condition_code(condition_config)
-        codes = (f"if {long_code}:", f"    open_long()", f"if {short_code}:", f"    open_short()")
+        codes = (f"if {long_code}:",
+                 f"    return PositionType.LONG",
+                 f"if {short_code}:",
+                 f"    return PositionType.SHORT",
+                 f"return None")
 
         return codes
 
@@ -212,37 +239,6 @@ class EABuilder:
 
     def get_code(self):
         code = '''
-# --------------
-# main
-# --------------
-runner = EAStrategyRunner()
-strategy = Strategy(runner)
-# order_processes = [
-#     # {'name': 'trailing_profit', 'func': strategy.process_order_trailing_profit,
-#     #  'start_pips': 19, 'step_pips': 10},
-#     # {'name': 'trailing_profit', 'func': strategy.process_order_trailing_profit,
-#     #  'start_profit': TRAILING_PROFIT_START_PROFIT, 'step_profit': TRAILING_PROFIT_STEP_PROFIT},
-#     # {'name': 'close_check_market_open', 'func': strategy.close_check_market_open},
-# ]
-# runner.options = {'open_processes': open_processes, 'order_processes': order_processes}
-
-run_processes = [
-    {'name': 'process_hedging_orders', 'func': strategy.process_hedging_orders},
-    {'name': 'open_orders'},
-    # {'name': 'post_open_orders', 'func': strategy.post_open_orders},
-]
-open_processes = [
-    {'name': 'open_new', 'func': strategy.open_new, 'order_list': True},
-    {'name': 'open_check_open_main_order_time', 'func': strategy.open_check_open_group_first_order_time},
-]
-order_processes = [
-]
-runner.options = {
-    'debug_mode': DEBUG, 'enable_notify': NOTIFY,
-    'run_processes': run_processes, 'open_processes': open_processes, 'order_processes': order_processes
-}
-
-runner.run()
 '''
         return code
 
@@ -253,7 +249,7 @@ runner.run()
         symbols = {}
         index = 0
         for key in symbols_config:
-            symbols[key] = SymbolBuilder(symbols_config[key], index)
+            symbols[key] = SymbolBuilder(symbols_config[key], index, build_data)
             index += 1
         build_data['symbols'] = symbols
         return build_data
@@ -262,14 +258,26 @@ runner.run()
         functions = {}
         index = 0
         for key in functions_config:
-            functions[key] = FunctionBuilder(functions_config[key], index)
+            functions[key] = FunctionBuilder(functions_config[key], index, build_data)
             index += 1
         build_data['functions'] = functions
         return build_data
 
     def parse_entry_config(self, build_data, entry_config):
-        build_data['entry'] = EntryBuilder(entry_config, 0)
+        build_data['entry'] = EntryBuilder(entry_config, 0, build_data)
         return build_data
+
+    def generate_code_string_list(self, codes):
+        ret = []
+        for c in codes:
+            if isinstance(c, tuple):
+                for t in c:
+                    # print(f"    {t}")
+                    ret.append(t)
+            else:
+                # print(f"    {c}")
+                ret.append(c)
+        return ret
 
     def parse_build_config(self, config):
         build_data = {}
@@ -297,14 +305,29 @@ runner.run()
             options = {}
             ed = build_data['entry']
             codes.append(ed.build_code(options))
-
-            for c in codes:
-                if isinstance(c, tuple):
-                    for t in c:
-                        print(t)
-                else:
-                    print(c)
-
+            #
+            sl = self.generate_code_string_list(codes)
+            strategy = dict(class_name=build_config['name'], code=dict(can_open_order=sl))
+            runner = dict(code=dict())
+            # print(f"def can_open_order(self):")
+            # for c in codes:
+            #     if isinstance(c, tuple):
+            #         for t in c:
+            #             print(f"    {t}")
+            #     else:
+            #         print(f"    {c}")
+            #
+            j2_file = open(f"{file_dir}/templates/code/ea_strategy_class.j2")
+            template = Template(j2_file.read())
+            strategy_class_code = template.render(strategy=strategy)
+            print(strategy_class_code)
+            runner['strategy_class_name'] = strategy['class_name']
+            runner['code']['strategy_class'] = strategy_class_code
+            # runner['code']['main'] = self.get_code()
+            #
+            j2_file = open(f"{file_dir}/templates/code/ea_strategy_runner_V1.07.00.j2")
+            template = Template(j2_file.read())
+            print(template.render(runner=runner))
         except:
             traceback.print_exc()
         return build_data
@@ -360,7 +383,7 @@ runner.run()
         build_data = self.parse_build_config(config[0])
         return
         #
-        file_dir = os.path.dirname(__file__)
+        # file_dir = os.path.dirname(__file__)
         runner_file = open(f"{file_dir}/templates/runner/EAStrategyRunner_V1.07.00.py")
         strategy_file = open(f"{file_dir}/templates/strategies/strategy_samples.py")
         with open(f"{file_dir}/ea_out.py", "w") as f:
