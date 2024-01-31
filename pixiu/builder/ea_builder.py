@@ -21,7 +21,6 @@ def LoadModuleConfig(config_path):
     return module_config
 
 
-
 module_config = LoadModuleConfig('/Users/digiyouth/local_files/codes/oeoehui_pixiu/samples/builder/module_indicator.json')
 
 
