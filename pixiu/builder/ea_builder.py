@@ -20,8 +20,18 @@ def LoadModuleConfig(config_path):
             module_config[mc['name']] = mc
     return module_config
 
+def LoadStrategyConfig(config_path):
+    strategy_config = {}
+    with open(config_path) as f:
+        strategy_list = json.loads(f.read())
+        for strategy_dict in strategy_list:
+            sc = strategy_dict['strategy_config']
+            strategy_config[sc['name']] = sc
+    return strategy_config
+
 
 module_config = LoadModuleConfig('/Users/digiyouth/local_files/codes/oeoehui_pixiu/samples/builder/module_indicator.json')
+strategy_config = LoadStrategyConfig('/Users/digiyouth/local_files/codes/oeoehui_pixiu/samples/builder/strategy_default.json')
 
 
 # indicator
@@ -56,19 +66,41 @@ class IndicatorModule:
 
 class ElementBuilder:
 
-    def __init__(self, config, index, build_data):
+    def __init__(self, key, config, index, build_data):
+        self.key = key
         self.config = config
         self.index = index
         self.build_data = build_data
+
+    def __write_value_items__(self, value_name, items):
+        # items = value.split('.')
+        ret = value_name
+        if len(items) > 1:
+            for i in items[1:]:
+                ret = f"{ret}.{i}"
+        return ret
 
     def get_value(self, config, value):
         ret = value
         if isinstance(value, str):
             va = value.split('/')
             if len(va) > 1:
-                if va[0] == '@symbols':
-                    symbol_builder = self.build_data['symbols'][va[1]]
+                if va[0] == '@parameters':
+                    items = va[1].split('.')
+                    parameter_builder = self.build_data['parameters'][items[0]]
+                    ret = parameter_builder.get_variable_name()
+                    # if len(items) > 1:
+                    #     for i in items[1:]:
+                    #         ret = f"{ret}.{i}"
+                    ret = self.__write_value_items__(ret,  items)
+                elif va[0] == '@symbols':
+                    items = va[1].split('.')
+                    symbol_builder = self.build_data['symbols'][items[0]]
                     ret = symbol_builder.get_variable_name()
+                    # if len(items) > 1:
+                    #     for i in items[1:]:
+                    #         ret = f"{ret}.{i}"
+                    ret = self.__write_value_items__(ret,  items)
                 elif va[0] == '@functions':
                     func_builder = self.build_data['functions'][va[1]]
                     var_list = func_builder.get_variables(func_builder.module, func_builder.name)
@@ -80,10 +112,98 @@ class ElementBuilder:
         return None
 
 
+class ParameterBuilder(ElementBuilder):
+
+    def __init__(self, key, config, index, build_data):
+        super(ParameterBuilder, self).__init__(key, config, index, build_data)
+        self.script_settings_dict = None
+
+    @property
+    def name(self):
+        return self.config.get('name', self.key)
+
+    @property
+    def type(self):
+        return self.config.get('type', "string")
+
+    @property
+    def value(self):
+        return self.config['value']
+
+    @property
+    def required(self):
+        return self.config.get('required', False)
+
+    @property
+    def script_settings(self):
+        return self.config.get('script_settings', False)
+
+    @property
+    def min(self):
+        return self.config.get('min', None)
+
+    @property
+    def max(self):
+        return self.config.get('max', None)
+
+    @property
+    def desc(self):
+        return self.config.get('desc', None)
+
+    @property
+    def options(self):
+        return self.config.get('options', None)
+
+    def get_variable_name(self):
+        return f"{self.name.upper()}"
+
+    def get_script_settings(self):
+        return self.script_settings_dict
+
+    def build_code(self, options):
+        value_type = self.type
+        value = None
+        value_string = ''
+        if value_type == 'timeframe':
+            tf = self.value
+            value = f"TimeFrame.{tf.upper()}"
+            value_string = value
+        elif value_type == 'bool':
+            value = self.value
+            value_string = f"{value}"
+        elif value_type == 'int':
+            value = int(self.value)
+            value_string = f"{value}"
+        elif value_type == 'float':
+            value = float(self.value)
+            value_string = f"{value}"
+        elif value_type == 'str':
+            value = str(self.value)
+            value_string = f"'{value}'"
+
+        if self.script_settings:
+            self.script_settings_dict = dict(value=value,
+                                             config=dict(required=self.required, type=self.type))
+            if self.min is not None:
+                self.script_settings_dict['config']['min'] = self.min
+            if self.max is not None:
+                self.script_settings_dict['config']['max'] = self.max
+            if self.options is not None:
+                self.script_settings_dict['config']['options'] = self.options
+            if self.desc is not None:
+                self.script_settings_dict['config']['desc'] = self.desc
+            #
+            code = f"{self.get_variable_name()} = GetParam(\"{self.name}\", {value_string})" if self.type in ('string', 'str', 'timeframe') else f"{self.get_variable_name()} = {value_type}(GetParam(\"{self.name}\", {value_string}))"
+            # code = f"{self.get_variable_name()} = GetParam(\"{self.name}\")"
+        else:
+            code = f"{self.get_variable_name()} = {value_string}"
+
+        return code
+
 class SymbolBuilder(ElementBuilder):
 
-    def __init__(self, config, index, build_data):
-        super(SymbolBuilder, self).__init__(config, index, build_data)
+    def __init__(self, key, config, index, build_data):
+        super(SymbolBuilder, self).__init__(key, config, index, build_data)
 
     @property
     def symbol(self):
@@ -96,20 +216,32 @@ class SymbolBuilder(ElementBuilder):
     @property
     def timeframe(self):
         tf = self.config['timeframe']
-        return f"TimeFrame.{tf.upper()}"
+        return tf
 
     def get_variable_name(self):
         return f"symbol_{self.index}"
 
     def build_code(self, options):
-        code = f"{self.get_variable_name()} = GetSymbolData('{self.symbol}', timeframe={self.timeframe}, size={self.size})"
+        symbol = self.get_value({}, self.symbol)
+        if isinstance(symbol, str):
+            symbol = f"'{symbol}'"
+        elif symbol == 0:
+            symbol = 'Symbol()'
+        else:
+            symbol = None
+
+        timeframe = self.get_value({}, self.timeframe)
+        # tf = self.get_value({}, self.timeframe)
+        # return f"TimeFrame.{tf.upper()}"
+        size = self.get_value({}, self.size)
+        code = f"{self.get_variable_name()} = GetSymbolData({symbol}, timeframe={timeframe}, size={size})"
         return code
 
 
 class FunctionBuilder(ElementBuilder):
 
-    def __init__(self, config, index, build_data):
-        super(FunctionBuilder, self).__init__(config, index, build_data)
+    def __init__(self, key, config, index, build_data):
+        super(FunctionBuilder, self).__init__(key, config, index, build_data)
 
     @property
     def module(self):
@@ -172,8 +304,8 @@ class FunctionBuilder(ElementBuilder):
 
 class EntryBuilder(ElementBuilder):
 
-    def __init__(self, config, index, build_data):
-        super(EntryBuilder, self).__init__(config, index, build_data)
+    def __init__(self, key, config, index, build_data):
+        super(EntryBuilder, self).__init__(key, config, index, build_data)
 
     @property
     def long(self):
@@ -218,11 +350,12 @@ class EntryBuilder(ElementBuilder):
         short_config = self.short
         condition_config = short_config['condition']
         short_code = self.generate_condition_code(condition_config)
-        codes = (f"if {long_code}:",
-                 f"    return PositionType.LONG",
+        codes = (f"ret = dict()",
+                 f"if {long_code}:",
+                 f"    ret[PositionType.LONG] = dict(price=None)",
                  f"if {short_code}:",
-                 f"    return PositionType.SHORT",
-                 f"return None")
+                 f"    ret[PositionType.SHORT] = dict(price=None)",
+                 f"return ret")
 
         return codes
 
@@ -244,11 +377,31 @@ class EABuilder:
     def call_module_function(self, module, func, params):
         pass
 
+    def parse_strategy_parameters_config(self, build_data, strategy_name):
+        sc = strategy_config[strategy_name]
+        #
+        parameters = {}
+        index = 0
+        for key in sc['parameters']:
+            parameters[key] = ParameterBuilder(key, sc['parameters'][key], index, build_data)
+            index += 1
+        build_data['strategy_parameters'] = parameters
+        return build_data
+
+    def parse_parameters_config(self, build_data, parameters_config):
+        parameters = {}
+        index = 0
+        for key in parameters_config:
+            parameters[key] = ParameterBuilder(key, parameters_config[key], index, build_data)
+            index += 1
+        build_data['parameters'] = parameters
+        return build_data
+
     def parse_symbols_config(self, build_data, symbols_config):
         symbols = {}
         index = 0
         for key in symbols_config:
-            symbols[key] = SymbolBuilder(symbols_config[key], index, build_data)
+            symbols[key] = SymbolBuilder(key, symbols_config[key], index, build_data)
             index += 1
         build_data['symbols'] = symbols
         return build_data
@@ -257,13 +410,13 @@ class EABuilder:
         functions = {}
         index = 0
         for key in functions_config:
-            functions[key] = FunctionBuilder(functions_config[key], index, build_data)
+            functions[key] = FunctionBuilder(key, functions_config[key], index, build_data)
             index += 1
         build_data['functions'] = functions
         return build_data
 
     def parse_entry_config(self, build_data, entry_config):
-        build_data['entry'] = EntryBuilder(entry_config, 0, build_data)
+        build_data['entry'] = EntryBuilder(None,  entry_config, 0, build_data)
         return build_data
 
     def generate_code_string_list(self, codes):
@@ -279,6 +432,7 @@ class EABuilder:
         return ret
 
     def parse_build_config(self, config):
+        build_info = None
         build_data = {}
         build_config = None
         try:
@@ -286,12 +440,43 @@ class EABuilder:
             if build_config['version'] != "v1.0alpha":
                 return None
             trading = build_config['trading']
+            coding = build_config['coding']
+            self.parse_strategy_parameters_config(build_data,  coding['strategy']['name'])
+            self.parse_parameters_config(build_data, trading['parameters'])
             self.parse_symbols_config(build_data, trading['symbols'])
             self.parse_functions_config(build_data, trading['functions'])
             self.parse_entry_config(build_data, trading['entry'])
+            build_info = dict(config=build_config, data=build_data)
+        except:
+            traceback.print_exc()
+        return build_info
+
+    def generate_ea_code(self, build_info):
+        ret = None
+        try:
             #
+            build_data = build_info['data']
+            build_config = build_info['config']
             codes = []
             options = {}
+            parameters_codes = []
+            script_settings = dict(params={}, charts={"price": {"series": [
+                                            {"name": "top_signal", "color": "#89F3DAFF"},
+                                            {"name": "bottom_signal", "color": "#e7dc48"}]
+                  }})
+            for key in build_data['strategy_parameters']:
+                pd = build_data['strategy_parameters'][key]
+                parameters_codes.append(pd.build_code(options))
+                ss = pd.get_script_settings()
+                if pd.script_settings:
+                    script_settings['params'][pd.name] = ss
+            for key in build_data['parameters']:
+                pd = build_data['parameters'][key]
+                parameters_codes.append(pd.build_code(options))
+                ss = pd.get_script_settings()
+                if pd.script_settings:
+                    script_settings['params'][pd.name] = ss
+            #
             for key in build_data['symbols']:
                 sd = build_data['symbols'][key]
                 codes.append(sd.build_code(options))
@@ -305,8 +490,13 @@ class EABuilder:
             ed = build_data['entry']
             codes.append(ed.build_code(options))
             #
+            pc = self.generate_code_string_list(parameters_codes)
             sl = self.generate_code_string_list(codes)
-            strategy = dict(class_name=build_config['name'], code=dict(can_open_order=sl))
+            # script_settings_code = json.dumps(script_settings, quote_keys=True)
+            strategy = dict(class_name=build_config['name'],
+                            code=dict(parameters=pc, get_entry_data=sl),
+                            script_settings=script_settings
+                            )
             runner = dict(code=dict())
             # print(f"def can_open_order(self):")
             # for c in codes:
@@ -326,13 +516,11 @@ class EABuilder:
             #
             j2_file = open(f"{file_dir}/templates/code/ea_strategy_runner_V1.07.00.j2")
             template = Template(j2_file.read())
-            print(template.render(runner=runner))
+            ret = template.render(runner=runner)
+            print(ret)
         except:
             traceback.print_exc()
-        return build_data
-
-    def parse_condition(self, condition):
-        pass
+        return ret
 
 
 
@@ -378,14 +566,11 @@ class EABuilder:
     #
     #
 
-    def build(self, config):
-        build_data = self.parse_build_config(config[0])
-        return
-        #
-        # file_dir = os.path.dirname(__file__)
-        runner_file = open(f"{file_dir}/templates/runner/EAStrategyRunner_V1.07.00.py")
-        strategy_file = open(f"{file_dir}/templates/strategies/strategy_samples.py")
-        with open(f"{file_dir}/ea_out.py", "w") as f:
-            f.write(strategy_file.read())
-            f.write(runner_file.read())
-            f.write(self.get_code())
+    def build(self, config, output_path):
+        build_info = self.parse_build_config(config[0])
+        ea_code = self.generate_ea_code(build_info)
+        if ea_code is None:
+            return False
+        with open(output_path, "w") as f:
+            f.write(ea_code)
+        return True

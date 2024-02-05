@@ -1,4 +1,30 @@
 
+### [2024-02-05]
+#### Version:
+#####   Package:
+#####    pixiu: 0.117.*.20240205
+#####
+#### **Descriptions：**
+     1.Modify ea_builder.py: 
+       1) Add ParameterBuilder
+     2.Add strategy_default.json
+
+### [2024-02-02]
+#### Version:
+#####   Package:
+#####    pixiu: 0.116.*.20240202
+#####
+#### **Descriptions：**
+     1.Modify ea_builder.py:
+
+### [2024-02-01]
+#### Version:
+#####   Package:
+#####    pixiu: 0.115.*.20240201
+#####
+#### **Descriptions：**
+     1.Modify ea_builder.py:
+
 ### [2024-01-31]
 #### Version:
 #####   Package:

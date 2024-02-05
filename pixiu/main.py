@@ -421,12 +421,12 @@ class MainApp:
     #     self.get_compare_reports(args, compare_reports)
     #     self.output_report(reports, compare_reports)
     #
-    def build_ea(self, build_config_file):
+    def build_ea(self, build_config_file, ea_output_path):
         ea_builder = EABuilder({})
         with open(build_config_file) as f:
             build_config_string = f.read()
             build_config = json.loads(build_config_string)
-            ea_builder.build(build_config)
+            ea_builder.build(build_config, ea_output_path)
 
 
 
@@ -450,11 +450,13 @@ def main(*args, **kwargs):
     #
     parser_build = subparsers.add_parser('build', help='Build EA')
     parser_build.add_argument('-c', '--buildconfig', type=str, required=True, help='Build config path')
+    parser_build.add_argument('-o', '--output', type=str, required=True, help='EA output path')
+    parser_build.add_argument('-t', '--test', type=str, required=False, help='Test')
     # parser_build.add_argument('-b', '--build', type=str, required=False, help='Build EA')
 
     args = parser.parse_args()
     if args.action_name == 'build':
-        MainApp(args).build_ea(args.buildconfig)
+        MainApp(args).build_ea(args.buildconfig, args.output)
     else:
         manager = Manager()
 
