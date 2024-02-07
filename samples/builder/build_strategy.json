@@ -1,0 +1,79 @@
+[
+  {
+    "build_config": {
+      "version": "v1.0alpha",
+      "name": "SampleStrategy",
+      "trading": {
+        "variables": {
+          "timeframe_d1": { "type": "timeframe", "value": "d1", "name": "timeframe_d1", "required": true,
+                         "script_settings": true,
+                         "valid": [{"condition": "not %obj", "errmsg": "Invalid timeframe"}]
+          },
+          "timeframe": { "type": "timeframe", "value": "H1", "name": "timeframe", "required": true,
+                         "script_settings": true,
+                         "valid": [{"condition": "not %obj", "errmsg": "Invalid timeframe"}]
+          }
+        },
+        "symbols": {
+          "current_symbol_d1": {
+            "symbol": 0,
+            "timeframe": "@variables/timeframe_d1",
+            "size": 60
+          },
+          "current_symbol": {
+            "symbol": 0,
+            "timeframe": "@variables/timeframe",
+            "size": 60
+          }
+        },
+        "functions": {
+            "adx_5": {"module": "indicator", "name": "ADX",
+              "params": {"symbol_data": "@symbols/current_symbol_d1", "period": 5, "shift": 0}
+            },
+            "ma_60": {"module": "indicator", "name": "MA",
+              "params": {"symbol_data": "@symbols/current_symbol.close", "period": 60, "shift": 0, "matype": 0}
+            },
+            "ma_90": {"module": "indicator", "name": "MA",
+              "params": {"symbol_data": "@symbols/current_symbol.close", "period": 90, "shift": 0, "matype": 0}
+            }
+        },
+        "entry": {
+          "long": {
+            "condition": [
+              {"op": "and",
+                "values": [
+                  ["@functions/adx_5", ">", 20],
+                  ["@functions/ma_60", ">", "@functions/ma_90"],
+                  {"op": "or",
+                        "values": [
+                            ["@functions/adx_5", ">", 20],
+                            ["@functions/ma_60", ">", "@functions/ma_90"]
+                        ]
+                  }
+                ]
+              }
+            ]
+          },
+          "short": {
+            "condition": [
+              {"op": "and", "values": [
+                ["@functions/adx_5", "<", 20],
+                ["@functions/ma_60", "<", "@functions/ma_90"]
+              ]}
+            ]
+          }
+        },
+        "exit": {},
+        "order": {},
+        "options": {
+          "weekend_holding": false
+        }
+      },
+      "coding": {
+        "strategy": {"name": "StrategyBase", "version": "1.00.00"},
+        "runner": {"name": "EAStrategyRunner", "version": "1.07.00"}
+        }
+
+    }
+  }
+]

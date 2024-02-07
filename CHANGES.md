@@ -1,4 +1,22 @@
 
+### [2024-02-07]
+#### Version:
+#####   Package:
+#####    pixiu: 0.119.*.20240207
+#####
+#### **Descriptions：**
+     1.Modify ea_builder.py: 
+
+### [2024-02-06]
+#### Version:
+#####   Package:
+#####    pixiu: 0.118.*.20240206
+#####
+#### **Descriptions：**
+     1.Modify ea_builder.py: 
+       1) Rename ParmeterBuilder to VariableBuilder
+     2)Add black format ea code
+
 ### [2024-02-05]
 #### Version:
 #####   Package:

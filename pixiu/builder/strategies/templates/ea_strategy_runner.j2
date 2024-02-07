@@ -1,0 +1,425 @@
+
+EID_OK = 0
+
+{{ runner['code']['strategy_class'] }}
+
+class EAStrategyRunner:
+    def __init__(self):
+        self.runner_status_cache_name = f"__runner_status__"
+        self.default_process = {
+            'run_processes': {
+                'process_orders': {'func': self.process_orders},
+                'open_orders': {'func': self.open_orders},
+            },
+            'open_processes': {
+                'day_atr': {'func': self.filter_day_atr},
+                'weekend': {'func': self.filter_weekend},
+            },
+            'order_processes': {
+                'trailing_profit': {'func': self.process_order_trailing_profit},
+                'hard_profit': {'func': self.process_order_hard_profit},
+                'stop_by_time': {'func': self.process_order_stop_by_time},
+            }
+        }
+
+    def init_data(self, *args, **kwargs):
+        return True
+
+    def debug_print(self, message, add_info=True, notify=False):
+        if not self.options.get('debug_mode', False):
+            return
+        if add_info:
+            msg = f"[{Symbol()}]({str(Time()), Open(), Low(), High(), Close(), Ask(), Bid()}) {message}"
+        else:
+            msg = message
+        print(msg)
+        if self.options.get('enable_notify', False) and notify:
+            Notify(msg)
+
+    def usdpip(self):
+        currency_profit = SymbolInfo("currency_profit")
+        currency_base = SymbolInfo("currency_base")
+        pd = self.pip_digits()
+        if currency_profit == "USD":
+            # return 1.0  # MathPow(10.0,Digits*-1);
+            return math.pow(10, pd*-1)  # MathPow(10.0,Digits*-1);
+        elif currency_base == 'USD':
+            # return 1 / 100 / Close()
+            return math.pow(10, pd*-1) / Close()
+            # return 1.0 / Ask()
+        return None
+
+    def calculate_size(self, open_price, close_price, max_sl_amount):
+        return self.profit_to_lots(max_sl_amount, self.points_to_pips(abs(close_price - open_price)))
+
+    # def calculate_size(self, open_price, close_price, max_sl_amount):
+    #     usd_pip = self.usdpip()
+    #     if usd_pip is None or usd_pip == 0:
+    #         return 0.0
+    #     # USD/XXX：盈利或亏损金额 = （1/现价）*（现价-开仓价）*每手合约大小*持仓数量
+    #     # XXX/USD：盈利或亏损金额 = （现价-开仓价）*每手合约大小*持仓数量
+    #     lots = max_sl_amount / (usd_pip * abs(close_price - open_price) * SymbolInfo("trade_contract_size"))
+    #     if isnull(lots):
+    #         return 0.0
+    #     minLot = SymbolInfo("volume_min")
+    #     ret = math.floor(lots / minLot) * minLot
+    #     # print("caculateLots: aAmount=%f, self.USDPIP()=%f, price_range=%f, trade_contract_size=%f" % (aAmount, self.USDPIP(), abs(aEndPrice - aStartPrice), SymbolInfo("trade_contract_size")))
+    #     # print("caculateLots: lots=%f, minLot=%f, ret=%f" % (lots, minLot, ret))
+    #     # 比较最小手数
+    #     if ret > lots:
+    #         print("calculate_size: want: %f > %f" % (ret, lots))
+    #         return 0.0
+    #     return ret
+    #
+    def profit_to_lots(self, profit, pips):
+        usd_pip = self.usdpip()
+        if usd_pip is None or usd_pip == 0:
+            return 0.0
+        # USD/XXX：盈利或亏损金额 = （1/现价）*（现价-开仓价）*每手合约大小*持仓数量
+        # XXX/USD：盈利或亏损金额 = （现价-开仓价）*每手合约大小*持仓数量
+        lots = profit / (usd_pip * pips * SymbolInfo("trade_contract_size"))
+        if isnull(lots):
+            return 0.0
+        minLot = SymbolInfo("volume_min")
+        ret = math.floor(lots / minLot) * minLot
+        # print("caculateLots: aAmount=%f, self.USDPIP()=%f, price_range=%f, trade_contract_size=%f" % (aAmount, self.USDPIP(), abs(aEndPrice - aStartPrice), SymbolInfo("trade_contract_size")))
+        # print("caculateLots: lots=%f, minLot=%f, ret=%f" % (lots, minLot, ret))
+        # 比较最小手数
+        if ret > lots:
+            print("calculate_size: want: %f > %f" % (ret, lots))
+            return 0.0
+        return ret
+
+
+    def profit_to_points(self, profit, volume):
+        # https://www.myfxbook.com/forex-calculators/pip-calculator
+        usd_pip = self.usdpip()
+        if usd_pip is None or usd_pip == 0 or volume <= 0 or profit <= 0:
+            return 0.0
+        profit_pips = profit / (volume * usd_pip * SymbolInfo("trade_contract_size"))
+        points = self.pips_to_points(profit_pips)
+        return points
+    #
+    # def profit_to_points(self, profit, volume):
+    #     # https://www.myfxbook.com/forex-calculators/pip-calculator
+    #     usd_pip = self.usdpip()
+    #     if usd_pip is None or usd_pip == 0 or volume <= 0 or profit <= 0:
+    #         return 0.0
+    #     points = profit / (volume * usd_pip * SymbolInfo("trade_contract_size"))
+    #     return points
+
+    # 获得可用保证金
+    def get_free_margin(self, params):
+        account = GetAccount()
+
+        # 使用余额替换可用保证金
+        account_free_margin = account.equity #AccountEquity()  # AccountFreeMargin();
+        margin_leverage = params.get('margin_leverage', 1)
+        max_margin = params.get('max_margin', 0)
+        if margin_leverage > 1:
+            account_free_margin = account_free_margin * margin_leverage
+
+        if max_margin <= 0 or account_free_margin < max_margin:
+            return account_free_margin
+        else:
+            return max_margin
+
+    def max_sl_amount_per_order(self, params):
+        max_sl_percent = params['max_sl_percent']
+        ret = self.get_free_margin(params) * max_sl_percent
+        return ret
+
+    def pips_to_points(self, pips):
+        #from https://www.mql5.com/en/forum/141509
+        digits = SymbolInfo("digits")
+        point = SymbolInfo("point")
+        # DE30=1 / JPY=3 / EURUSD=5 forum.mql4.com / 43064  # 515262
+        if digits % 2 == 1:
+            pips2dbl = point * 10
+            pips2points = 10
+            digits_pips = 1
+        else:
+            pips2dbl = point
+            pips2points = 1
+            digits_pips = 0
+        return pips * pips2dbl
+
+    def pip_digits(self):
+        #from https://www.mql5.com/en/forum/141509
+        digits = SymbolInfo("digits")
+        # DE30=1 / JPY=3 / EURUSD=5 forum.mql4.com / 43064  # 515262
+        if digits % 2 == 1:
+            return digits - 1
+        else:
+            return digits
+
+    def points_to_pips(self, value_point):
+        if isnull(value_point):
+            return nan
+        #from https://www.mql5.com/en/forum/141509
+        digits = SymbolInfo("digits")
+        point = SymbolInfo("point")
+        # DE30=1 / JPY=3 / EURUSD=5 forum.mql4.com / 43064  # 515262
+        if digits % 2 == 1:
+            pips2dbl = point * 10
+        else:
+            pips2dbl = point
+        return float(value_point / pips2dbl)
+
+    def filter_day_atr(self, new_order_dict, params):
+        # trend filter
+        position = new_order_dict['position']
+        stop_loss = new_order_dict['stop_loss']
+        take_profit = new_order_dict['take_profit']
+        #
+        sd = GetSymbolData(Symbol(), timeframe=TimeFrame.D1, size=60)
+        atr_day_series = iATR(sd, timeperiod=5, shift=None)
+        # if self.atr_series[0] > (self.atr_series[1] * 1.5):
+        #     return False
+        if position == PositionType.LONG:
+            if take_profit < sd.close[1] + atr_day_series[0]:
+                return True
+        else:
+            if take_profit > sd.close[1] - atr_day_series[0]:
+                return True
+        debug_print(f"filter_day_atr: take_profit={take_profit}, sd.close[1]={sd.close[1]}, atr_day_series[0]={atr_day_series[0]}", notify=False)
+        return False
+
+    def filter_weekend(self, new_order_dict, params):
+        # trend filter
+        dt = Time()
+        # if dt.weekday() >= 4 and dt.hour >= 20:
+        #     return False
+        if dt.hour <= 8 or dt.hour >= 20:
+            return False
+        return True
+
+    def close_order(self, order, tag):
+        errid, result = CloseOrder(order.uid)
+
+    def open_orders(self, params):
+        pn = 'open_processes'
+        op_list = self.options[pn]
+        new_order_list = []
+        for op in op_list:
+            func = op.get('func', self.default_process[pn].get(op['name'], {'func': None})['func'])
+            if func is None:
+                print(f"Func {op['name']} is None!")
+                return -2, None
+            using_order_list = op.get('order_list', False)
+            if using_order_list:
+                if not func(new_order_list, op):
+                    return -1, None
+            else:
+                for no in new_order_list:
+                    if no['errid'] != 0:
+                        continue
+                    if not func(no, op):
+                        no['errid'] = -1
+
+        #
+        ret = []
+        for new_order in new_order_list:
+            errid = new_order['errid']
+            rv = dict(order=new_order, errid=errid)
+            ret.append(rv)
+            if errid != 0:
+                continue
+            position = new_order['position']
+            order_type = new_order.get('order_type', OrderType.MARKET)
+            size = new_order['size']
+            price = new_order['price']
+            slippage = new_order.get('slippage', 10)
+            stop_loss = new_order.get('stop_loss', None)
+            take_profit = new_order.get('take_profit', None)
+            tags = new_order.get('tags', None)
+            if position == PositionType.LONG:
+                errid, result = Buy(size, type=order_type, price=price, slippage=slippage, stop_loss=stop_loss, take_profit=take_profit,
+                                    tags=tags)
+                print(f"Buy: {errid}, {result}")
+                # Sell(size/2, price=Bid(), slippage=slippage, stop_loss=take_profit, take_profit=stop_loss)
+            elif position == PositionType.SHORT:
+                errid, result = Sell(size, type=order_type, price=price, slippage=slippage, stop_loss=stop_loss, take_profit=take_profit,
+                                     tags=tags)
+                print(f"Sell: {errid}, {result}")
+                # Buy(size/2, price=Ask(), slippage=slippage, stop_loss=take_profit, take_profit=stop_loss)
+            else:
+                rv['errid'] = -3
+                continue
+            rv['errid'] = errid
+            rv['result'] = result
+
+        return 0, ret
+
+    #trailing_stop
+    def process_order_stop_by_time(self, order, params):
+        if order is None:
+            return False
+        if order.symbol != Symbol():
+            return False
+        total_seconds = (Time() - order.open_time).total_seconds()
+        c_timeout = params['c_timeout']
+        if total_seconds < c_timeout:
+            return False
+        max_order_time = params.get('max_order_time', 0)
+        if 0 < max_order_time <= total_seconds:
+            self.close_order(order, 'max_order_time')
+            return True
+        # if total_seconds > self.c_timeout and o.profit >= self.c_stoploss:
+        sl_ratio = (total_seconds - c_timeout) / MAX_ORDER_TIME
+        max_points = self.points_to_pips(abs(order.stop_loss - order.open_price))
+        cur_points = self.points_to_pips(abs(Close() - order.open_price))
+        # sl_ratio = 2/3
+        # print(f"order.profit={order.profit}, max_points={max_points}, cur_points={cur_points}, sl_ratio={sl_ratio}")
+        if cur_points > max_points * sl_ratio:
+            return False
+        print(f"close: {Time(0)},{Time(1)}, minute={int(total_seconds/60)}, order.profit={order.profit}, max_points={max_points}, cur_points={cur_points}, sl_p={max_points * sl_ratio}, sl_ratio={sl_ratio}")
+        self.close_order(order, 'timeout')
+        return True
+
+    #hard_profit
+    def process_order_hard_profit(self, order, params):
+        if order is None:
+            return False
+        if order.symbol != Symbol():
+            return False
+        tp_pips = params['tp_pips']
+        if order.profit > 0 and tp_pips > 0:
+            profit_pips = self.points_to_pips(abs(Close() - order.open_price))
+            if profit_pips >= tp_pips:
+                self.close_order(order, 'hard_profit')
+                return True
+        return False
+    #
+    def process_order_trailing_profit(self, order, params):
+        if order is None:
+            return False
+        if order.symbol != Symbol():
+            return False
+        if order.take_profit is None:
+            return False
+        # total_seconds = (Time() - order.open_time).total_seconds()
+        # if total_seconds > self.c_timeout:
+        #     return False
+
+        price = Close()
+        step_pips = 0
+        # step_pips = params.get('step_percent', 0)
+        step_percent = params.get('step_percent', 0)
+        if step_percent <= 0:
+            step_pips = params.get('step_pips', 0)
+        else:
+            if 99 >= step_percent > 0:
+                step_pips = abs(order.take_profit - order.open_price) * step_percent * 0.01
+        if step_pips <= 0:
+            return False
+        #
+        start_pips = params.get('start_pips', step_pips)
+        #
+        trailing_profit_start_points = self.pips_to_points(start_pips)
+        trailing_profit_points = self.pips_to_points(step_pips)
+        new_take_profit = None
+        new_stop_loss = None
+        if order.is_long():
+            if price - order.open_price >= trailing_profit_start_points:
+                new_take_profit = order.take_profit + trailing_profit_points
+                new_stop_loss = price - trailing_profit_points
+                if new_stop_loss <= order.stop_loss:
+                    return False
+        else:
+            if order.open_price - price >= trailing_profit_start_points:
+                new_take_profit = order.take_profit - trailing_profit_points
+                new_stop_loss = price + trailing_profit_points
+                if new_stop_loss >= order.stop_loss:
+                    return False
+        #2021.10.20 14:02:05.341	'4394656': modify order #251440139 sell 1.00 USDJPY at 114.521 sl: 114.602 tp: 114.477 -> sl: 114.533 tp: 114.447
+        #2021.10.20 14:00:39.290	'4394656': order was opened : #251440139 sell 1.00 USDJPY at 114.521 sl: 114.602 tp: 114.477
+
+        if new_take_profit is not None:
+            print(f"modify profit: {Time(0)},{Time(1)}, uid={order.uid}, new_take_profit={new_take_profit}, new_stop_loss={new_stop_loss}")
+            errid, result = ModifyOrder(uid=order.uid, take_profit=new_take_profit, stop_loss=new_stop_loss)
+            return True
+        return False
+
+    #
+    def process_order(self, o):
+        pn = 'order_processes'
+        op_list = self.options[pn]
+        for op in op_list:
+            func = op.get('func', self.default_process[pn].get(op['name'], {'func': None})['func'])
+            if func is None:
+                print(f"Func {op['name']} is None!")
+                return False
+            if func(o, op):
+                return True
+        return False
+
+    def process_orders(self, params):
+        order_dict = GetOpenedOrderUIDs()
+        for order_uid in order_dict:
+            o = GetOrder(order_uid)
+            if o is not None:
+                # print(f"{Time()}, {Close()}, o.symbol={o.symbol}, o.ticket={o.ticket}, o.tp={o.take_profit}, o.sl={o.stop_loss}, o.profit={o.profit}, o.open_time={o.open_time}, o.is_long={o.is_long()}, o.is_short={o.is_short()}")
+                self.process_order(o)
+            else:
+                print(f"ERROR: {order_uid} is None")
+
+    def run(self):
+        if not self.init_data():
+            print(f"init_data error, exit ...!")
+            return -1
+        pn = 'run_processes'
+        op_list = self.options.get(pn, [dict(name='process_orders'), dict(name='open_orders'), ])
+        for op in op_list:
+            func = op.get('func', self.default_process[pn].get(op['name'], {'func': None})['func'])
+            if func is None:
+                print(f"Func {op['name']} is None!")
+                return -2
+            func(op)
+        return 0
+
+    def load_status_data(self, status, default=None):
+        data = LoadData(scope=DataScope.EA_SETTIGNS, name=self.runner_status_cache_name)
+        if data is None:
+            data = {}
+        return data.get(status, default)
+
+    def save_status_data(self, status, value):
+        data = LoadData(scope=DataScope.EA_SETTIGNS, name=self.runner_status_cache_name)
+        if data is None:
+            data = {}
+        current_time = Time()
+        # ts = current_time.timestamp()
+        data[status] = dict(time_ts=current_time.timestamp(), value=value)
+        return SaveData(scope=DataScope.EA_SETTIGNS, name=self.runner_status_cache_name, data=data)
+
+    def delete_status_data(self, status):
+        data = LoadData(scope=DataScope.EA_SETTIGNS, name=self.runner_status_cache_name)
+        if data is None:
+            return False
+        if status not in data:
+            return False
+        data.pop(status, None)
+        return SaveData(scope=DataScope.EA_SETTIGNS, name=self.runner_status_cache_name, data=data)
+
+# --------------
+# main
+# --------------
+runner = EAStrategyRunner()
+strategy = {{runner['strategy_class_name']}}(runner)
+
+run_processes = [
+    {'name': 'process_hedging_orders', 'func': strategy.process_hedging_orders},
+    {'name': 'open_orders'},
+]
+open_processes = [
+    {'name': 'open_new', 'func': strategy.open_new, 'order_list': True},
+    {'name': 'open_check_open_main_order_time', 'func': strategy.open_check_open_group_new_order_time},
+]
+order_processes = [
+]
+runner.options = {
+    'run_processes': run_processes, 'open_processes': open_processes, 'order_processes': order_processes
+}
+
+runner.run()

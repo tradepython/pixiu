@@ -1,0 +1,31 @@
+[
+  {
+    "module_config": {
+      "version": "v1.0alpha",
+      "name": "indicator",
+      "class": "IndicatorModule",
+      "file": "../modules/module_indicators.py",
+      "functions": {
+        "ADX": {
+          "method": "adx",
+          "params": {
+            "symbol_data": {"required": true, "type": "symbol_data"},
+            "period": {"required": true, "type": "number"},
+            "shift": {"required": true, "type": "number", "default": 1}
+          },
+          "return": {"type": "number", "variable": {"prefix": "adx"}}
+        },
+        "MA": {
+          "method": "ma",
+          "params": {
+            "symbol_data": {"required": true, "type": "symbol_data"},
+            "period": {"required": true, "type": "number"},
+            "matype": {"required": true, "type": "number"},
+            "shift": {"required": true, "type": "number", "default": 1}
+          },
+          "return": {"type": "number"}
+        }
+      }
+    }
+  }
+]

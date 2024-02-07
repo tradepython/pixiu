@@ -1,0 +1,1612 @@
+
+
+OD_LONG_SHORT = 0
+OD_LONG_ONLY = 1
+OD_SHORT_ONLY = 2
+OD_DISABLE = 3
+
+{%  for code in strategy['code']['variables']  -%}
+    {{ code }}
+{% endfor %}
+
+#-10%:balance
+def valid_source(source):
+    valid_source = ('balance', )
+    return source in valid_source
+
+def p2f(x, failed_value=None):
+    try:
+        source = None
+        if isinstance(x, str) and len(x) > 1:
+            s = x.strip(' ')
+            if s[-1:] == '%':
+                return float(x.rstrip('%')) / 100, 'percent', source
+            else:
+                ary = s.split(':')
+                if len(ary) == 2:
+                    if ary[0][-1:] == '%':
+                        source = ary[1].lower()
+                        return float(ary[0].rstrip('%')) / 100, 'percent', source
+    except:
+        pass
+    return failed_value, None, None
+
+
+def to_float(x, failed_value=None):
+    ret = failed_value
+    ret_type = None
+    ret_source = None
+    try:
+        if isinstance(x, float):
+            ret = x
+            ret_type = 'float'
+        elif isinstance(x, int):
+            ret = x
+            ret_type = 'int'
+        else:
+            ret, ret_type, ret_source = p2f(x)
+            if ret is None:
+                ret = float(x)
+                ret_type = 'float'
+    except:
+        pass
+    return ret, ret_type, ret_source
+
+def parse_risk_trailing_profit_protection(value):
+    if not value:
+        return 0, 0, 0
+    args = value.split(':')
+    if len(args) != 2:
+        return -1, 0, 0
+    try:
+        amount = float(args[0])
+        if amount < 0:
+            return -1, 0, 0
+        minutes = int(args[1])
+        if minutes < 1 or minutes > 480:
+            return -1, 0, 0
+        return 0, amount, minutes
+    except:
+        pass
+    return -1, 0, 0
+
+def PX_ValidScriptSettings(new_settings):
+    errmsg = ''
+    try:
+        if 'params' not in new_settings:
+            return dict(success=False, errmsg='Not found params')
+        params = new_settings['params']
+        group_tp_pips = params['group_tp_pips']['value']
+        group_sl_pips = params['group_sl_pips']['value']
+        if group_tp_pips > 0 and group_sl_pips > 0:
+            pass
+        else:
+            pass
+
+        #group_target_profit
+        group_target_profit = params['group_target_profit']['value']
+        v, rt, rs = to_float(group_target_profit)
+        errmsg = 'group_target_profit must be positive or positive percentage, e.g. 10%, 200, 10%:balance'
+        if v is None or v <= 0:
+            return dict(success=False, errmsg=errmsg)
+        if rs and not valid_source(rs):
+            return dict(success=False, errmsg=errmsg)
+        #
+        group_max_loss = params['group_max_loss']['value']
+        v, rt, rs = to_float(group_max_loss)
+        errmsg = 'group_max_loss must be negative or negative percentage or zero'
+        if v is None or v > 0:
+            return dict(success=False, errmsg=errmsg)
+        if rs and not valid_source(rs):
+            return dict(success=False, errmsg=errmsg)
+        #
+        group_max_orders = int(params['group_max_orders']['value'])
+        if group_max_orders < 0:
+            return dict(success=False, errmsg=f"The group_max_orders must be positive or 0.")
+        #
+        risk_day_max_loss = float(params['risk_day_max_loss']['value'])
+        if risk_day_max_loss > 0:
+            return dict(success=False, errmsg=f"The risk_day_max_loss must be negative.")
+        #
+        risk_day_max_profit = float(params['risk_day_max_profit']['value'])
+        if risk_day_max_profit < 0:
+            return dict(success=False, errmsg=f"The risk_day_max_profit must be positive.")
+
+        {%  for code in strategy['code'].get('valid_script_settings', [])  -%}
+            {{ code }}
+        {% endfor %}
+
+        return dict(success=True)
+    except Exception as exc:
+        errmsg = str(exc)
+    return dict(success=False, errmsg=errmsg)
+
+def PX_ValidScriptSettings0(new_settings):
+    errmsg = ''
+    try:
+        if 'params' not in new_settings:
+            return dict(success=False, errmsg='Not found params')
+        params = new_settings['params']
+        group_tp_pips = params['group_tp_pips']['value']
+        group_sl_pips = params['group_sl_pips']['value']
+        if group_tp_pips > 0 and group_sl_pips > 0:
+            pass
+        else:
+            pass
+
+        #group_target_profit
+        group_target_profit = params['group_target_profit']['value']
+        v, rt, rs = to_float(group_target_profit)
+        errmsg = 'group_target_profit must be positive or positive percentage, e.g. 10%, 200, 10%:balance'
+        if v is None or v <= 0:
+            return dict(success=False, errmsg=errmsg)
+        if rs and not valid_source(rs):
+            return dict(success=False, errmsg=errmsg)
+        #
+        group_max_loss = params['group_max_loss']['value']
+        v, rt, rs = to_float(group_max_loss)
+        errmsg = 'group_max_loss must be negative or negative percentage or zero'
+        if v is None or v > 0:
+            return dict(success=False, errmsg=errmsg)
+        if rs and not valid_source(rs):
+            return dict(success=False, errmsg=errmsg)
+        #
+        group_max_orders = int(params['group_max_orders']['value'])
+        if group_max_orders < 0:
+            return dict(success=False, errmsg=f"The group_max_orders must be positive or 0.")
+        #
+        risk_day_max_loss = float(params['risk_day_max_loss']['value'])
+        if risk_day_max_loss > 0:
+            return dict(success=False, errmsg=f"The risk_day_max_loss must be negative.")
+        #
+        risk_day_max_profit = float(params['risk_day_max_profit']['value'])
+        if risk_day_max_profit < 0:
+            return dict(success=False, errmsg=f"The risk_day_max_profit must be positive.")
+
+
+
+        return dict(success=True)
+    except Exception as exc:
+        errmsg = str(exc)
+    return dict(success=False, errmsg=errmsg)
+
+def PX_InitScriptSettings():
+    settings = {{strategy['script_settings'] }}
+    return settings
+
+
+
+class {{ strategy['class_name'] }}:
+
+    def __init__(self, runner):
+        self.runner = runner
+
+    def is_night(self, d):
+        if d.hour < (8 + TRADING_TIME_ZONE_OFFSET) or d.hour > (19 + TRADING_TIME_ZONE_OFFSET):
+            return True
+        return False
+
+    def is_weekend(self, d):
+        # friday
+        weekday = d.weekday()
+        if weekday == 4:
+            return True
+        return False
+
+    def lots_to_profit(self, lots, pips):
+        usd_pip = self.runner.usdpip()
+        if usd_pip is None or usd_pip == 0:
+            return 0.0
+        profit = lots * (usd_pip * pips * SymbolInfo("trade_contract_size"))
+        if isnull(profit):
+            return 0.0
+        return profit
+
+    def profit_to_lots(self, profit, pips):
+        usd_pip = self.runner.usdpip()
+        if usd_pip is None or usd_pip == 0:
+            return 0.0
+        lots = profit / (usd_pip * pips * SymbolInfo("trade_contract_size"))
+        if isnull(lots):
+            return 0.0
+        minLot = SymbolInfo("volume_min")
+        ret = int((lots+minLot) / minLot) * minLot
+        return ret
+
+    def adjust_price(self, price, opt, digits=None):
+        d = None
+        if digits is None:
+            auto_digits = SymbolInfo("digits")
+            if auto_digits % 2 == 1:
+                d = auto_digits - 1
+        else:
+            d = digits
+        if opt == 'trunc':
+            ret = price
+            # point = SymbolInfo("point")
+            # DE30=1 / JPY=3 / EURUSD=5 forum.mql4.com / 43064  # 515262
+            if d is not None:
+                ret = int(price * 10**d) / 10.0**d
+            return ret
+        elif opt == 'round':
+            ret = price
+            if d is not None:
+                ret = round(price, d)
+            return ret
+        elif opt == 'ceil':
+            ret = price
+            if d is not None:
+                ret = math.ceil(float(price * 10**d)) / 10.0**d
+            return ret
+        elif opt == 'floor':
+            ret = price
+            if d is not None:
+                ret = math.floor(float(price * 10**d)) / 10.0**d
+            return ret
+        else:
+            return None
+
+    def open_check_open_group_new_order_time(self, new_order, params):
+        reason = ''
+        d = Time()
+{#        if self.is_weekend(d):#}
+{#            #CST 18:00#}
+{#            # if d.hour < 8 or d.hour >= 13:#}
+{#            if d.hour >= (13 + TRADING_TIME_ZONE_OFFSET):#}
+{#            # if d.hour >= (20 + TRADING_TIME_ZONE_OFFSET):#}
+{#                reason = f"Disable open the first order on friday"#}
+{#        else:#}
+{#            #CST 13:00 /EET: 8:00#}
+{#            #EET: 8 - 17#}
+{#            # if d.hour < 8 or d.hour > 18:#}
+{#            if d.hour > (18 + TRADING_TIME_ZONE_OFFSET):#}
+{#                reason = f"Disable open the first order"#}
+        #
+        if not reason and self.is_night(d):
+            if not RISK_ENABLE_NIGHT_OPEN:
+                reason = f"RISK_ENABLE_NIGHT_OPEN"
+            elif not RISK_ENABLE_NIGHT_HOLDING:
+                reason = f"RISK_ENABLE_NIGHT_HOLDING"
+            elif self.is_weekend(d):
+                if not RISK_ENABLE_WEEKEND_HOLDING:
+                    reason = f"RISK_ENABLE_WEEKEND_HOLDING"
+        if not reason and self.is_weekend(d) and d.hour > (19 + TRADING_TIME_ZONE_OFFSET):
+            if not RISK_ENABLE_WEEKEND_HOLDING:
+                reason = f"RISK_ENABLE_WEEKEND_HOLDING"
+        #
+        if reason:
+            s = d.strftime("%Y-%m-%d %H:%M:%S %A")
+            self.runner.debug_print(f"WARNING: Can't open new order. (Reason: {reason} @ {s})", notify=False)
+            return False
+        return True
+
+    def get_order_data(self, order_uid):
+        order_data_dict = self.load_group_data('order_data', {})
+        order_data = order_data_dict.get(order_uid, {})
+        return order_data
+
+    def set_order_data(self, order_uid, data):
+        order_data_dict = self.load_group_data('order_data', {})
+        order_data_dict[order_uid] = data
+        self.save_group_data('order_data', order_data_dict)
+
+    def process_order_init(self, order, params):
+        if order is None:
+            return False
+        if order.symbol != Symbol():
+            return False
+        #init check ok
+        order_data = self.get_order_data(order.uid)
+        if order_data.get('init', dict(checked=False)).get('checked', False):
+            return False
+        #
+        max_sl_pips = params.get('max_sl_pips', None)
+        if max_sl_pips is None:
+            return False
+        #
+        group_info = params['group_info']
+        max_sl_points = self.runner.pips_to_points(max_sl_pips)
+        #
+        new_stop_loss = None
+        new_take_profit = None
+        if order.is_long():
+            sl_points = order.open_price - order.stop_loss
+            # if order.open_price > order.stop_loss and round(order.open_price - order.stop_loss, 6) > round(max_sl_points, 6):
+            if order.open_price > order.stop_loss and round(sl_points, MAX_POINTS) > round(max_sl_points, MAX_POINTS):
+                new_stop_loss = round(order.open_price - max_sl_points, MAX_POINTS)
+            #
+        else:
+            sl_points = order.stop_loss - order.open_price
+            # if order.open_price < order.stop_loss and round(order.stop_loss - order.open_price, 6) > round(max_sl_points, 6):
+            if order.open_price < order.stop_loss and round(sl_points, MAX_POINTS) > round(max_sl_points, MAX_POINTS):
+                new_stop_loss = round(order.open_price + max_sl_points, MAX_POINTS)
+
+        if new_stop_loss is not None or new_take_profit is not None:
+            errid, result = ModifyOrder(uid=order.uid, take_profit=new_take_profit, stop_loss=new_stop_loss)
+            if errid == EID_OK:
+                return True
+        else:
+            #init check ok
+            order_data = self.get_order_data(order.uid)
+            order_data['init'] = dict(checked=True)
+            self.set_order_data(order.uid, order_data)
+            return True
+        return False
+
+    def process_order_trailing_profit(self, order, params):
+        if order is None:
+            return False
+        if order.symbol != Symbol():
+            return False
+        if order.take_profit is None:
+            return False
+
+        # price = Close()
+        step_pips = 0
+        # step_pips = params.get('step_percent', 0)
+        step_percent = params.get('step_percent', 0)
+        if step_percent <= 0:
+            step_pips = params.get('step_pips', 0)
+            if step_pips <= 0:
+                step_profit = params.get('step_profit', 0)
+                if step_profit > 0:
+                    points = self.runner.profit_to_points(step_profit, order.volume)
+                    step_pips = self.runner.point_to_pips(points)
+        else:
+            if 99 >= step_percent > 0:
+                step_pips = abs(order.take_profit - order.open_price) * step_percent * 0.01
+        if step_pips <= 0:
+            return False
+
+        #
+        start_profit = params.get('start_profit', 0)
+        if start_profit <= 0:
+            start_pips = params.get('start_pips', step_pips)
+        else:
+            points = self.runner.profit_to_points(start_profit, order.volume)
+            start_pips = self.runner.points_to_pips(points)
+        #
+        group_info = params['group_info']
+        target_profit = params['target_profit']
+        no_loss_pips = 0
+        trailing_profit_start_points = self.runner.pips_to_points(start_pips)
+        trailing_profit_points = self.runner.pips_to_points(step_pips)
+        new_take_profit = None
+        new_stop_loss = None
+        #get order data
+        order_data_dict = self.load_group_data('order_data', {})
+        order_data = order_data_dict.get(order.uid, {})
+        current_time = Time()
+        current_time_ts = current_time.timestamp()
+        current_time_string = str(current_time)
+        #
+        process = None
+        is_long = order.is_long()
+        price = Ask() if is_long else Bid()
+        current_profit_points = price - order.open_price if is_long else order.open_price - price
+        current_profit_pips = self.runner.points_to_pips(current_profit_points)
+        sl_is_loss = order.open_price > order.stop_loss if is_long else order.open_price < order.stop_loss
+        reason = ''
+        save_order_data = False
+        order_init = order.tags.get('init', {})
+        sl_pips = order_init.get('max_sl_pips', step_pips)
+        order_holding_seconds = (current_time - order.open_time).total_seconds()
+        order_holding_minutes = order_holding_seconds / 60
+
+        # save order stats
+        order_stats = order_data.get('stats', dict(profit=dict(high=dict(profit=0, points=0, pips=0, time=None,
+                                                                         time_ts=0, price=0),
+                                                               low=dict(profit=0, points=0, pips=0, time=None,
+                                                                        time_ts=0, price=0))))
+        order_data['stats'] = order_stats
+        os_profit = order_stats['profit']
+        for k in ('high', 'low'):
+            osp = os_profit[k]
+            save = order.profit > osp['profit'] if k == 'high' else order.profit < osp['profit']
+            if save:
+                osp['profit'] = order.profit
+                osp['price'] = price
+                osp['points'] = current_profit_points
+                osp['pips'] = current_profit_pips
+                osp['time'] = current_time_string
+                osp['time_ts'] = current_time_ts
+                save_order_data = True
+
+        # start profit trailing
+        amount = self.lots_to_profit(order.volume, step_pips)
+        net_profit = group_info['stats']['net_profit']
+        # if group_info['stats']['net_profit'] >= GROUP_TARGET_PROFIT + amount:
+        if net_profit >= target_profit + amount:
+            trailing_profit_start_points = current_profit_points
+
+        if current_profit_points >= trailing_profit_start_points:
+            new_take_profit = order.take_profit + trailing_profit_points if is_long else order.take_profit - trailing_profit_points
+            new_stop_loss = price - trailing_profit_points if is_long else price + trailing_profit_points
+            if is_long:
+                if new_stop_loss <= order.stop_loss:
+                    return False
+            else:
+                if new_stop_loss >= order.stop_loss:
+                    return False
+            process = dict(op='modify_order', new_stop_loss=new_stop_loss, new_take_profit=new_take_profit)
+            reason = 'PROFIT_TRAILING'
+            tp_data = order_data.get('trailing_profit', {})
+            tp_data['count'] = tp_data.get('count', 0) + 1
+            tp_data_init = tp_data.get('init', None)
+            if tp_data_init is None:
+                tp_data['init'] = dict(time_ts=current_time_ts, stop_loss=new_stop_loss)
+            tp_data['total_trailing_seconds'] = current_time_ts - tp_data['init']['time_ts']
+            tp_data['total_trailing_points'] = abs(new_stop_loss - tp_data['init']['stop_loss'])
+            #
+            tp_data['time_ts'] = current_time_ts
+            tp_data['price'] = price
+            tp_data['new_stop_loss'] = new_stop_loss
+            order_data['trailing_profit'] = tp_data
+
+        if not process:
+            tpp = order.take_profit - order.open_price if is_long else order.open_price - order.take_profit
+            if tpp <= trailing_profit_start_points:
+                # new_take_profit = order.open_price + (trailing_profit_start_points * 2)
+                points = trailing_profit_start_points + trailing_profit_points
+                new_take_profit = order.open_price + points if is_long else order.open_price - points
+                new_stop_loss = None
+                process = dict(op='modify_order',
+                               new_stop_loss=new_stop_loss, new_take_profit=new_take_profit)
+                reason = 'UPDATE_TP'
+
+        if not process and no_loss_pips > 0:
+            no_loss_pips_points = self.runner.pips_to_points(no_loss_pips)
+            points = price - order.open_price if is_long else order.open_price - price
+            if points >= no_loss_pips_points * 1.5:
+                new_take_profit = None
+                new_stop_loss = price - no_loss_pips_points if is_long else price + no_loss_pips_points
+                if is_long:
+                    if new_stop_loss <= order.stop_loss:
+                        return False
+                else:
+                    if new_stop_loss >= order.stop_loss:
+                        return False
+                process = dict(op='modify_order',
+                               new_stop_loss=new_stop_loss, new_take_profit=new_take_profit)
+                reason = 'NO_LOSS'
+
+
+        #executing
+        ret = False
+        # if new_take_profit is not None or new_stop_loss is not None:
+        # if process and new_take_profit is not None or new_stop_loss is not None:
+        if process:
+            errid = 1000
+            if process['op'] == 'modify_order':
+                new_take_profit = process['new_take_profit']
+                new_stop_loss = process['new_stop_loss']
+                errid, result = ModifyOrder(uid=order.uid, take_profit=new_take_profit, stop_loss=new_stop_loss)
+                self.runner.debug_print(f"process_order_trailing_profit: {Time(0)},{Time(1)}, "
+                                        f"ModifyOrder, uid={order.uid}, "
+                                        f"new_take_profit={new_take_profit}, "
+                                        f"new_stop_loss={new_stop_loss}, reason={reason}, errid={errid}, result={result}",
+                                        notify=False)
+            elif process['op'] == 'close_order':
+                volume = process['volume']
+                tags = process.get('tags', None)
+                errid, result = CloseOrder(order.uid, volume=volume, tags=tags)
+                self.runner.debug_print(f"process_order_trailing_profit: {Time(0)},{Time(1)}, "
+                                        f"CloseOrder, uid={order.uid}, "
+                                        f"volume={volume}, "
+                                        f"tags={tags}, reason={reason}, errid={errid}, result={result}",
+                                        notify=False)
+            if errid == EID_OK:
+                ret = True
+                save_order_data = True
+
+
+        #
+        if save_order_data:
+            order_data_dict[order.uid] = order_data
+            self.save_group_data('order_data', order_data_dict)
+
+        return ret
+
+
+    def load_stats(self, stats_name=None, default_value=None):
+        if stats_name:
+            stats_name = f"stats_{Symbol()}_{stats_name}"
+        else:
+            stats_name = f"stats_{Symbol()}"
+        stats = self.load_settings_data(stats_name, default_value)
+        return stats
+
+    def save_stats(self, stats, stats_name=None):
+        if stats_name:
+            stats_name = f"stats_{Symbol()}_{stats_name}"
+        else:
+            stats_name = f"stats_{Symbol()}"
+        self.save_settings_data(stats_name, stats)
+
+    def save_group_logs(self, group_info):
+        #save stats
+        stats = self.load_stats(stats_name=None, default_value=self.generate_stats_data_dict())
+        # stats_name = f"stats_{Symbol()}"
+        # stats = self.load_settings_data(stats_name, )
+
+        self.group_stats_to_stats_data(group_info, stats)
+        # self.save_settings_data(stats_name, stats)
+        self.save_stats(stats)
+        self.runner.debug_print(
+            f"DEBUG: save_group_logs: stats = {stats}",
+            notify=False)
+
+
+        #save day stats
+        days_data = self.load_stats(stats_name='days', default_value=dict(data={}))
+        date = Time().strftime("%Y-%m-%d")
+        # total_net_profit = stats['indexes']
+        date_stats = days_data['data'].get(date, None)
+        if date_stats is None:
+            #remove before 30
+            max_days = 30
+            if len(days_data['data']) >= max_days:
+                remove_days = []
+                for k in days_data['data']:
+                    d = Time().strptime(k, "%Y-%m-%d")
+                    if (Time() - d).days > max_days:
+                        remove_days.append(k)
+                #
+                for k in remove_days:
+                    days_data['data'].pop(k, None)
+            date_stats = self.generate_stats_data_dict()
+        #
+        self.group_stats_to_stats_data(group_info, date_stats)
+        days_data['data'][date] = date_stats
+        self.save_stats(days_data, stats_name='days')
+        self.runner.debug_print(
+            f"DEBUG: save_group_logs: days_data = {days_data}",
+            notify=False)
+
+
+        # Save group logs
+        group_logs_name = f"group_logs_{Symbol()}"
+        group_logs = self.load_settings_data(group_logs_name, dict(logs=[]))
+        group_logs['logs'].insert(0, group_info)
+        max_len = 30
+        if len(group_logs['logs']) > max_len:
+            group_logs['logs'] = group_logs['logs'][:max_len]
+        self.save_settings_data(group_logs_name, group_logs)
+        self.runner.debug_print(
+            f"DEBUG: save_group_logs: save_settings_data[{group_logs_name}] = {group_logs}",
+            notify=False)
+
+
+    def generate_stats_data_dict(self):
+        return dict(total_groups=0, total_orders=0, total_net_profit=0,
+                    total_profit=0, total_commission=0, total_swap=0,
+                    last_group_end_time_ts=0, last_group_net_profit=0,
+                    total_loss=0, sorted_orders=[],
+                    total_loss_groups=0, total_win_groups=0,
+                    consecutive_counter=0, consecutive_counter_money=0,
+                    max_consecutive_losses=0, max_consecutive_losses_money=0,
+                    max_consecutive_wins=0, max_consecutive_wins_money=0,
+                    group_init_loss=0,
+                    )
+
+    def group_stats_to_stats_data(self, group_info, stats):
+        gs = group_info['stats']
+        this_group_net_profit = gs['profit'] + gs['loss'] + gs['commission'] + gs['swap']
+        if this_group_net_profit < 0:
+            stats['total_loss_groups'] = stats['total_loss_groups'] + 1
+            if stats['last_group_net_profit'] < 0:
+                stats['consecutive_counter'] = stats['consecutive_counter'] + 1
+                stats['consecutive_counter_money'] = stats['consecutive_counter_money'] + this_group_net_profit
+            else:
+                if stats['last_group_net_profit'] > 0:
+                    if stats['max_consecutive_wins'] < stats['consecutive_counter']:
+                        stats['max_consecutive_wins'] = stats['consecutive_counter']
+                    if stats['max_consecutive_wins_money'] < stats['consecutive_counter_money']:
+                        stats['max_consecutive_wins_money'] = stats['consecutive_counter_money']
+                stats['consecutive_counter'] = 1
+                stats['consecutive_counter_money'] = this_group_net_profit
+            #
+        elif this_group_net_profit > 0:
+            stats['total_win_groups'] = stats['total_win_groups'] + 1
+            if stats['last_group_net_profit'] > 0:
+                stats['consecutive_counter'] = stats['consecutive_counter'] + 1
+                stats['consecutive_counter_money'] = stats['consecutive_counter_money'] + this_group_net_profit
+            else:
+                if stats['last_group_net_profit'] < 0:
+                    if stats['max_consecutive_losses'] < stats['consecutive_counter']:
+                        stats['max_consecutive_losses'] = stats['consecutive_counter']
+                    if stats['max_consecutive_losses_money'] > stats['consecutive_counter_money']:
+                        stats['max_consecutive_losses_money'] = stats['consecutive_counter_money']
+                stats['consecutive_counter'] = 1
+                stats['consecutive_counter_money'] = this_group_net_profit
+            #
+
+        #
+        stats['total_groups'] = stats['total_groups'] + 1
+        stats['total_orders'] = stats['total_orders'] + len(group_info['orders'])
+        stats['total_profit'] = stats['total_profit'] + gs['profit']
+        stats['total_loss'] = stats['total_loss'] + gs['loss']
+        stats['total_commission'] = stats['total_commission'] + gs['commission']
+        stats['total_swap'] = stats['total_swap'] + gs['swap']
+        stats['last_group_net_profit'] = this_group_net_profit
+        stats['total_net_profit'] = stats['total_net_profit'] + stats['last_group_net_profit']
+        stats['group_init_loss'] = stats['group_init_loss'] + stats['last_group_net_profit']
+        if stats['group_init_loss'] > 0:
+            stats['group_init_loss'] = 0
+        #
+        stats['last_group_end_time_ts'] = Time().timestamp()
+        #
+        #save sorted orders
+        for oid in group_info['sorted_orders']:
+            if oid not in stats['sorted_orders']:
+                stats['sorted_orders'].append(oid)
+        max_orders = 128
+        if len(stats['sorted_orders']) > max_orders:
+            stats['sorted_orders'] = stats['sorted_orders'][max_orders*-1:]
+
+    def load_settings_data(self, name, default=None, timeout=0):
+        data = LoadData(scope=DataScope.EA_SETTIGNS, name=name)
+        if data is None:
+            return default
+        # data = dict(time_ts=current_time.timestamp(), value=group_info)
+        value = data['value']
+        if timeout > 0:
+            current_time = Time()
+            data_time = datetime.fromtimestamp(data['time_ts'])
+            total_seconds = (current_time - data_time).total_seconds()
+            if total_seconds > timeout:
+                return default
+        return value
+
+    def save_settings_data(self, name, data, timeout=0):
+        current_time = Time()
+        data = dict(time_ts=current_time.timestamp(), timeout=timeout, value=data)
+        ret = SaveData(scope=DataScope.EA_SETTIGNS, name=name, data=data)
+        return data
+
+    def delete_settings_data(self, name):
+        return DeleteData(scope=DataScope.EA_SETTIGNS, name=name)
+
+    def load_group_data(self, name, default=None):
+        cache_name = f"_group_data_{Symbol()}"
+        data = self.load_settings_data(cache_name, dict(data={}))
+        return data['data'].get(name, default)
+
+    def save_group_data(self, name, value):
+        cache_name = f"_group_data_{Symbol()}"
+        data = self.load_settings_data(cache_name, dict(data={}))
+        data['data'][name] = value
+        return self.save_settings_data(cache_name, data)
+
+    def clean_group_data(self):
+        cache_name = f"_group_data_{Symbol()}"
+        data = self.load_settings_data(cache_name, None)
+        if data is not None:
+            return self.delete_settings_data(cache_name)
+        return True
+
+    def process_hedging_group_trailing_profit(self, order, group_info, params):
+        #
+        if not order.is_market():
+            return False
+        if order.status == OrderStatus.CLOSED:
+            return False
+        trailing_profit = order.tags.get('trailing_profit', None)
+        if trailing_profit is not None:
+            start_pips = trailing_profit['start_pips']
+            step_pips = trailing_profit['step_pips']
+            target_profit = trailing_profit['target_profit']
+            processed = self.process_order_trailing_profit(order, dict(group_info=group_info, start_pips=start_pips,
+                                                                       step_pips=step_pips,
+                                                                       target_profit=target_profit
+                                                                  ))
+            if processed:
+                return True
+        #init
+        current_time = Time()
+        order_init = order.tags.get('init', None)
+        if order_init is not None:
+            seconds = 180
+            init_ts = order_init.get('ts', 0)
+            total_seconds = (current_time - order.open_time).total_seconds()
+            if total_seconds > seconds and init_ts > 0:
+                total_seconds = current_time.timestamp() - init_ts
+            #execute init in 3 minutes and order_data.init.checked == False
+            if total_seconds <= seconds:
+                max_sl_pips = order_init.get('max_sl_pips', None)
+                processed = self.process_order_init(order, dict(group_info=group_info,
+                                                                max_sl_pips=max_sl_pips,
+                                                                ))
+                if processed:
+                    return True
+
+        return False
+
+    def process_hedging_orders(self, params):
+        # self.test_time()
+        group_info = self.get_group_info()
+        if group_info is None:
+            return False
+        ho_dict = {}
+        for oid in group_info['orders']:
+            o = GetOrder(oid)
+            if o.is_market():
+                if o.status != OrderStatus.CLOSED:
+                    ho_dict[oid] = o.open_time.timestamp()
+        # sort
+        sorted_hedging_orders = [k for k, v in sorted(ho_dict.items(), key=lambda x: x[1], reverse=False)]
+        close_uids = []
+        # price = (Ask() + Bid()) / 2
+        d = Time()
+        current_time_ts = d.timestamp()
+        order_count = len(sorted_hedging_orders) - 1
+        min_profit = 1
+        close_reason = 'CLOSE_PREV'
+        #
+        NIGHT_HOLDING = 'NIGHT_HOLDING'
+        WEEKEND_HOLDING = 'WEEKEND_HOLDING'
+        if close_reason not in (NIGHT_HOLDING, WEEKEND_HOLDING):
+            if not RISK_ENABLE_NIGHT_HOLDING and self.is_night(d):
+                close_reason = NIGHT_HOLDING
+
+        if close_reason not in (NIGHT_HOLDING, WEEKEND_HOLDING):
+            if not RISK_ENABLE_WEEKEND_HOLDING and self.is_weekend(d):
+                close_reason = WEEKEND_HOLDING
+
+        if close_reason in (NIGHT_HOLDING, WEEKEND_HOLDING):
+            if d.hour >= 20:
+                order_count = len(sorted_hedging_orders)
+                min_profit = 0
+                if d.hour >= 23:
+                    min_profit = None
+
+        for i in range(order_count):
+            oid = sorted_hedging_orders[i]
+            o = GetOrder(oid)
+            if o.is_dirty:
+                continue
+            # p = abs(price - o.stop_loss) / abs(o.stop_loss - o.open_price)
+            # if o.profit >= -20:
+            # if p <= 0.3:
+            # if o.profit >= 1:
+            append = False
+            if min_profit is None:
+                append = True
+            elif o.profit >= min_profit:
+                append = True
+            #
+            if append:
+                close_uids.append(oid)
+        if len(close_uids) > 0:
+            self.runner.debug_print(f"WARNING: Close orders. (Reason: {close_reason}, min_profit={min_profit})",
+                                    notify=False)
+            errid, ret = CloseMultiOrders(close_uids)
+            if errid == EID_OK:
+                return True
+
+        #trailing profit
+        processed = False
+        for oid in group_info['orders']:
+            o = GetOrder(oid)
+            if self.process_hedging_group_trailing_profit(o, group_info, params):
+                processed = True
+
+        return processed
+
+    def was_order_updated(self, opened_order_dict, group_info):
+        for oid in group_info['opened_orders']:
+            if oid not in opened_order_dict:
+                return True
+        for oid in opened_order_dict:
+            o = GetOrder(oid)
+            if o.symbol == Symbol():
+                if oid not in group_info['opened_orders']:
+                    return True
+        return False
+
+    def trade_data_need_updated(self, opened_order_dict, group_info):
+        next_cmds = self.get_order_commands(opened_order_dict, group_info)
+        can_buy = OrderCommand.BUY in next_cmds
+        can_sell = OrderCommand.SELL in next_cmds
+        if can_buy and OrderCommand.BUY not in group_info['next']:
+            return True
+        if not can_buy and OrderCommand.BUY in group_info['next']:
+            return True
+        if can_sell and OrderCommand.SELL not in group_info['next']:
+            return True
+        if not can_sell and OrderCommand.SELL in group_info['next']:
+            return True
+        #check td_uid
+        if OrderCommand.BUY in group_info['next']:
+            if group_info['next'][OrderCommand.BUY]['td_uid'] != group_info['trade_data']['uid']:
+                return True
+        if OrderCommand.SELL in group_info['next']:
+            if group_info['next'][OrderCommand.SELL]['td_uid'] != group_info['trade_data']['uid']:
+                return True
+        #
+        #check next trade data
+        next_trade_data_config = self.load_group_data('next_trade_data_config', {})
+        if next_trade_data_config is not None:
+            source_id = next_trade_data_config.get('source_id', None)
+            if source_id is not None:
+                return True
+        #across days
+        if not RISK_ENABLE_GROUP_ACROSS_DAYS:
+            current_time = Time()
+            group_init_time = datetime.fromtimestamp(group_info['init']['ts'])
+            if group_init_time.date() != current_time.date():
+                return True
+        #check settings was changed
+        check_list = (
+                      ('group_target_profit', GROUP_TARGET_PROFIT),
+                      )
+        for cmd in (OrderCommand.BUY, OrderCommand.SELL):
+            if cmd in group_info['next']:
+                for item in check_list:
+                    if group_info['next'][cmd]['tags']['init'][item[0]] != item[1]:
+                        return True
+
+        return False
+
+    def get_group_target_profit(self, balance):
+        group_target_profit, rt, rs = to_float(GROUP_TARGET_PROFIT, failed_value=0)
+        if group_target_profit > 0:
+            if rt == 'percent':
+                group_target_profit = balance * group_target_profit
+            return group_target_profit
+        return 0
+
+
+    def get_group_max_loss(self, group_info):
+        group_max_loss, rt, rs = to_float(GROUP_MAX_LOSS, failed_value=0)
+        if group_max_loss < 0:
+            if rt == 'percent':
+                group_max_loss = group_info['init']['balance'] * group_max_loss
+            return group_max_loss
+        return 0
+
+    def get_today_stats(self, item, group_info):
+        stats = self.load_stats(stats_name='days')
+        if stats is None:
+            return 0
+        date = Time().strftime("%Y-%m-%d")
+        # total_net_profit = stats['indexes']
+        date_data = stats['data'].get(date, {})
+        ret = 0
+        stats = group_info.get('stats', {})
+        if item == 'loss':
+            # today_total_net_profit = group_info['stats']['closed_net_profit'] + date_data.get('total_net_profit', 0)
+            ret = stats.get('closed_loss', 0) + date_data.get('total_loss', 0)
+        elif item == 'profit':
+            # today_total_net_profit = group_info['stats']['closed_net_profit'] + date_data.get('total_net_profit', 0)
+            ret = stats.get('closed_profit', 0) + date_data.get('total_profit', 0)
+        elif item == 'net_profit':
+            # today_total_net_profit = group_info['stats']['closed_net_profit'] + date_data.get('total_net_profit', 0)
+            ret = stats.get('closed_net_profit', 0) + date_data.get('total_net_profit', 0)
+        return ret
+
+
+    def calculate_group_init_order_size(self, init_amount, tp_pips):
+        init_order_size = self.profit_to_lots(init_amount, tp_pips)
+        return init_order_size
+
+    def calculate_tp_sl(self, symbol):
+        ret = dict(init=dict(tp_pips=GROUP_TP_PIPS, sl_pips=GROUP_SL_PIPS))
+        if ret['init']['tp_pips'] <= 0:
+            return None
+        if ret['init']['sl_pips'] <= 0:
+            return None
+        return ret
+
+    def make_trade_data_dict(self, open_price, size, stop_loss,
+                             take_profit, init_tp_pips, init_sl_pips,
+                             tp_pips, sl_pips):
+        ret = dict(price=open_price, take_profit=take_profit, stop_loss=stop_loss, size=size,
+                   init_tp_pips=init_tp_pips, init_sl_pips=init_sl_pips,
+                   tp_pips=tp_pips, sl_pips=sl_pips)
+        return ret
+
+    def calculate_trade_data(self, cmd, price, size, init_tp_pips, init_sl_pips):
+        if MAX_TP_PIPS > 0:
+            tp_pips = min(init_tp_pips, MAX_TP_PIPS)
+        else:
+            tp_pips = init_tp_pips
+
+        tp_points = self.runner.pips_to_points(tp_pips)
+        if MAX_SL_PIPS > 0:
+            sl_pips = min(init_sl_pips, MAX_SL_PIPS)
+        else:
+            sl_pips = init_sl_pips
+        sl_points = self.runner.pips_to_points(sl_pips)        #
+        open_price = price
+        #
+
+        if cmd == OrderCommand.BUY:
+            take_profit = open_price + tp_points
+            stop_loss = open_price - sl_points
+            ret = self.make_trade_data_dict(
+                                            open_price=open_price, size=size, stop_loss=stop_loss,
+                                            take_profit=take_profit,
+                                            init_tp_pips=init_tp_pips, init_sl_pips=init_sl_pips,
+                                            tp_pips=tp_pips, sl_pips=sl_pips)
+        elif cmd == OrderCommand.SELL:
+            take_profit = open_price - tp_points
+            stop_loss = open_price + sl_points
+            ret = self.make_trade_data_dict(
+                                            open_price=open_price, size=size, stop_loss=stop_loss,
+                                            take_profit=take_profit,
+                                            init_tp_pips=init_tp_pips, init_sl_pips=init_sl_pips,
+                                            tp_pips=tp_pips, sl_pips=sl_pips)
+        else:
+            return None
+        return ret
+
+    def calculate_signal_range(self, symbol, balance):
+        entry_data = self.get_entry_data()
+        if len(entry_data) == 0:
+            return None
+        timeframe = TimeFrame.H1
+        sd_h1 = GetSymbolData(symbol, timeframe=timeframe, size=100)
+        if sd_h1.time[1] is None:
+            return None
+
+        tp_sl_dict = self.calculate_tp_sl(symbol)
+        if tp_sl_dict is None:
+            return None
+        init_tp_pips = tp_sl_dict['init']['tp_pips']
+        init_sl_pips = tp_sl_dict['init']['sl_pips']
+
+        group_target_profit = self.get_group_target_profit(balance)
+        group_init_order_size = self.calculate_group_init_order_size(group_target_profit, init_tp_pips)
+        #
+        orders = 0
+        ed = entry_data.get(PositionType.SHORT, None)
+        if ed is None:
+            sell_info = None
+        else:
+            sell_price = ed.get('price', None)
+            if sell_price is None:
+                sell_price = Ask()
+            sell_info = self.calculate_trade_data(cmd=OrderCommand.SELL, price=sell_price, size=group_init_order_size,
+                                                  init_tp_pips=init_tp_pips, init_sl_pips=init_sl_pips)
+        ed = entry_data.get(PositionType.LONG, None)
+        if ed is None:
+            buy_info = None
+        else:
+            buy_price = ed.get('price', None)
+            if buy_price is None:
+                buy_price = Bid()
+            buy_info = self.calculate_trade_data(cmd=OrderCommand.BUY, price=buy_price, size=group_init_order_size,
+                                                  init_tp_pips=init_tp_pips, init_sl_pips=init_sl_pips)
+
+        current_time_ts = Time().timestamp()
+        ret = {
+               'uid': str(int(current_time_ts)), #srd_uid
+               'time': sd_h1.time[0], 'timestamp': sd_h1.time[0].timestamp(),
+               OrderCommand.BUY: buy_info, OrderCommand.SELL: sell_info,
+        }
+
+        return ret
+
+    def make_trade_data(self, td_uid,  buy_info, sell_info, timestamp, source='signal', source_id='',
+                        timeout=None):
+        ret = {'uid': td_uid,
+               OrderCommand.BUY: buy_info, OrderCommand.SELL: sell_info,
+               'time': str(datetime.fromtimestamp(timestamp)),
+               'ts': timestamp, 'source': source, 'source_id': source_id}
+        if timeout:
+            ret['timeout'] = timeout
+        return ret
+
+    def generate_group_info(self, symbol, current_time):
+        account = GetAccount()
+        balance = account.balance
+        signal_range = self.calculate_signal_range(symbol, balance)
+        if signal_range is None:
+            return None
+
+        td_uid = signal_range['uid']
+        buy_info = signal_range[OrderCommand.BUY]
+        sell_info = signal_range[OrderCommand.SELL]
+        timestamp = signal_range['timestamp']
+        signal_info = signal_range.get('signal_info', None)
+        timeout = signal_range.get('timeout', None)
+        ext_data = signal_range.get('ext_data', None)
+
+        group_info = dict(
+                          orders={},
+                          sorted_orders=[],
+                          opened_orders={},
+                          group_id=int(current_time.timestamp()),
+                          trade_data=self.make_trade_data(td_uid,  buy_info, sell_info, timestamp,
+                                                          timeout=timeout),
+                          trade_units={},
+                          config={},
+                          init={'equity': account.equity, 'balance': balance, 'symbol': symbol,
+                                'ts': timestamp}
+                          )
+        return group_info
+
+
+    def get_group_finished_reason(self, symbol, current_time, group_info, symbol_orders):
+        #
+        trade_data = group_info['trade_data']
+        if len(group_info['opened_orders']) == 0:
+            if not RISK_ENABLE_GROUP_ACROSS_DAYS:
+                # group_init_time = datetime.fromtimestamp(group_info['signal']['ts'])
+                group_init_time = datetime.fromtimestamp(group_info['init']['ts'])
+                if group_init_time.date() != current_time.date():
+                    reason = 'GROUP_ACROSS_DAYS'
+                    message = f"{str(group_init_time)} != {str(current_time)}"
+                    return reason, message
+            #
+            # signal_info = trade_data.get('signal_info', None)
+            # if signal_info:
+            #     signal_name = signal_info['name']
+            #     if signal_name == 'rslevel':
+            #         signal_id = signal_info['id']
+            #         signal_cmd = signal_info['cmd']
+            #         singal_data = self.get_signal_data_rslevel(symbol)
+            #         if singal_data is not None:
+            #             if signal_id != singal_data['id'] or signal_cmd != singal_data['cmd']:
+            #             # if signal_cmd != singal_data['cmd']:
+            #                 reason = 'NEW_SIGNAL'
+            #                 message = f"{signal_cmd} != {singal_data['cmd']}"
+            #                 return reason, message
+
+            # else:
+            #     algorithm = trade_data.get('algorithm', None)
+            #     if algorithm == 'RS_Levels':
+            #         ext_data = trade_data.get('ext_data', None)
+            #         err_msg = self.valid_trade_data_rs_levels(ext_data)
+            #         if err_msg is not None:
+            #             reason = 'ALGORITHM_INVALID'
+            #             message = f"INFO: The group (group_id={group_info['group_id']}) was finished ({reason}, {err_msg} )."
+            #             return reason, message
+
+        #
+        if len(group_info['orders']) > 0:
+            if len(group_info['opened_orders']) == 0:
+                closed_net_profit = symbol_orders['closed_net_profit']
+                if closed_net_profit >= 0:
+                    if RISK_ENABLE_FINISH_UNTIL_GROUP_TARGET_PROFIT:
+                        group_target_profit = self.get_group_target_profit(group_info['init']['balance'])
+                        if closed_net_profit >= group_target_profit > 0:
+                            reason = 'GOT_TARGET_PROFIT'
+                            message = f"{symbol_orders['closed_net_profit']} >= {group_target_profit}"
+                            return reason, message
+                    else:
+                        reason = 'GOT_PROFIT'
+                        message = f"{symbol_orders['closed_net_profit']} >= 0"
+                        return reason, message
+                else:
+                    sd_h1 = GetSymbolData(symbol, timeframe=TimeFrame.H1, size=10)
+
+                    # check order trailing_profit
+                    # for oid in group_info['sorted_orders']:
+                    #     order_data = self.get_order_data(oid)
+                    #     tp_data = order_data.get('trailing_profit', None)
+                    #     if tp_data is None:
+                    #         continue
+                    #     tpc = tp_data.get('count', 0)
+                    #     if tpc >= 1:
+                    #         reason = 'TRAILING_PROFIT'
+                    #         message = f"INFO: The group (group_id={group_info['group_id']}) was finished ({reason},order_uid={oid}, trailing_profit_count={tpc})."
+                    #         return reason, message
+
+                    #check order trailing_profit
+                    # for oid in group_info['sorted_orders']:
+                    #     order_data = self.get_order_data(oid)
+                    #     bb_data = order_data.get('back_blood', None)
+                    #     if bb_data is None:
+                    #         continue
+                    #     bbc = bb_data.get('count', 0)
+                    #     if bbc >= 1:
+                    #         reason = 'BACK_BLOOD_STOP'
+                    #         message = f"INFO: The group (group_id={group_info['group_id']}) was finished ({reason},order_uid={oid}, back_blood_count={bbc})."
+                    #         return reason, message
+
+                    # check group max loss
+                    if RISK_ENABLE_FINISH_GROUP_MAX_LOSS:
+                        group_max_loss = self.get_group_max_loss(group_info)
+                        if group_max_loss < 0:
+                            if group_max_loss >= symbol_orders['closed_net_profit']:
+                                reason = 'GROUP_MAX_LOSS'
+                                message = f"{group_max_loss} >= {symbol_orders['closed_net_profit']}"
+                                return reason, message
+                        #
+                        if GROUP_MAX_ORDERS > 0:
+                            group_orders = len(group_info['sorted_orders'])
+                            if group_orders >= GROUP_MAX_ORDERS:
+                                reason = 'GROUP_MAX_ORDERS'
+                                message = f"{group_orders} >= {GROUP_MAX_ORDERS}"
+                                return reason, message
+
+                    #check price
+                    #bug with brake trade data
+                    # trade_data = group_info['trade_data']
+                    valid_range = trade_data.get('valid_range', None)
+                    if valid_range is not None:
+                        if not self.is_price_in_range(sd_h1.close[1], valid_range) \
+                                and not self.is_price_in_range(sd_h1.close[2], valid_range):
+                            reason = 'INVALID_PRICE_RANGE'
+                            message = f"{sd_h1.close[1]}, {sd_h1.close[2]}"
+                            return reason, message
+        #no orders
+        else:
+            #time out
+            # price_time = datetime.fromtimestamp(group_info['signal']['ts'])
+            td_timeout = trade_data.get('timeout', None)
+            if not td_timeout:
+                td_timeout = CACHE_EXPIRE_S
+            price_time = datetime.fromtimestamp(trade_data['ts'])
+            total_seconds = (current_time - price_time).total_seconds()
+            # 1hour
+            # if total_seconds > CACHE_EXPIRE_S:
+            if total_seconds > td_timeout:
+                reason = 'TIMEOUT'
+                message = f"{total_seconds} > {CACHE_EXPIRE_S}"
+                return reason, message
+
+        return None, None
+
+    #
+    def is_group_finished(self, symbol, current_time, group_info, symbol_orders):
+        reason, message = self.get_group_finished_reason(symbol, current_time, group_info, symbol_orders)
+        if reason is not None:
+            info = f"INFO: The group (group_id={group_info['group_id']}) was finished ({reason}, {message} )."
+            self.runner.debug_print(info, notify=False)
+            group_info['status'] = dict(status='finished', reason=reason, time=str(current_time))
+            return True
+        return False
+
+     #
+    def group_end(self, group_info):
+        self.runner.debug_print(
+            f"WARNING: group_end: The group was end {group_info}",
+            notify=False)
+        #
+        cache_name = f"open_info_{Symbol()}"
+        if len(group_info['orders']) > 0:
+            temp_data = group_info.copy()
+            #save trade data records
+            trade_data_dict = self.load_group_data('trade_data', {})
+            temp_data['trade_data_records'] = trade_data_dict
+            self.save_group_logs(group_info)
+        #
+        DeleteData(scope=DataScope.EA_SETTIGNS, name=cache_name)
+        self.clean_group_data()
+
+    def get_order_commands(self, opened_order_dict, group_info):
+        next_cmds = [OrderCommand.BUY, OrderCommand.SELL]
+        #
+        td = group_info['trade_data']
+        if td.get(OrderCommand.BUY, None) is None:
+            next_cmds.remove(OrderCommand.BUY)
+        if td.get(OrderCommand.SELL, None) is None:
+            next_cmds.remove(OrderCommand.SELL)
+        #
+        for oid in opened_order_dict:
+            o = GetOrder(oid)
+            if o.symbol == Symbol():
+                if o.is_long() and OrderCommand.BUY in next_cmds:
+                    next_cmds.remove(OrderCommand.BUY)
+                elif OrderCommand.SELL in next_cmds:
+                    next_cmds.remove(OrderCommand.SELL)
+
+        return next_cmds
+
+
+    def stats_group_orders(self, opened_order_dict, group_info):
+        symbol_orders = {
+            OrderCommand.BUY: {'count': 0, 'size': 0, 'tp_points': 0, 'sl_points': 0, 'cl_points': 0, 'uids': []},
+            OrderCommand.SELL: {'count': 0, 'size': 0, 'tp_points': 0, 'sl_points': 0, 'cl_points': 0, 'uids': []},
+            'count': 0, 'profit_count': 0, 'commission': 0.0, 'swap': 0.0, 'profit': 0.0, 'loss': 0.0, 'net_profit': 0.0,
+            'closed_uids': [], 'closed_volume': 0, 'closed_profit': 0.0, 'closed_loss': 0.0,
+            'closed_net_profit': 0.0, 'closed_swap': 0.0, 'closed_commission': 0.0,
+        }
+        # add new opened order
+        # latest_hedging_orders = []
+        for oid in opened_order_dict:
+            o = GetOrder(oid)
+            if o.is_dirty:
+                return None
+            if o is None:
+                continue
+            if o.symbol == Symbol() and oid not in group_info['orders']:
+                group_info['orders'][oid] = {}
+                group_info['sorted_orders'].append(oid)
+                group_info['opened_orders'][oid] = {}
+                td_uid = o.tags['init']['td_uid']
+                td_unit = group_info['trade_units'].get(td_uid, {'orders': [],
+                                                                 OrderCommand.BUY: {'count': 0, 'size': 0,},
+                                                                 OrderCommand.SELL: {'count': 0, 'size': 0,},
+                                                                 })
+                td_unit['orders'].append(oid)
+                if o.is_long():
+                    order_cmd = OrderCommand.BUY
+                else:
+                    order_cmd = OrderCommand.SELL
+                td_unit[order_cmd]['count'] = td_unit[order_cmd]['count'] + 1
+                td_unit[order_cmd]['size'] = td_unit[order_cmd]['size'] + o.volume
+                group_info['trade_units'][td_uid] = td_unit
+                # ho = o.tags.get('hedging_orders', [])
+                # if len(ho) > len(latest_hedging_orders):
+                #     latest_hedging_orders = ho
+                # if oid not in latest_hedging_orders:
+                #     latest_hedging_orders.append(oid)
+        # sort
+        # sorted_hedging_orders = [k for k, v in sorted(ho_dict.items(), key=lambda x: x[1], reverse=False)]
+        # tags['hedging_orders'] = latest_hedging_orders
+        #
+        # stats trade units
+        #
+        # main_order_uid = None
+        for oid in group_info['orders']:
+            o = GetOrder(oid)
+            # if o.tags['type'] == 'main':
+            #     main_order_uid = oid
+            if o.is_market():
+                symbol_orders['count'] = symbol_orders['count'] + 1
+                if o.profit >= 0:
+                    symbol_orders['profit'] = symbol_orders['profit'] + o.profit
+                else:
+                    symbol_orders['loss'] = symbol_orders['loss'] + o.profit
+                symbol_orders['commission'] = symbol_orders['commission'] + o.commission
+                symbol_orders['swap'] = symbol_orders['swap'] + o.swap
+                #group_profit = group_profit + o.profit + o.commission + o.swap
+                symbol_orders['net_profit'] = symbol_orders['profit'] + symbol_orders['loss'] + symbol_orders['commission'] + symbol_orders['swap']
+                symbol_orders[o.cmd]['size'] = symbol_orders[o.cmd]['size'] + o.volume
+                symbol_orders[o.cmd]['count'] = symbol_orders[o.cmd]['count'] + 1
+                symbol_orders[o.cmd]['uids'].append(oid)
+                if o.status == OrderStatus.CLOSED:
+                    symbol_orders['closed_uids'].append(oid)
+                    symbol_orders['closed_volume'] = symbol_orders['closed_volume'] + o.volume
+                    if o.profit >= 0:
+                        symbol_orders['closed_profit'] = symbol_orders['closed_profit'] + o.profit
+                    else:
+                        symbol_orders['closed_loss'] = symbol_orders['closed_loss'] + o.profit
+                    symbol_orders['closed_swap'] = symbol_orders['closed_swap'] + o.swap
+                    symbol_orders['closed_commission'] = symbol_orders['closed_commission'] + o.commission
+                    symbol_orders['closed_net_profit'] = symbol_orders['closed_profit'] + \
+                                                         symbol_orders['closed_loss'] + \
+                                                         symbol_orders['closed_commission'] + \
+                                                         symbol_orders['closed_swap']
+                    if o.profit > 0:
+                        symbol_orders['profit_count'] = symbol_orders['profit_count'] + 1
+                    group_info['opened_orders'].pop(oid, None)
+                    if o.is_long():
+                        symbol_orders[o.cmd]['cl_points'] = symbol_orders[o.cmd]['cl_points'] + (
+                                (o.close_price - o.open_price) * o.volume)
+                    else:
+                        symbol_orders[o.cmd]['cl_points'] = symbol_orders[o.cmd]['cl_points'] + (
+                                (o.open_price - o.close_price) * o.volume)
+                    if symbol_orders[o.cmd]['cl_points'] > 0:
+                        symbol_orders[o.cmd]['tp_points'] = symbol_orders[o.cmd]['tp_points'] + symbol_orders[o.cmd][
+                            'cl_points']
+                    else:
+                        symbol_orders[o.cmd]['sl_points'] = symbol_orders[o.cmd]['sl_points'] + abs(
+                            symbol_orders[o.cmd]['cl_points'])
+
+                else:
+                    symbol_orders[o.cmd]['tp_points'] = symbol_orders[o.cmd]['tp_points'] + (
+                            abs(o.take_profit - o.open_price) * o.volume)
+                    symbol_orders[o.cmd]['sl_points'] = symbol_orders[o.cmd]['sl_points'] + (
+                            abs(o.stop_loss - o.open_price) * o.volume)
+        return symbol_orders
+
+    def get_group_info(self, symbol=Symbol(), cache_expire_s=CACHE_EXPIRE_S):
+        cache_name = f"open_info_{symbol}"
+        current_time = Time()
+        opened_order_list = GetOpenedOrderUIDs(scope=DataScope.EA_VERSION)
+        new_group = False
+        data = LoadData(scope=DataScope.EA_SETTIGNS, name=cache_name)
+        if data is not None:
+            group_info = data['value']
+            expire_s = float(data.get('expire_s', cache_expire_s))
+            data_time = datetime.fromtimestamp(data['time_ts'])
+            total_seconds = (current_time - data_time).total_seconds()
+            if total_seconds < expire_s:
+                updated = False
+                if not updated \
+                    and self.was_order_updated(opened_order_list, group_info):
+                        updated = True
+                if not updated \
+                    and self.trade_data_need_updated(opened_order_list, group_info):
+                        updated = True
+                if not updated:
+                    return group_info
+
+        # min_lot = SymbolInfo("volume_min")
+        if data is None:
+            # load group cold down info
+            if GROUP_COLD_DOWN_MINUTE > 0:
+                stats_name = f"stats_{Symbol()}"
+                stats = self.load_settings_data(stats_name, None)
+                if stats is not None:
+                    last_group_end_time = datetime.fromtimestamp(stats['last_group_end_time_ts'])
+                    total_seconds = (current_time - last_group_end_time).total_seconds()
+                    if total_seconds < GROUP_COLD_DOWN_MINUTE * 60:
+                        self.runner.debug_print(
+                            f"WARNING: During group cold down ({total_seconds} < {GROUP_COLD_DOWN_MINUTE * 60} sec), "
+                            f"New group was disabled.",
+                            notify=False)
+                        return None
+
+            #generate new group info
+            group_info = self.generate_group_info(symbol, current_time)
+            if group_info is None:
+                return None
+            data = dict(time_ts=current_time.timestamp(), value=group_info)
+            self.runner.debug_print(
+                f"get_group_info: Generate new group info: {Symbol()}, {current_time}, ts={current_time.timestamp()}, {data}",
+                notify=False)
+            new_group = True
+        #
+        group_info = data['value']
+        symbol_orders = self.stats_group_orders(opened_order_list, group_info)
+        #
+        if not new_group and self.is_group_finished(symbol, current_time, group_info, symbol_orders):
+            group_info['stats'] = symbol_orders
+            self.group_end(group_info)
+            return None
+        #
+        next_cmds = self.get_order_commands(opened_order_list, group_info)
+        #init order tags
+        tags = dict(group_id=group_info['group_id'], sorted_orders=group_info['sorted_orders'], )
+
+        trade_data = self.calculate_next_trade_data(group_info)
+        tags['init'] = dict(td_uid=trade_data['uid'], td_source=trade_data['source'],
+                            td_source_id=trade_data['source_id'])
+        tags['order_index'] = symbol_orders['count']
+        offset_stop_loss_points = 0
+        fees = symbol_orders['commission'] + symbol_orders['swap']
+        min_lot = SymbolInfo("volume_min")
+        net_profit = symbol_orders['net_profit']
+        group_target_profit = self.get_group_target_profit(group_info['init']['balance'])
+        next = {}
+        next_offset_pips  = 0
+        if OrderCommand.SELL in next_cmds:
+            self.make_next_trade_command(group_info, next, OrderCommand.SELL, tags, trade_data, symbol_orders, fees,
+                                         net_profit, min_lot, next_offset_pips, offset_stop_loss_points,
+                                         group_target_profit)
+        if OrderCommand.BUY in next_cmds:
+            self.make_next_trade_command(group_info, next, OrderCommand.BUY, tags, trade_data, symbol_orders, fees,
+                                         net_profit, min_lot, next_offset_pips, offset_stop_loss_points,
+                                         group_target_profit)
+        group_info['trade_data'] = trade_data
+        group_info['next'] = next
+        group_info['stats'] = symbol_orders#'commission': 0.0, 'swap': 0.0, 'profit': 0.0
+        data['time_ts'] = current_time.timestamp()
+
+        self.runner.debug_print(
+            f"get_group_info: Save data: {Symbol()}, {current_time}, ts={current_time.timestamp()}, {data}",
+            notify=False)
+        #save group info
+        self.save_group_info(group_info=group_info, symbol=symbol)
+        return data['value']
+
+    def save_group_info(self, group_info, symbol=Symbol()):
+        cache_name = f"open_info_{symbol}"
+        data = dict(time_ts=Time().timestamp(), value=group_info)
+        ret = SaveData(scope=DataScope.EA_SETTIGNS, name=cache_name, data=data)
+        return ret
+
+    def calculate_next_trade_data(self, group_info):
+        return group_info['trade_data']
+
+    def calculate_trade_size(self, group_info, trade_data, cmd, fees, net_profit, group_target_profit,
+                             multiplier=1):
+        pips_ratio = 1.0
+        trade_info = trade_data[cmd]
+        if trade_info is None:
+            return None, None
+        tp_pips = trade_info['tp_pips'] * pips_ratio
+        sl_pips = trade_info['sl_pips'] * pips_ratio
+        ep_size = 0 #STEP_LOTS * symbol_orders['count']
+
+        # fees = symbol_orders['commission'] + symbol_orders['swap']
+        fees_size = 0
+        if fees < 0:
+            fees_size = self.profit_to_lots(abs(fees), tp_pips)
+        #
+        #
+        group_init_order_size = self.calculate_group_init_order_size(group_target_profit, tp_pips)
+        base_lots = group_init_order_size
+
+        loss_amount = 0
+
+        #
+        target_profit = self.lots_to_profit(base_lots, tp_pips)
+        if loss_amount < 0:
+            # by loss
+            l_lots = self.profit_to_lots(abs(loss_amount), tp_pips) * multiplier
+            target_profit = target_profit + abs(loss_amount)
+            l_min_lots = self.profit_to_lots(target_profit, tp_pips)
+            base_lots = max(l_min_lots, l_lots)
+        base_size = base_lots + ep_size + fees_size
+        return base_size, target_profit
+
+    def get_trailing_profit(self, tp_pips, target_profit):
+        trailing_step_pips = tp_pips * 0.1
+        trailing_profit = dict(start_pips=tp_pips + trailing_step_pips, step_pips=trailing_step_pips,
+                               target_profit=target_profit)
+        return trailing_profit
+
+
+    def make_next_trade_command(self, group_info, next, cmd, tags, trade_data, symbol_orders, fees, net_profit, min_lot,
+                                    next_offset_pips, offset_stop_loss_points, group_target_profit):
+        base_size, target_profit = self.calculate_trade_size(group_info, trade_data, cmd, fees, net_profit,
+                                                             group_target_profit)
+        if base_size is None:
+            return next
+        #
+        size = base_size
+        size = round(size, MAX_POINTS)
+        if size <= symbol_orders[OrderCommand.BUY if cmd == OrderCommand.SELL else OrderCommand.SELL]['size']:
+            size = size + min_lot
+        #normal size
+        size = int((size + (min_lot * 0.99)) / min_lot) * min_lot
+        take_profit = trade_data[cmd]['take_profit']
+        stop_loss = trade_data[cmd]['stop_loss'] - offset_stop_loss_points if cmd == OrderCommand.SELL else trade_data[cmd]['stop_loss'] + offset_stop_loss_points
+        tags['init']['max_sl_pips'] = trade_data[cmd]['sl_pips']
+        tags['init']['group_target_profit'] = GROUP_TARGET_PROFIT
+        tags['trailing_profit'] = self.get_trailing_profit(trade_data[cmd]['tp_pips'], target_profit)
+        next[cmd] = dict(size=size, tags=tags, take_profit=take_profit,
+                         stop_loss=stop_loss, td_uid=trade_data['uid'])
+        return next
+
+
+    def open_new(self, new_order_list, params):
+        trading_info = self.get_group_info()
+        if trading_info is None:
+            return False
+        #
+        ret = self.open_next(trading_info, new_order_list, params)
+        if ret:
+            return True
+        return False
+
+    def open_next(self, trading_info, new_order_list, params):
+        # cmd = None
+        stats_info = trading_info['stats']
+        #check group max loss
+        group_max_loss = self.get_group_max_loss(trading_info)
+        if group_max_loss < 0:
+            if group_max_loss >= stats_info['net_profit']:
+                self.runner.debug_print(f"open_next: GROUP_MAX_LOSS limit. ({group_max_loss} >= {stats_info['net_profit']})")
+                return False
+        #
+        if RISK_DAY_MAX_LOSS < 0:
+            today_loss = self.get_today_stats('loss', trading_info)
+            if RISK_DAY_MAX_LOSS >= today_loss:
+                self.runner.debug_print(f"open_next: RISK_DAY_MAX_LOSS limit. ({RISK_DAY_MAX_LOSS} >= {today_loss})")
+                return False
+
+        if RISK_DAY_MAX_PROFIT > 0:
+            today_profit = self.get_today_stats('profit', trading_info)
+            if RISK_DAY_MAX_PROFIT <= today_profit:
+                self.runner.debug_print(f"open_next: RISK_DAY_MAX_PROFIT limit. ({RISK_DAY_MAX_PROFIT} <= {today_profit})")
+                return False
+
+        if GROUP_MAX_ORDERS > 0:
+            group_orders = len(trading_info['sorted_orders'])
+            if group_orders >= GROUP_MAX_ORDERS:
+                self.runner.debug_print(f"open_next: GROUP_MAX_ORDERS limit. ({group_orders} >= {GROUP_MAX_ORDERS})")
+                return False
+
+
+        spread_points = abs(Ask() - Bid()) * 0.25
+        #
+        trade_data = trading_info['trade_data']
+        buy_info = trading_info['next'].get(OrderCommand.BUY, None)
+        sell_info = trading_info['next'].get(OrderCommand.SELL, None)
+        can_open = False
+        open_reason = tags = position = None
+
+        price = take_profit = stop_loss = size = 0
+        #
+        open_direction = GROUP_OPEN_DIRECTION
+        #
+        #BUY
+        if open_direction in (OD_DISABLE, OD_SHORT_ONLY):
+            self.runner.debug_print(f"open_next: Disable long. (GROUP_OPEN_DIRECTION={GROUP_OPEN_DIRECTION})")
+        elif not can_open and buy_info:
+            last_ask = Ask(1)
+            ask = Ask()
+            offset_points = buy_info.get('offset_points', 0)
+            min_price = trade_data[OrderCommand.BUY]['price'] + offset_points
+            max_price = trade_data[OrderCommand.BUY].get('max_price', trade_data[OrderCommand.BUY]['price']) + offset_points
+            open_order = False
+
+            # if max_price > ask >= min_price - spread_points:
+            if Open() <= min_price and max_price > ask >= min_price - spread_points:
+                open_order = True
+                open_reason = 'OPEN_PRICE'
+            #
+            if not open_order:
+                if RISK_ENABLE_OPEN_CROSSING and ask > max_price:
+                    #穿越 暴涨/跳空
+                    if Low() <= min_price - spread_points:
+                        open_order = True
+                        open_reason = 'OPEN_CROSSING'
+                    #跳空
+                    # elif Bid() <= min_price - spread_points:
+                    #     open_order = True
+
+            if open_order:
+                position = PositionType.LONG
+                if ask < min_price:
+                    price = min_price
+                else:
+                    price = ask
+                size = buy_info['size']
+                tags = buy_info['tags']
+                take_profit = buy_info['take_profit']
+                stop_loss = buy_info['stop_loss']
+                can_open = True
+        #Sell
+        if open_direction in (OD_DISABLE, OD_LONG_ONLY):
+            self.runner.debug_print(f"open_next: Disable short. (GROUP_OPEN_DIRECTION={GROUP_OPEN_DIRECTION})")
+        elif not can_open and sell_info:
+            last_bid = Bid(1)
+            bid = Bid()
+            offset_points = sell_info.get('offset_points', 0)
+            min_price = trade_data[OrderCommand.SELL].get('min_price', trade_data[OrderCommand.SELL]['price']) - offset_points
+            max_price = trade_data[OrderCommand.SELL]['price'] - offset_points
+            open_order = False
+
+            # if min_price < bid <= max_price + spread_points:#or last_bid >= max_price >= bid:
+            if Open() >= max_price and min_price < bid <= max_price + spread_points:#or last_bid >= max_price >= bid:
+                open_order = True
+                open_reason = 'OPEN_PRICE'
+            #
+            if not open_order:
+                if RISK_ENABLE_OPEN_CROSSING and bid < min_price:
+                    if High() >= max_price + spread_points:
+                        open_order = True
+                        open_reason = 'OPEN_CROSSING'
+                    # elif Ask() >= max_price + spread_points:
+                    #     open_order = True
+
+            if open_order:
+                position = PositionType.SHORT
+                if bid > max_price:
+                    price = max_price
+                else:
+                    price = bid
+                size = sell_info['size']
+                tags = sell_info['tags']
+                take_profit = sell_info['take_profit']
+                stop_loss = sell_info['stop_loss']
+                can_open = True
+        #
+        current_time = Time()
+        if can_open:
+            if size > RISK_GROUP_MAX_ORDER_SIZE > 0:
+                self.runner.debug_print(f"WARNING: Exceed RISK_GROUP_MAX_ORDER_SIZE. ({size} >= {RISK_GROUP_MAX_ORDER_SIZE})")
+                return False
+
+            new_order_dict = {}
+            new_order_dict['errid'] = 0
+            # new_order_dict['cmd'] = cmd
+            new_order_dict['position'] = position
+            new_order_dict['price'] = price
+            new_order_dict['take_profit'] = take_profit
+            new_order_dict['stop_loss'] = stop_loss
+            # new_order_dict['flag'] = 'first'
+            new_order_dict['size'] = size
+            new_order_dict['tags'] = tags
+            new_order_list.append(new_order_dict)
+            self.runner.debug_print(f"WARNING: Open order. (Reason: {open_reason}, new_order_dict={new_order_dict})",
+                                    notify=False)
+
+        return can_open
+
+
+    def get_entry_data(self):
+        {%  for code in strategy['code']['get_entry_data']  -%}
+        {{ code }}
+        {% endfor %}
+
+    {{ strategy['code'].get('class', '') }}

@@ -1,0 +1,10 @@
+[
+  {
+    "runner_config": {
+      "version": "v1.0alpha",
+      "name": "EAStrategyRunner",
+      "template": "../templates/ea_strategy_runner.j2",
+      "variables": {}
+    }
+  }
+]
