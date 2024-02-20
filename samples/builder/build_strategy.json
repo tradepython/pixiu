@@ -35,6 +35,12 @@
             },
             "ma_90": {"module": "indicator", "name": "MA",
               "params": {"symbol_data": "@symbols/current_symbol.close", "period": 90, "shift": 0, "matype": 0}
+            },
+            "tema_60": {"module": "indicator", "name": "TEMA",
+              "params": {"symbol_data": "@symbols/current_symbol.close", "period": 60, "shift": 0}
+            },
+            "tema_90": {"module": "indicator", "name": "TEMA",
+              "params": {"symbol_data": "@symbols/current_symbol.close", "period": 90, "shift": 0}
             }
         },
         "entry": {
@@ -44,6 +50,7 @@
                 "values": [
                   ["@functions/adx_5", ">", 20],
                   ["@functions/ma_60", ">", "@functions/ma_90"],
+                  ["@functions/tema_60", ">", "@functions/tema_90"],
                   {"op": "or",
                         "values": [
                             ["@functions/adx_5", ">", 20],
@@ -63,7 +70,32 @@
             ]
           }
         },
-        "exit": {},
+        "exit": {
+          "long": {
+            "condition": [
+              {"op": "and",
+                "values": [
+                  ["@functions/adx_5", "<", 20],
+                  ["@functions/ma_60", "<", "@functions/ma_90"],
+                  {"op": "or",
+                        "values": [
+                            ["@functions/adx_5", "<", 20],
+                            ["@functions/ma_60", "<", "@functions/ma_90"]
+                        ]
+                  }
+                ]
+              }
+            ]
+          },
+          "short": {
+            "condition": [
+              {"op": "and", "values": [
+                ["@functions/adx_5", ">", 20],
+                ["@functions/ma_60", ">", "@functions/ma_90"]
+              ]}
+            ]
+          }
+        },
         "order": {},
         "options": {
           "weekend_holding": false

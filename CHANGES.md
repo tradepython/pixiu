@@ -1,4 +1,21 @@
 
+### [2024-02-20]
+#### Version:
+#####   Package:
+#####    pixiu: 0.121.*.20240220
+#####
+#### **Descriptions：**
+     1.Modify module_indicators.py:
+         Add some indicators
+
+### [2024-02-08]
+#### Version:
+#####   Package:
+#####    pixiu: 0.120.*.20240208
+#####
+#### **Descriptions：**
+     1.Modify ea_builder.py: 
+
 ### [2024-02-07]
 #### Version:
 #####   Package:

@@ -260,7 +260,7 @@ class FunctionBuilder(ElementBuilder):
             param_dict[key] = self.get_value(func_config['params'][key], self.params[key])
         options['params'] = param_dict
 
-        return func(cls, options)
+        return func(cls(), options)
 
     def get_variables(self, module, name):
         func_config = self.get_function_config(module, name)
@@ -300,7 +300,6 @@ class EntryBuilder(ElementBuilder):
         short = self.config['short']
         return short
 
-
     def generate_operation_element_code(self, element):
         v0 = self.get_value(None, element[0])
         v1 = self.get_value(None, element[1])
@@ -325,6 +324,28 @@ class EntryBuilder(ElementBuilder):
         for cc in condition_config:
             code = self.generate_condition_elements_code(code, cc)
         return code
+
+    def build_code(self, options):
+        long_config = self.long
+        condition_config = long_config['condition']
+        long_code = self.generate_condition_code(condition_config)
+        short_config = self.short
+        condition_config = short_config['condition']
+        short_code = self.generate_condition_code(condition_config)
+        codes = (f"ret = dict()",
+                 f"if {long_code}:",
+                 f"    ret[PositionType.LONG] = dict(price=None)",
+                 f"if {short_code}:",
+                 f"    ret[PositionType.SHORT] = dict(price=None)",
+                 f"return ret")
+
+        return codes
+
+
+class ExitBuilder(EntryBuilder):
+
+    def __init__(self, builder, key, config, index, build_data):
+        super(ExitBuilder, self).__init__(builder, key, config, index, build_data)
 
     def build_code(self, options):
         long_config = self.long
@@ -418,6 +439,10 @@ class EABuilder:
         build_data['entry'] = EntryBuilder(self, None,  entry_config, 0, build_data)
         return build_data
 
+    def parse_exit_config(self, build_data, entry_config):
+        build_data['exit'] = ExitBuilder(self, None,  entry_config, 0, build_data)
+        return build_data
+
     def generate_code_string_list(self, codes):
         ret = []
         for c in codes:
@@ -445,10 +470,27 @@ class EABuilder:
             self.parse_symbols_config(build_data, trading['symbols'])
             self.parse_functions_config(build_data, trading['functions'])
             self.parse_entry_config(build_data, trading['entry'])
+            self.parse_exit_config(build_data, trading['exit'])
             build_info = dict(config=build_config, data=build_data)
         except:
             traceback.print_exc()
         return build_info
+
+    def generate_entry_exit_code(self, build_data, options, code_type):
+        codes = []
+        for key in build_data['symbols']:
+            sd = build_data['symbols'][key]
+            codes.append(sd.build_code(options))
+
+        for key in build_data['functions']:
+            options = {}
+            fd = build_data['functions'][key]
+            codes.append(fd.build_code(options))
+
+        options = {}
+        ed = build_data[code_type]
+        codes.append(ed.build_code(options))
+        return codes
 
     def generate_ea_code(self, build_info):
         ret = None
@@ -456,7 +498,6 @@ class EABuilder:
             #
             build_data = build_info['data']
             build_config = build_info['config']
-            codes = []
             options = {}
             variables_codes = []
             valid_script_settings_codes = []
@@ -483,25 +524,28 @@ class EABuilder:
                     if vssc is not None:
                         valid_script_settings_codes.append(vssc)
             #
-            for key in build_data['symbols']:
-                sd = build_data['symbols'][key]
-                codes.append(sd.build_code(options))
-
-            for key in build_data['functions']:
-                options = {}
-                fd = build_data['functions'][key]
-                codes.append(fd.build_code(options))
-
-            options = {}
-            ed = build_data['entry']
-            codes.append(ed.build_code(options))
+            # for key in build_data['symbols']:
+            #     sd = build_data['symbols'][key]
+            #     codes.append(sd.build_code(options))
+            #
+            # for key in build_data['functions']:
+            #     options = {}
+            #     fd = build_data['functions'][key]
+            #     codes.append(fd.build_code(options))
+            #
+            # options = {}
+            # ed = build_data['entry']
+            # codes.append(ed.build_code(options))
+            entry_codes = self.generate_entry_exit_code(build_data, options, 'entry')
+            exit_codes = self.generate_entry_exit_code(build_data, options, 'exit')
             #
             pc = self.generate_code_string_list(variables_codes)
-            sl = self.generate_code_string_list(codes)
+            ecl = self.generate_code_string_list(entry_codes)
+            exl = self.generate_code_string_list(exit_codes)
             vsscl = self.generate_code_string_list(valid_script_settings_codes)
             # script_settings_code = json.dumps(script_settings, quote_keys=True)
             strategy = dict(class_name=build_config['name'],
-                            code=dict(variables=pc, get_entry_data=sl,
+                            code=dict(variables=pc, get_entry_data=ecl, get_exit_data=exl,
                                       valid_script_settings=vsscl),
                             script_settings=script_settings
                             )

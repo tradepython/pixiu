@@ -1,29 +1,184 @@
+from pixiu.builder.helper import CodeWriter
+
+
 # indicator
 class IndicatorModule:
 
     def __init__(self,):
         pass
 
+    def generate_code(self, function_name, options, params_list):
+        cw = CodeWriter()
+        return cw.generate_code(function_name, options, params_list)
+    # def generate_code(self, function_name, options, params_list):
+    #     params = options['params']
+    #     params_string = ""
+    #     for name in params_list:
+    #         val_name = name
+    #         if isinstance(name, dict):
+    #             d = name
+    #             name = d['name']
+    #             val_name = d['val_name']
+    #         val = params[name]
+    #         params_string = f"{params_string}, {val_name}={val}" if params_string else f"{val_name}={val}"
+    #     code = f"{function_name}({params_string})"
+    #     variables = options.get('variables', None)
+    #     if variables:
+    #         code = f"{variables[0]['name']} = {code}"
+    #     return code
+
     def adx(self, options):
-        params = options['params']
-        symbol_data = params['symbol_data']
-        period = params['period']
-        shift = params['shift']
-        code = f"iADX({symbol_data}, timeperiod={period}, shift={shift})"
-        variables = options.get('variables', None)
-        if variables:
-            code = f"{variables[0]['name']} = {code}"
+        """ Average Directional Movement Index (Momentum Indicators)"""
+        code = self.generate_code("iADX", options, ("symbol_data",
+                                                    {"name": "period", "val_name": "timeperiod"},
+                                                    "shift"))
         return code
+        # params = options['params']
+        # symbol_data = params['symbol_data']
+        # period = params['period']
+        # shift = params['shift']
+        # code = f"iADX({symbol_data}, timeperiod={period}, shift={shift})"
+        # variables = options.get('variables', None)
+        # if variables:
+        #     code = f"{variables[0]['name']} = {code}"
+        # return code
 
     def ma(self, options):
-        params = options['params']
-        symbol_data = params['symbol_data']
-        period = params['period']
-        matype = params['matype']
-        shift = params['shift']
-        code = f"iMA({symbol_data}, timeperiod={period}, matype={matype}, shift={shift})"
-        variables = options.get('variables', None)
-        if variables:
-            code = f"{variables[0]['name']} = {code}"
-        codes = (code, )
-        return codes
+        """Calculates the Moving Average indicator and returns its value."""
+        code = self.generate_code("iMA", options, (
+            {"name": "symbol_data", "val_name": "price_data"},
+            {"name": "period", "val_name": "timeperiod"}, "shift", "matype"))
+        return code
+        # params = options['params']
+        # symbol_data = params['symbol_data']
+        # period = params['period']
+        # matype = params['matype']
+        # shift = params['shift']
+        # code = f"iMA({symbol_data}, timeperiod={period}, matype={matype}, shift={shift})"
+        # variables = options.get('variables', None)
+        # if variables:
+        #     code = f"{variables[0]['name']} = {code}"
+        # codes = (code, )
+        # return codes
+
+    def ad(self, options):
+        """Chaikin A/D Line (Volume Indicators)"""
+        code = self.generate_code("iAD", options, ("symbol_data", "shift"))
+        return code
+
+    def atr(self, options):
+        """Average True Range (Volatility Indicators)"""
+        code = self.generate_code("iATR", options, ("symbol_data",
+                                                    {"name": "period", "val_name": "timeperiod"},
+                                                    "shift"))
+        return code
+
+    def bands(self, options):
+        """Bollinger Bands (Overlap Studies)"""
+        code = self.generate_code("iBands", options, ("symbol_data",
+                                                    {"name": "period", "val_name": "timeperiod"},
+                                                    {"name": "stddev_up", "val_name": "nbdevup"},
+                                                    {"name": "stddev_down", "val_name": "nbdevdn"},
+                                                    "matype",
+                                                    "shift"))
+        return code
+
+    def cci(self, options):
+        """Commodity Channel Index (Momentum Indicators)"""
+        code = self.generate_code("iCCI", options, ("symbol_data",
+                                                    {"name": "period", "val_name": "timeperiod"},
+                                                    "shift"))
+        return code
+
+    def chaikin(self, options):
+        """Chaikin A/D Oscillator (Volume Indicators)"""
+        code = self.generate_code("iChaikin", options, ("symbol_data",
+                                                    {"name": "fast", "val_name": "fastperiod"},
+                                                    {"name": "slow", "val_name": "slowperiod"},
+                                                    "shift"))
+        return code
+
+    def dema(self, options):
+        """Double Exponential Moving Average (Overlap Studies)"""
+        code = self.generate_code("iDEMA", options, ("symbol_data",
+                                                    {"name": "period", "val_name": "timeperiod"},
+                                                    "shift"))
+        return code
+
+    def momentum(self, options):
+        """ Momentum (Momentum Indicators)"""
+        code = self.generate_code("iMomentum", options, ("symbol_data",
+                                                    {"name": "period", "val_name": "timeperiod"},
+                                                    "shift"))
+        return code
+
+    def mfi(self, options):
+        """Money Flow Index (Momentum Indicators)"""
+        code = self.generate_code("iMFI", options, ("symbol_data",
+                                                    {"name": "period", "val_name": "timeperiod"},
+                                                    "shift"))
+        return code
+
+    def macd(self, options):
+        """Moving Average Convergence/Divergence (Momentum Indicators)"""
+        code = self.generate_code("iMACD", options, ("symbol_data",
+                                                    {"name": "fast", "val_name": "fastperiod"},
+                                                    {"name": "slow", "val_name": "slowperiod"},
+                                                    {"name": "signal", "val_name": "signalperiod"},
+                                                    "shift"))
+        return code
+
+    def obv(self, options):
+        """On Balance Volume (Volume Indicators)"""
+        code = self.generate_code("iOBV", options, ("symbol_data",
+                                                    "shift"))
+        return code
+
+    def sar(self, options):
+        """ Parabolic SAR (Overlap Studies)"""
+        code = self.generate_code("iSAR", options, ("symbol_data",
+                                                    {"name": "acc", "val_name": "acceleration"},
+                                                    {"name": "max", "val_name": "maximum"},
+                                                    "shift"))
+        return code
+
+    def rsi(self, options):
+        """Relative Strength Index (Momentum Indicators)"""
+        code = self.generate_code("iRSI", options, ("symbol_data",
+                                                    {"name": "period", "val_name": "timeperiod"},
+                                                    "shift"))
+        return code
+
+    def stddev(self, options):
+        """Standard Deviation (Statistic Functions)"""
+        code = self.generate_code("iStdDev", options, ("symbol_data",
+                                                    {"name": "period", "val_name": "timeperiod"},
+                                                    {"name": "stddev", "val_name": "nbdev"},
+                                                    "shift"))
+        return code
+
+    def stochastic(self, options):
+        """Stochastic (Momentum Indicators)"""
+        code = self.generate_code("iStochastic", options, ("symbol_data",
+                                                    {"name": "fastk", "val_name": "fastk_period"},
+                                                    {"name": "slowk", "val_name": "slowk_period"},
+                                                    {"name": "slowk_matype", "val_name": "slowk_matype"},
+                                                    {"name": "slowd", "val_name": "slowd_period"},
+                                                    {"name": "slowd_matype", "val_name": "slowd_matype"},
+                                                    "shift"))
+        return code
+
+    def tema(self, options):
+        """Triple Exponential Moving Average (Overlap Studies)"""
+        code = self.generate_code("iTEMA", options, ("symbol_data",
+                                                    {"name": "period", "val_name": "timeperiod"},
+                                                    "shift"))
+        return code
+
+    def wpr(self, options):
+        """Williams' %R (Momentum Indicators)"""
+        code = self.generate_code("iWPR", options, ("symbol_data",
+                                                    {"name": "period", "val_name": "timeperiod"},
+                                                    "shift"))
+        return code
+
