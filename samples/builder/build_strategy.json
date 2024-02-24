@@ -22,7 +22,7 @@
           },
           "current_symbol": {
             "symbol": 0,
-            "timeframe": "@variables/timeframe",
+            "timeframe": "@var/timeframe",
             "size": 60
           }
         },
@@ -40,10 +40,46 @@
               "params": {"symbol_data": "@symbols/current_symbol.close", "period": 60, "shift": 0}
             },
             "tema_90": {"module": "indicator", "name": "TEMA",
-              "params": {"symbol_data": "@symbols/current_symbol.close", "period": 90, "shift": 0}
+              "params": {"symbol_data": "@sym/current_symbol.close", "period": 90, "shift": 0}
             }
         },
         "entry": {
+          "order": {
+            "profit_loss_ratio": 4,
+            "positions": {"type": "fixed", "volume": 1.0},
+            "take_profit": {"type": "pips", "pips": 60},
+            "stop_loss":  {"type": "pips", "pips": 10}
+          },
+          "order1": {
+            "profit_loss_ratio": 4,
+            "positions": {"type": "fixed", "volume": 1.0},
+            "take_profit": {"type": "money", "amount": 60},
+            "stop_loss":  {"type": "money", "pips": 10}
+          },
+          "order2": {
+            "profit_loss_ratio": 4,
+            "positions": {"type": "fixed", "volume": 1.0},
+            "take_profit": {"type": "percent", "percent": "10%", "source": "balance"},
+            "stop_loss":  {"type": "percent", "percent": "-1%", "source": "balance"}
+          },
+          "order3": {
+            "profit_loss_ratio": 4,
+            "positions": {"type": "fixed", "volume": 1.0},
+            "take_profit": {"type": "pl-ratio"},
+            "stop_loss":  {"type": "percent", "percent": "-1%", "source": "balance"}
+          },
+          "order4": {
+            "profit_loss_ratio": 4,
+            "positions": {"type": "fixed", "volume": 1.0},
+            "take_profit": {"type": "percent", "percent": "100%", "source": "atr", "period": 5, "timeframe": "d1"},
+            "stop_loss":  {"type": "percent", "percent": "-1%", "source": "balance"}
+          },
+          "order5": {
+            "profit_loss_ratio": 4,
+            "positions": {"type": "fixed", "volume": 1.0, "martingale": {"ratio": 1}},
+            "take_profit": {"type": "percent", "percent": "100%", "source": "atr", "period": 5, "timeframe": "d1"},
+            "stop_loss":  {"type": "percent", "percent": "-1%", "source": "balance"}
+          },
           "long": {
             "condition": [
               {"op": "and",
@@ -54,7 +90,7 @@
                   {"op": "or",
                         "values": [
                             ["@functions/adx_5", ">", 20],
-                            ["@functions/ma_60", ">", "@functions/ma_90"]
+                            ["@func/ma_60", ">", "@functions/ma_90"]
                         ]
                   }
                 ]

@@ -1,4 +1,15 @@
 
+### [2024-02-24]
+#### Version:
+#####   Package:
+#####    pixiu: 0.122.*.2024024
+#####
+#### **Descriptions：**
+     1.Modify ea_builder.py: 
+       1) Add @var, @sym, 
+       2) Entry.build_code add order_config
+     
+
 ### [2024-02-20]
 #### Version:
 #####   Package:

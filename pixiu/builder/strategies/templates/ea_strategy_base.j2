@@ -802,6 +802,53 @@ class {{ strategy['class_name'] }}:
             return None
         return ret
 
+    def calculate_tp_sl_pips(self, is_tp, tp_config, sl_config, balance):
+        pips = 0
+        if is_tp:
+            config = tp_config
+        else:
+            config = sl_config
+        if isinstance(config, dict):
+            config_type = config["type"]
+            if config_type == "pips":
+                pips = config["pips"]
+            elif config_type == "money":
+                money = config["money"]
+                group_target_money, rt, rs = to_float(money, failed_value=0)
+                if group_target_money > 0:
+                    if rt == "percent":
+                        group_target_money = balance * group_target_money
+                    return group_target_money
+                return 0
+            elif config_type == "percent":
+                percent = config["percent"]
+                percent_source = config["source"]
+                if percent_source == "atr":
+                    percent_atr_period = config["period"]
+                    percent_atr_timeframe = config["timeframe"]
+            elif type == "pl-ratio":
+                pass
+        return pips
+
+    def calculate_order_data(self, order_config, balance):
+        order_size = 0
+        tp_pips = 0
+        sl_pips = 0
+        profit_loss_ratio = order_config.get("profit_loss_ratio", 0)
+        # if profit_loss_ratio > 0:
+        #     ret["profit_loss_ratio"] = profit_loss_ratio
+        positions = order_config.get("positions", None)
+        if isinstance(positions, dict):
+            pos_type = positions["type"]
+            if pos_type == "fixed":
+                order_size = positions["volume"]
+        #
+        tp_config = order_config.get("take_profit", None)
+        sl_config = order_config.get("stop_loss", None)
+        tp_pips = self.calculate_tp_sl_pips(True, tp_config, sl_config, balance)
+        sl_pips = self.calculate_tp_sl_pips(False, tp_config, sl_config, balance)
+        return dict(order_size=order_size,  tp_pips=tp_pips, sl_pips=sl_pips)
+
     def calculate_signal_range(self, symbol, balance):
         entry_data = self.get_entry_data()
         if len(entry_data) == 0:
@@ -811,39 +858,57 @@ class {{ strategy['class_name'] }}:
         if sd_h1.time[1] is None:
             return None
 
-        tp_sl_dict = self.calculate_tp_sl(symbol)
-        if tp_sl_dict is None:
-            return None
-        init_tp_pips = tp_sl_dict['init']['tp_pips']
-        init_sl_pips = tp_sl_dict['init']['sl_pips']
-
-        group_target_profit = self.get_group_target_profit(balance)
-        group_init_order_size = self.calculate_group_init_order_size(group_target_profit, init_tp_pips)
+        # tp_sl_dict = self.calculate_tp_sl(symbol)
+        # if tp_sl_dict is None:
+        #     return None
+        # init_tp_pips = tp_sl_dict["init"]["tp_pips"]
+        # init_sl_pips = tp_sl_dict["init"]["sl_pips"]
+        #
+        # group_target_profit = self.get_group_target_profit(balance)
+        # group_init_order_size = self.calculate_group_init_order_size(
+        #     group_target_profit, init_tp_pips
+        # )
         orders = 0
         ed = entry_data.get(PositionType.SHORT, None)
         if ed is None:
             sell_info = None
         else:
-            sell_price = ed.get('price', None)
+            order_config = ed["order_config"]
+            order_data = self.calculate_order_data(order_config, balance)
+            sell_price = ed.get("price", None)
             if sell_price is None:
                 sell_price = Ask()
-            sell_info = self.calculate_trade_data(cmd=OrderCommand.SELL, price=sell_price, size=group_init_order_size,
-                                                  init_tp_pips=init_tp_pips, init_sl_pips=init_sl_pips)
+            sell_info = self.calculate_trade_data(
+                cmd=OrderCommand.SELL,
+                price=sell_price,
+                size=order_data['order_size'],
+                init_tp_pips=order_data['tp_pips'],
+                init_sl_pips=order_data['sl_pips'],
+            )
         ed = entry_data.get(PositionType.LONG, None)
         if ed is None:
             buy_info = None
         else:
-            buy_price = ed.get('price', None)
+            order_config = ed["order_config"]
+            order_data = self.calculate_order_data(order_config, balance)
+            buy_price = ed.get("price", None)
             if buy_price is None:
                 buy_price = Bid()
-            buy_info = self.calculate_trade_data(cmd=OrderCommand.BUY, price=buy_price, size=group_init_order_size,
-                                                  init_tp_pips=init_tp_pips, init_sl_pips=init_sl_pips)
+            buy_info = self.calculate_trade_data(
+                cmd=OrderCommand.BUY,
+                price=buy_price,
+                size=order_data['order_size'],
+                init_tp_pips=order_data['tp_pips'],
+                init_sl_pips=order_data['sl_pips'],
+            )
 
         current_time_ts = Time().timestamp()
         ret = {
-               'uid': str(int(current_time_ts)),
-               'time': sd_h1.time[0], 'timestamp': sd_h1.time[0].timestamp(),
-               OrderCommand.BUY: buy_info, OrderCommand.SELL: sell_info,
+            "uid": str(int(current_time_ts)),
+            "time": sd_h1.time[0],
+            "timestamp": sd_h1.time[0].timestamp(),
+            OrderCommand.BUY: buy_info,
+            OrderCommand.SELL: sell_info,
         }
 
         return ret

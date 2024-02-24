@@ -36,7 +36,7 @@ class ElementBuilder:
         if isinstance(value, str):
             va = value.split('/')
             if len(va) > 1:
-                if va[0] == '@variables':
+                if va[0] in ('@variables', '@var'):
                     items = va[1].split('.')
                     parameter_builder = self.build_data['variables'][items[0]]
                     ret = parameter_builder.get_variable_name()
@@ -44,7 +44,7 @@ class ElementBuilder:
                     #     for i in items[1:]:
                     #         ret = f"{ret}.{i}"
                     ret = self.__write_value_items__(ret,  items)
-                elif va[0] == '@symbols':
+                elif va[0] in ('@symbols', '@sym'):
                     items = va[1].split('.')
                     symbol_builder = self.build_data['symbols'][items[0]]
                     ret = symbol_builder.get_variable_name()
@@ -52,10 +52,12 @@ class ElementBuilder:
                     #     for i in items[1:]:
                     #         ret = f"{ret}.{i}"
                     ret = self.__write_value_items__(ret,  items)
-                elif va[0] == '@functions':
+                elif va[0] in ('@functions', '@func'):
                     func_builder = self.build_data['functions'][va[1]]
                     var_list = func_builder.get_variables(func_builder.module, func_builder.name)
                     ret = var_list[0]['name']
+                else:
+                    raise f"Unknown path name: {va[0]}"
 
         return ret
 
@@ -289,6 +291,7 @@ class EntryBuilder(ElementBuilder):
 
     def __init__(self, builder, key, config, index, build_data):
         super(EntryBuilder, self).__init__(builder, key, config, index, build_data)
+        self.order_settings = {}
 
     @property
     def long(self):
@@ -325,18 +328,79 @@ class EntryBuilder(ElementBuilder):
             code = self.generate_condition_elements_code(code, cc)
         return code
 
+    def parse_order_config(self, config):
+        ret = None
+        os = config.get('order', None)
+        if os:
+            ret = os.copy()
+            profit_loss_ratio = ret.get('profit_loss_ratio', 0)
+            if profit_loss_ratio > 0:
+                ret['profit_loss_ratio'] = profit_loss_ratio
+            positions = ret.get('positions', None)
+            if isinstance(positions, dict):
+                pos_type = positions['type']
+                if pos_type == 'fixed':
+                    pos_volume = positions['volume']
+            #
+            take_profit = ret.get('take_profit', None)
+            if isinstance(take_profit, dict):
+                tp_type = take_profit['type']
+                if tp_type == 'pips':
+                    tp_pips = take_profit['pips']
+                elif tp_type == 'money':
+                    tp_money = take_profit['money']
+                elif tp_type == 'percent':
+                    tp_percent = take_profit['percent']
+                    tp_percent_source = take_profit['source']
+                    if tp_percent_source == 'atr':
+                        tp_percent_atr_period = take_profit['period']
+                        tp_percent_atr_timeframe = take_profit['timeframe']
+                elif tp_type == 'pl-ratio':
+                    pass
+
+            stop_loss = ret.get('stop_loss', None)
+            if isinstance(stop_loss, dict):
+                sl_type = stop_loss['type']
+                if sl_type == 'pips':
+                    sl_pips = stop_loss['pips']
+                elif sl_type == 'money':
+                    sl_money = stop_loss['money']
+                elif sl_type == 'percent':
+                    sl_percent = stop_loss['percent']
+                    sl_percent_source = stop_loss['source']
+                    if sl_percent_source == 'atr':
+                        sl_percent_atr_period = stop_loss['period']
+                        sl_percent_atr_timeframe = stop_loss['timeframe']
+                elif sl_type == 'pl-ratio':
+                    pass
+            #
+        return ret
+
     def build_code(self, options):
+        #
+        default_order_config = self.parse_order_config(self.config)
+        #
         long_config = self.long
         condition_config = long_config['condition']
         long_code = self.generate_condition_code(condition_config)
+        long_order_config = self.parse_order_config(long_config)
+        if long_order_config is None:
+            long_order_config = default_order_config
+        #
         short_config = self.short
         condition_config = short_config['condition']
         short_code = self.generate_condition_code(condition_config)
+        short_order_config = self.parse_order_config(short_config)
+        if short_order_config is None:
+            short_order_config = default_order_config
+        if long_order_config is None or short_order_config is None:
+            raise f"Error: Entry order config not found!"
+        #
         codes = (f"ret = dict()",
                  f"if {long_code}:",
-                 f"    ret[PositionType.LONG] = dict(price=None)",
+                 f"    ret[PositionType.LONG] = dict(price=None, order_config={long_order_config})",
                  f"if {short_code}:",
-                 f"    ret[PositionType.SHORT] = dict(price=None)",
+                 f"    ret[PositionType.SHORT] = dict(price=None, order_config={short_order_config})",
                  f"return ret")
 
         return codes
