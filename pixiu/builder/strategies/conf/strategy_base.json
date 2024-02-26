@@ -37,13 +37,6 @@
             "type": "int", "value": 0, "options": {"0": "Auto", "100": "Reverse", "200": "Breakout"},
             "script_settings": true
           },
-          "group_target_profit": {
-            "type": "str", "value": "100",
-            "desc": {"en": "Group target profit (must be positive or positive percentage, e.g., 10%, 200)",
-                     "zh": "组目标盈利（必须为正值或正百分比，如：10%, 200）"},
-            "required": true,
-            "script_settings": true
-          },
           "group_max_loss": {
             "type": "str", "value": "0",
             "desc": {"en": "Maximum loss per group (must be negative or negative percentage, e.g. -10%, -200), 0-Unlimited",
@@ -55,16 +48,6 @@
             "type": "int", "value": 1,
             "desc": {"en": "Maximum orders per group, 0-Unlimited",
               "zh": "每组最大订单数, 0-无限制"},
-            "required": true,
-            "script_settings": true
-          },
-          "group_tp_pips": {
-            "type": "float", "value": 100, "min": 0,
-            "required": true,
-            "script_settings": true
-          },
-          "group_sl_pips": {
-            "type": "float", "value": 60, "min": 0,
             "required": true,
             "script_settings": true
           },

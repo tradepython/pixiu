@@ -1,4 +1,16 @@
 
+
+### [2024-02-26]
+#### Version:
+#####   Package:
+#####    pixiu: 0.123.*.2024026
+#####
+#### **Descriptions：**
+     1.Modify ea_builder.py:
+       1) Add get_order_config in class EntryBuilder
+       2) Add system_variables in build_data
+
+
 ### [2024-02-24]
 #### Version:
 #####   Package:

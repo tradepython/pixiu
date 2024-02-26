@@ -1,4 +1,8 @@
-
+{% if render == 'helper' %}
+def parse_order_config2(order_config):
+    print(order_config)
+parse_order_config("aaaa")
+{% else %}
 
 OD_LONG_SHORT = 0
 OD_LONG_ONLY = 1
@@ -75,20 +79,6 @@ def PX_ValidScriptSettings(new_settings):
         if 'params' not in new_settings:
             return dict(success=False, errmsg='Not found params')
         params = new_settings['params']
-        group_tp_pips = params['group_tp_pips']['value']
-        group_sl_pips = params['group_sl_pips']['value']
-        if group_tp_pips > 0 and group_sl_pips > 0:
-            pass
-        else:
-            pass
-
-        group_target_profit = params['group_target_profit']['value']
-        v, rt, rs = to_float(group_target_profit)
-        errmsg = 'group_target_profit must be positive or positive percentage, e.g. 10%, 200, 10%:balance'
-        if v is None or v <= 0:
-            return dict(success=False, errmsg=errmsg)
-        if rs and not valid_source(rs):
-            return dict(success=False, errmsg=errmsg)
 
         group_max_loss = params['group_max_loss']['value']
         v, rt, rs = to_float(group_max_loss)
@@ -715,14 +705,6 @@ class {{ strategy['class_name'] }}:
 
         return False
 
-    def get_group_target_profit(self, balance):
-        group_target_profit, rt, rs = to_float(GROUP_TARGET_PROFIT, failed_value=0)
-        if group_target_profit > 0:
-            if rt == 'percent':
-                group_target_profit = balance * group_target_profit
-            return group_target_profit
-        return 0
-
 
     def get_group_max_loss(self, group_info):
         group_max_loss, rt, rs = to_float(GROUP_MAX_LOSS, failed_value=0)
@@ -748,6 +730,15 @@ class {{ strategy['class_name'] }}:
             ret = stats.get('closed_net_profit', 0) + date_data.get('total_net_profit', 0)
         return ret
 
+    def get_group_target_profit(self, balance):
+        #
+        return 0
+        group_target_profit, rt, rs = to_float(GROUP_TARGET_PROFIT, failed_value=0)
+        if group_target_profit > 0:
+            if rt == "percent":
+                group_target_profit = balance * group_target_profit
+            return group_target_profit
+        return 0
 
     def calculate_group_init_order_size(self, init_amount, tp_pips):
         init_order_size = self.profit_to_lots(init_amount, tp_pips)
@@ -761,21 +752,56 @@ class {{ strategy['class_name'] }}:
             return None
         return ret
 
-    def make_trade_data_dict(self, open_price, size, stop_loss,
-                             take_profit, init_tp_pips, init_sl_pips,
-                             tp_pips, sl_pips):
-        ret = dict(price=open_price, take_profit=take_profit, stop_loss=stop_loss, size=size,
-                   init_tp_pips=init_tp_pips, init_sl_pips=init_sl_pips,
-                   tp_pips=tp_pips, sl_pips=sl_pips)
+    def make_trade_data_dict(
+        self,
+        open_price=0,
+        init_size=0,
+        stop_loss=0,
+        take_profit=0,
+        init_tp_pips=0,
+        init_tp_money=0,
+        init_sl_pips=0,
+        init_sl_money=0,
+        tp_pips=0,
+        sl_pips=0,
+    ):
+        ret = dict(
+            price=open_price,
+            take_profit=take_profit,
+            stop_loss=stop_loss,
+            init_size=init_size,
+            init_tp_pips=init_tp_pips,
+            init_tp_money=init_tp_money,
+            init_sl_pips=init_sl_pips,
+            init_sl_money=init_sl_money,
+            tp_pips=tp_pips,
+            sl_pips=sl_pips,
+        )
         return ret
 
-    def calculate_trade_data(self, cmd, price, size, init_tp_pips, init_sl_pips):
+    def calculate_trade_data0(self, cmd, price, balance):
+        init_tp_pips = 0
+        init_tp_money = None
+        init_sl_pips = 0
+        init_sl_money = None
+        order_data = self.calculate_order_data(order_config, balance)
+        init_size = order_data['order_size']
+
+        tp_data = order_data['take_profit']
+        if tp_data:
+            init_tp_pips = tp_data['pips']
+            init_tp_money = tp_data['money']
+        sl_data = order_data['stop_loss']
+        if sl_data:
+            init_sl_pips = sl_data['pips']
+            init_sl_money = sl_data['money']
+
         if MAX_TP_PIPS > 0:
             tp_pips = min(init_tp_pips, MAX_TP_PIPS)
         else:
             tp_pips = init_tp_pips
-
         tp_points = self.runner.pips_to_points(tp_pips)
+        #
         if MAX_SL_PIPS > 0:
             sl_pips = min(init_sl_pips, MAX_SL_PIPS)
         else:
@@ -785,25 +811,29 @@ class {{ strategy['class_name'] }}:
         if cmd == OrderCommand.BUY:
             take_profit = open_price + tp_points
             stop_loss = open_price - sl_points
-            ret = self.make_trade_data_dict(
-                                            open_price=open_price, size=size, stop_loss=stop_loss,
-                                            take_profit=take_profit,
-                                            init_tp_pips=init_tp_pips, init_sl_pips=init_sl_pips,
-                                            tp_pips=tp_pips, sl_pips=sl_pips)
         elif cmd == OrderCommand.SELL:
             take_profit = open_price - tp_points
             stop_loss = open_price + sl_points
-            ret = self.make_trade_data_dict(
-                                            open_price=open_price, size=size, stop_loss=stop_loss,
-                                            take_profit=take_profit,
-                                            init_tp_pips=init_tp_pips, init_sl_pips=init_sl_pips,
-                                            tp_pips=tp_pips, sl_pips=sl_pips)
         else:
             return None
+        ret = self.make_trade_data_dict(
+            open_price=open_price,
+            init_size=init_size,
+            stop_loss=stop_loss,
+            take_profit=take_profit,
+            init_tp_pips=init_tp_pips,
+            init_tp_money=init_tp_money,
+            init_sl_pips=init_sl_pips,
+            init_sl_money=init_sl_money,
+            tp_pips=tp_pips,
+            sl_pips=sl_pips,
+        )
+
         return ret
 
     def calculate_tp_sl_pips(self, is_tp, tp_config, sl_config, balance):
         pips = 0
+        money = None
         if is_tp:
             config = tp_config
         else:
@@ -828,7 +858,7 @@ class {{ strategy['class_name'] }}:
                     percent_atr_timeframe = config["timeframe"]
             elif type == "pl-ratio":
                 pass
-        return pips
+        return pips, money
 
     def calculate_order_data(self, order_config, balance):
         order_size = 0
@@ -845,9 +875,55 @@ class {{ strategy['class_name'] }}:
         #
         tp_config = order_config.get("take_profit", None)
         sl_config = order_config.get("stop_loss", None)
-        tp_pips = self.calculate_tp_sl_pips(True, tp_config, sl_config, balance)
-        sl_pips = self.calculate_tp_sl_pips(False, tp_config, sl_config, balance)
-        return dict(order_size=order_size,  tp_pips=tp_pips, sl_pips=sl_pips)
+        tp_pips, tp_money = self.calculate_tp_sl_pips(True, tp_config, sl_config, balance)
+        sl_pips, sl_money = self.calculate_tp_sl_pips(False, tp_config, sl_config, balance)
+        return dict(order_size=order_size,
+                    take_profit=dict(pips=tp_pips, money=tp_money),
+                    stop_loss=dict(pips=sl_pips, money=sl_money))
+
+    def load_json_value(self, value, default=None):
+        ret = default
+        try:
+            ret = json.loads(value)
+        except:
+            pass
+        return ret
+
+    def calculate_trade_size(self, group_info, trade_data, cmd, fees, net_profit, group_target_profit,
+                             multiplier=1):
+        trade_info = trade_data[cmd]
+        if trade_info is None:
+            return None, None
+        #
+        if cmd == OrderCommand.BUY:
+            order_config = dict(profit_loss_ratio=ENTRY_LONG_PROFIT_LOSS_RATIO,
+                                positions=self.load_json_value(ENTRY_LONG_POSITIONS),
+                                take_profit=self.load_json_value(ENTRY_LONG_TAKE_PROFIT),
+                                stop_loss=self.load_json_value(ENTRY_LONG_STOP_LOSS))
+        else:
+            order_config = dict(profit_loss_ratio=ENTRY_SHORT_PROFIT_LOSS_RATIO,
+                                positions=self.load_json_value(ENTRY_SHORT_POSITIONS),
+                                take_profit=self.load_json_value(ENTRY_SHORT_TAKE_PROFIT),
+                                stop_loss=self.load_json_value(ENTRY_SHORT_STOP_LOSS))
+        order_data = self.calculate_order_data(order_config, group_info['init']['balance'])
+
+        tp_pips = order_data['take_profit']['pips']
+        sl_pips = order_data['stop_loss']['pips']
+        ep_size = 0
+        fees_size = 0
+        if fees < 0:
+            fees_size = self.profit_to_lots(abs(fees), tp_pips)
+        group_init_order_size = self.calculate_group_init_order_size(group_target_profit, tp_pips)
+        base_lots = group_init_order_size
+        loss_amount = 0
+        target_profit = self.lots_to_profit(base_lots, tp_pips)
+        if loss_amount < 0:
+            l_lots = self.profit_to_lots(abs(loss_amount), tp_pips) * multiplier
+            target_profit = target_profit + abs(loss_amount)
+            l_min_lots = self.profit_to_lots(target_profit, tp_pips)
+            base_lots = max(l_min_lots, l_lots)
+        base_size = base_lots + ep_size + fees_size
+        return base_size, target_profit
 
     def calculate_signal_range(self, symbol, balance):
         entry_data = self.get_entry_data()
@@ -858,49 +934,28 @@ class {{ strategy['class_name'] }}:
         if sd_h1.time[1] is None:
             return None
 
-        # tp_sl_dict = self.calculate_tp_sl(symbol)
-        # if tp_sl_dict is None:
-        #     return None
-        # init_tp_pips = tp_sl_dict["init"]["tp_pips"]
-        # init_sl_pips = tp_sl_dict["init"]["sl_pips"]
-        #
-        # group_target_profit = self.get_group_target_profit(balance)
-        # group_init_order_size = self.calculate_group_init_order_size(
-        #     group_target_profit, init_tp_pips
-        # )
         orders = 0
         ed = entry_data.get(PositionType.SHORT, None)
         if ed is None:
             sell_info = None
         else:
-            order_config = ed["order_config"]
-            order_data = self.calculate_order_data(order_config, balance)
             sell_price = ed.get("price", None)
             if sell_price is None:
                 sell_price = Ask()
-            sell_info = self.calculate_trade_data(
-                cmd=OrderCommand.SELL,
-                price=sell_price,
-                size=order_data['order_size'],
-                init_tp_pips=order_data['tp_pips'],
-                init_sl_pips=order_data['sl_pips'],
+            sell_info = self.make_trade_data_dict(
+                open_price=sell_price,
             )
         ed = entry_data.get(PositionType.LONG, None)
         if ed is None:
             buy_info = None
         else:
-            order_config = ed["order_config"]
-            order_data = self.calculate_order_data(order_config, balance)
             buy_price = ed.get("price", None)
             if buy_price is None:
                 buy_price = Bid()
-            buy_info = self.calculate_trade_data(
-                cmd=OrderCommand.BUY,
-                price=buy_price,
-                size=order_data['order_size'],
-                init_tp_pips=order_data['tp_pips'],
-                init_sl_pips=order_data['sl_pips'],
+            buy_info = self.make_trade_data_dict(
+                open_price=buy_price,
             )
+
 
         current_time_ts = Time().timestamp()
         ret = {
@@ -1222,7 +1277,7 @@ class {{ strategy['class_name'] }}:
     def calculate_next_trade_data(self, group_info):
         return group_info['trade_data']
 
-    def calculate_trade_size(self, group_info, trade_data, cmd, fees, net_profit, group_target_profit,
+    def calculate_trade_size0(self, group_info, trade_data, cmd, fees, net_profit, group_target_profit,
                              multiplier=1):
         pips_ratio = 1.0
         trade_info = trade_data[cmd]
@@ -1407,3 +1462,5 @@ class {{ strategy['class_name'] }}:
         {% endfor %}
 
     {{ strategy['code'].get('class', '') }}
+
+{% endif %}

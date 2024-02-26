@@ -45,6 +45,7 @@
         },
         "entry": {
           "order": {
+            "script_settings": false,
             "profit_loss_ratio": 4,
             "positions": {"type": "fixed", "volume": 1.0},
             "take_profit": {"type": "pips", "pips": 60},

@@ -376,31 +376,38 @@ class EntryBuilder(ElementBuilder):
             #
         return ret
 
-    def build_code(self, options):
-        #
+    def get_order_config(self, options):
         default_order_config = self.parse_order_config(self.config)
         #
         long_config = self.long
-        condition_config = long_config['condition']
-        long_code = self.generate_condition_code(condition_config)
         long_order_config = self.parse_order_config(long_config)
         if long_order_config is None:
             long_order_config = default_order_config
         #
         short_config = self.short
-        condition_config = short_config['condition']
-        short_code = self.generate_condition_code(condition_config)
         short_order_config = self.parse_order_config(short_config)
         if short_order_config is None:
             short_order_config = default_order_config
         if long_order_config is None or short_order_config is None:
             raise f"Error: Entry order config not found!"
         #
+        return dict(long=long_order_config, short=short_order_config)
+
+    def build_code(self, options):
+        #
+        long_config = self.long
+        condition_config = long_config['condition']
+        long_code = self.generate_condition_code(condition_config)
+        #
+        short_config = self.short
+        condition_config = short_config['condition']
+        short_code = self.generate_condition_code(condition_config)
+        #
         codes = (f"ret = dict()",
                  f"if {long_code}:",
-                 f"    ret[PositionType.LONG] = dict(price=None, order_config={long_order_config})",
+                 f"    ret[PositionType.LONG] = dict(price=None)",
                  f"if {short_code}:",
-                 f"    ret[PositionType.SHORT] = dict(price=None, order_config={short_order_config})",
+                 f"    ret[PositionType.SHORT] = dict(price=None)",
                  f"return ret")
 
         return codes
@@ -501,6 +508,41 @@ class EABuilder:
 
     def parse_entry_config(self, build_data, entry_config):
         build_data['entry'] = EntryBuilder(self, None,  entry_config, 0, build_data)
+        #
+        system_variables = build_data.get('system_variables', {})
+        oc = build_data['entry'].get_order_config(None)
+        index = 0
+        for dir in ('long', 'short'):
+            oc_dir = oc[dir]
+            for oc_item in oc_dir:
+                script_settings = oc_dir.get('script_settings', True)
+                oc_val = oc_dir[oc_item]
+                key = f"entry_{dir}_{oc_item}"
+                #
+                if oc_item == 'profit_loss_ratio':
+                    oc_item_type = "int"
+                else:
+                    oc_item_type = "str"
+                #
+                oc_item_desc = dict(en="")
+                if oc_item == 'profit_loss_ratio':
+                    oc_item_desc = dict(en=f"Profit/loss ratio of {dir} orders.")
+                elif oc_item == 'positions':
+                    oc_item_desc = dict(en=f"The positions of {dir} orders.")
+                elif oc_item == 'take_profit':
+                    oc_item_desc = dict(en=f"Take profit on {dir} orders.")
+                elif oc_item == 'stop_loss':
+                    oc_item_desc = dict(en=f"Stop loss on {dir} orders.")
+                elif oc_item == 'script_settings':
+                    continue
+                #
+                config = dict(type=oc_item_type, value=json.dumps(oc_val, quote_keys=True),
+                              desc=oc_item_desc, required=True, script_settings=script_settings
+                              )
+                system_variables[key] = VariableBuilder(self, key, config, index, build_data)
+                index += 1
+        build_data['system_variables'] = system_variables
+
         return build_data
 
     def parse_exit_config(self, build_data, entry_config):
@@ -569,37 +611,47 @@ class EABuilder:
                                             {"name": "top_signal", "color": "#89F3DAFF"},
                                             {"name": "bottom_signal", "color": "#e7dc48"}]
                   }})
-            for key in build_data['strategy_variables']:
-                pd = build_data['strategy_variables'][key]
-                variables_codes.append(pd.build_code(options))
-                ss = pd.get_script_settings()
-                if pd.script_settings:
-                    script_settings['params'][pd.name] = ss
-                    vssc = pd.get_valid_script_settings_codes()
-                    if vssc is not None:
-                        valid_script_settings_codes.append(vssc)
-            for key in build_data['variables']:
-                pd = build_data['variables'][key]
-                variables_codes.append(pd.build_code(options))
-                ss = pd.get_script_settings()
-                if pd.script_settings:
-                    script_settings['params'][pd.name] = ss
-                    vssc = pd.get_valid_script_settings_codes()
-                    if vssc is not None:
-                        valid_script_settings_codes.append(vssc)
+            #'{long: {profit_loss_ratio: 4, positions: {type: "fixed", volume: 1.0}, take_profit: {type: "pips", pips: 60}, stop_loss: {type: "pips", pips: 10}}, short: {profit_loss_ratio: 4, positions: {type: "fixed", volume: 1.0}, take_profit: {type: "pips", pips: 60}, stop_loss: {type: "pips", pips: 10}}}'
+            #system variables
+
             #
-            # for key in build_data['symbols']:
-            #     sd = build_data['symbols'][key]
-            #     codes.append(sd.build_code(options))
-            #
-            # for key in build_data['functions']:
-            #     options = {}
-            #     fd = build_data['functions'][key]
-            #     codes.append(fd.build_code(options))
-            #
-            # options = {}
-            # ed = build_data['entry']
-            # codes.append(ed.build_code(options))
+            for var_cat in ('system_variables', 'strategy_variables', 'variables'):
+                for key in build_data[var_cat]:
+                    pd = build_data[var_cat][key]
+                    variables_codes.append(pd.build_code(options))
+                    ss = pd.get_script_settings()
+                    if pd.script_settings:
+                        script_settings['params'][pd.name] = ss
+                        vssc = pd.get_valid_script_settings_codes()
+                        if vssc is not None:
+                            valid_script_settings_codes.append(vssc)
+            # for key in build_data['system_variables']:
+            #     pd = build_data['system_variables'][key]
+            #     variables_codes.append(pd.build_code(options))
+            #     ss = pd.get_script_settings()
+            #     if pd.script_settings:
+            #         script_settings['params'][pd.name] = ss
+            #         vssc = pd.get_valid_script_settings_codes()
+            #         if vssc is not None:
+            #             valid_script_settings_codes.append(vssc)
+            # for key in build_data['strategy_variables']:
+            #     pd = build_data['strategy_variables'][key]
+            #     variables_codes.append(pd.build_code(options))
+            #     ss = pd.get_script_settings()
+            #     if pd.script_settings:
+            #         script_settings['params'][pd.name] = ss
+            #         vssc = pd.get_valid_script_settings_codes()
+            #         if vssc is not None:
+            #             valid_script_settings_codes.append(vssc)
+            # for key in build_data['variables']:
+            #     pd = build_data['variables'][key]
+            #     variables_codes.append(pd.build_code(options))
+            #     ss = pd.get_script_settings()
+            #     if pd.script_settings:
+            #         script_settings['params'][pd.name] = ss
+            #         vssc = pd.get_valid_script_settings_codes()
+            #         if vssc is not None:
+            #             valid_script_settings_codes.append(vssc)
             entry_codes = self.generate_entry_exit_code(build_data, options, 'entry')
             exit_codes = self.generate_entry_exit_code(build_data, options, 'exit')
             #
@@ -645,50 +697,6 @@ class EABuilder:
         except:
             traceback.print_exc()
         return ret
-
-
-
-    # def parse_condition(self, condition):
-    #     condition = "Ind::ADX(symbol='main', 5, 0) > 20 and Ind::MA(main, 60, 0) > ind::MA(main, 90, 0)"
-    #     name = None
-    #     op_ary = None
-    #     function_start = False
-    #     function_params = None
-    #     module_name = None
-    #     function_name = None
-    #     for t in generate_tokens(io.StringIO(condition).readline):
-    #         tn = tok_name[t[0]]
-    #         tv = t[1]
-    #         print(tn, tv)
-    #         if t[0] == token.NAME:
-    #             if name is None:
-    #                 name = tv
-    #                 op_ary = []
-    #             else:
-    #                 if not function_start:
-    #                     if len(op_ary) == 2:
-    #                         if op_ary[0] == ':' and op_ary[1] == ':':
-    #                             module_name = name
-    #                             name = tv
-    #                             op_ary = []
-    #                     elif len(op_ary) > 0:
-    #                         if op_ary[0] == '(':
-    #                             function_start = True
-    #                             function_name = name
-    #                             function_params = [tv,]
-    #                 else:
-    #                     function_params.append(tv)
-    #         elif t[0] == token.OP:
-    #             op_ary.append(tv)
-    #             if function_start:
-    #                 if tv == ')':
-    #                     function_start = False
-    #                     self.call_module_function(module_name, function_name, function_params)
-    #         elif t[0] == token.NUMBER:
-    #             if function_start:
-    #                 function_params.append(tv)
-    #
-    #
 
     def load_builder_config(self, config_path, builder_config):
         module_config = builder_config.get('module_config', {})
