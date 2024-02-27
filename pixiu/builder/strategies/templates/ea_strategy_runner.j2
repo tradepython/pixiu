@@ -43,13 +43,13 @@ class EAStrategyRunner:
         return None
 
     def calculate_size(self, open_price, close_price, max_sl_amount):
-        return self.profit_to_lots(max_sl_amount, self.points_to_pips(abs(close_price - open_price)))
+        return self.money_to_lots(max_sl_amount, self.points_to_pips(abs(close_price - open_price)))
 
-    def profit_to_lots(self, profit, pips):
+    def money_to_lots(self, money, pips):
         usd_pip = self.usdpip()
         if usd_pip is None or usd_pip == 0:
             return 0.0
-        lots = profit / (usd_pip * pips * SymbolInfo("trade_contract_size"))
+        lots = money / (usd_pip * pips * SymbolInfo("trade_contract_size"))
         if isnull(lots):
             return 0.0
         minLot = SymbolInfo("volume_min")
@@ -59,11 +59,15 @@ class EAStrategyRunner:
             return 0.0
         return ret
 
-    def profit_to_points(self, profit, volume):
+    def money_to_pips(self, money, volume):
         usd_pip = self.usdpip()
-        if usd_pip is None or usd_pip == 0 or volume <= 0 or profit <= 0:
+        if usd_pip is None or usd_pip == 0 or volume <= 0 or money <= 0:
             return 0.0
-        profit_pips = profit / (volume * usd_pip * SymbolInfo("trade_contract_size"))
+        profit_pips = money / (volume * usd_pip * SymbolInfo("trade_contract_size"))
+        return profit_pips
+
+    def money_to_points(self, money, volume):
+        profit_pips = self.money_to_pips(money, volume)
         points = self.pips_to_points(profit_pips)
         return points
 

@@ -46,16 +46,16 @@
         "entry": {
           "order": {
             "script_settings": false,
-            "profit_loss_ratio": 4,
+            "profit_loss_ratio": 0,
             "positions": {"type": "fixed", "volume": 1.0},
             "take_profit": {"type": "pips", "pips": 60},
             "stop_loss":  {"type": "pips", "pips": 10}
           },
           "order1": {
-            "profit_loss_ratio": 4,
+            "profit_loss_ratio": 0,
             "positions": {"type": "fixed", "volume": 1.0},
-            "take_profit": {"type": "money", "amount": 60},
-            "stop_loss":  {"type": "money", "pips": 10}
+            "take_profit": {"type": "money", "money": 60},
+            "stop_loss":  {"type": "money", "money": -10}
           },
           "order2": {
             "profit_loss_ratio": 4,

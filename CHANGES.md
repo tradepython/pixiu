@@ -1,5 +1,15 @@
 
 
+### [2024-02-27]
+#### Version:
+#####   Package:
+#####    pixiu: 0.124.*.2024027
+#####
+#### **Descriptions：**
+     1.Modify ea_builder.py:
+     2.ea_strategy_runner.j2:
+       1) Add money_to_points, money_to_lots
+
 ### [2024-02-26]
 #### Version:
 #####   Package:

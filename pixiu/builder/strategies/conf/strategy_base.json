@@ -93,13 +93,6 @@
             "required": false,
             "script_settings": true
           },
-          "risk_enable_finish_until_group_target_profit": {
-            "type": "bool", "value": false,
-            "desc": {"en": "End the group only when the group's target profit is reached.",
-              "zh": "只有达到组目标获利时才结束此组"},
-            "required": false,
-            "script_settings": true
-          },
           "risk_day_max_loss": {
             "type": "float", "value": 0,
             "desc": {"en": "Maximum daily loss (must be negative, e.g. -200), 0 - no limit",

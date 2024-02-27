@@ -333,7 +333,7 @@ class EntryBuilder(ElementBuilder):
         os = config.get('order', None)
         if os:
             ret = os.copy()
-            profit_loss_ratio = ret.get('profit_loss_ratio', 0)
+            profit_loss_ratio = int(ret.get('profit_loss_ratio', 0))
             if profit_loss_ratio > 0:
                 ret['profit_loss_ratio'] = profit_loss_ratio
             positions = ret.get('positions', None)
