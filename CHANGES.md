@@ -1,5 +1,14 @@
 
 
+### [2024-02-28]
+#### Version:
+#####   Package:
+#####    pixiu: 0.125.*.2024028
+#####
+#### **Descriptions：**
+     1.Modify ea_strategy_base.j2:
+       1) valid_order_config, valid_order_config_tp_sl, calculate_tp_sl_pips, calculate_order_data
+
 ### [2024-02-27]
 #### Version:
 #####   Package:

@@ -80,11 +80,12 @@ def load_json_value(value, default=None):
         pass
     return ret
 
-def valid_order_config_tp_sl(dir, is_tp, conf, tp_type, sl_type, order_volume, profit_loss_ratio):
+def valid_order_config_tp_sl(dir, is_tp, conf, tp_type, sl_type, order_volume):
     conf_name = 'take profit' if is_tp else 'stop loss'
     conf_type = tp_type if is_tp else sl_type
     neg_or_pos = 'positive' if is_tp else 'negative'
     sign = 1 if is_tp else -1
+    check_order_volume = False
 
     if conf:
         errmsg = f'Invalid {conf_name} of {dir} order !'
@@ -99,23 +100,18 @@ def valid_order_config_tp_sl(dir, is_tp, conf, tp_type, sl_type, order_volume, p
                     errmsg = f'Invalid {conf_name} pips of {dir} order (must be {neg_or_pos}) !'
                     return False, errmsg
             elif conf_type == 'money':
-                money = int(conf.get('money', 0))
+                money = float(conf.get('money', 0))
                 if money * sign <= 0:
                     errmsg = f'Invalid {conf_name} money of {dir} order (must be {neg_or_pos}) !'
                     return False, errmsg
-                if order_volume <= 0:
-                    errmsg = f'Invalid positions volume of {dir} order (must be positive) !'
-                    return False, errmsg
+                check_order_volume = True
             elif conf_type == 'percent':
                 percent = conf.get('percent', None)
                 v, rt, rs = to_float(percent)
                 if v is None or v * sign <= 0:
                     errmsg = f'Invalid {conf_name} percent of {dir} order (must be {neg_or_pos}) !'
                     return False, errmsg
-                if order_volume <= 0:
-                    errmsg = f'Invalid positions volume of {dir} order (must be positive) !'
-                    return False, errmsg
-                source = conf.get('source', None)
+                source = conf.get('source', 'balance')
                 if source:
                     if source not in ('balance', 'atr'):
                         errmsg = f'Invalid {conf_name} source of {dir} order !'
@@ -129,17 +125,29 @@ def valid_order_config_tp_sl(dir, is_tp, conf, tp_type, sl_type, order_volume, p
                         if timeframe is None:
                             errmsg = f'Invalid {conf_name} atr timeframe of {dir} order !'
                             return False, errmsg
+                        shift = conf.get('shift', 0)
+                        if shift < 0:
+                            errmsg = f'Invalid {conf_name} atr shift of {dir} order !'
+                            return False, errmsg
+                    else:
+                        check_order_volume = True
             elif conf_type == 'pl-ratio':
-                if profit_loss_ratio <= 0:
+                ratio = float(conf.get('ratio', 0))
+                if ratio <= 0:
                     errmsg = f'Invalid profit loss ratio of {dir} order (must be positive) !'
                     return False, errmsg
             else:
                 errmsg = f'Unknown {conf_name} type of {dir} order !'
                 return False, errmsg
 
-            if conf_type == 'pl-ratio' and sl_type == 'pl-ratio':
-                errmsg = f'Invalid {conf_name} type of {dir} order !'
+            if tp_type == 'pl-ratio' and sl_type == 'pl-ratio':
+                errmsg = f'The stop loss and take profit types of {dir} order cannot be \'pl-ratio\' at the same time !'
                 return False, errmsg
+
+            if check_order_volume and order_volume <= 0:
+                errmsg = f'Invalid positions volume of {dir} order (must be positive) !'
+                return False, errmsg
+
         except:
             return False, errmsg
     return True, ''
@@ -150,7 +158,6 @@ def valid_order_config(dir, order_config):
     pos_conf = order_config.get('positions', None)
     tp_conf = order_config.get('take_profit', None)
     sl_conf = order_config.get('stop_loss', None)
-    profit_loss_ratio = order_config.get('profit_loss_ratio', 0)
     if pos_conf is None:
         errmsg = 'Positions of {dir} order is None !'
         return False, errmsg
@@ -159,13 +166,28 @@ def valid_order_config(dir, order_config):
     errmsg = f'Invalid positions of {dir} order !'
     try:
         pos_type = pos_conf.get('type', None)
-        if pos_type is None or pos_type not in ('fixed', ):
+        if pos_type is None or pos_type not in ('volume', 'money', 'percent'):
             errmsg = f'Invalid positions type of {dir} order !'
             return False, errmsg
-        if pos_type == 'fixed':
+        if pos_type == 'volume':
             order_volume = int(pos_conf.get('volume', 0))
             if order_volume <= 0:
                 errmsg = f'Invalid positions volume of {dir} order (must be positive) !'
+                return False, errmsg
+        elif pos_type == 'money':
+            order_money = float(pos_conf.get('money', 0))
+            if order_money == 0:
+                errmsg = f'Invalid positions money of {dir} order (must not be zero) !'
+                return False, errmsg
+        elif pos_type == 'percent':
+            order_percent = pos_conf.get('percent', None)
+            v, rt, rs = to_float(order_percent)
+            if v == 0:
+                errmsg = f'Invalid positions percent of {dir} order (must not be zero) !'
+                return False, errmsg
+            order_percent_source = pos_conf.get('source', 'balance')
+            if order_percent_source != 'balance':
+                errmsg = f'Invalid positions source of {dir} order (must be balance) !'
                 return False, errmsg
     except:
         return False, errmsg
@@ -176,11 +198,11 @@ def valid_order_config(dir, order_config):
     if sl_conf:
         sl_type = sl_conf.get('type', None)
 
-    ret, errmsg  = valid_order_config_tp_sl(dir, True, tp_conf, tp_type, sl_type, order_volume, profit_loss_ratio)
+    ret, errmsg  = valid_order_config_tp_sl(dir, True, tp_conf, tp_type, sl_type, order_volume)
     if not ret:
         return ret, errmsg
 
-    ret, errmsg  = valid_order_config_tp_sl(dir, False, sl_conf, tp_type, sl_type, order_volume, profit_loss_ratio)
+    ret, errmsg  = valid_order_config_tp_sl(dir, False, sl_conf, tp_type, sl_type, order_volume)
     if not ret:
         return ret, errmsg
 
@@ -213,14 +235,14 @@ def PX_ValidScriptSettings(new_settings):
         if risk_day_max_profit < 0:
             return dict(success=False, errmsg=f"The risk_day_max_profit must be positive.")
 
-        order_config = dict(profit_loss_ratio=ENTRY_LONG_PROFIT_LOSS_RATIO,
+        order_config = dict(
                                 positions=load_json_value(ENTRY_LONG_POSITIONS),
                                 take_profit=load_json_value(ENTRY_LONG_TAKE_PROFIT),
                                 stop_loss=load_json_value(ENTRY_LONG_STOP_LOSS))
         ret, errmsg = valid_order_config('long', order_config)
         if not ret:
             return dict(success=False, errmsg=errmsg)
-        order_config = dict(profit_loss_ratio=ENTRY_SHORT_PROFIT_LOSS_RATIO,
+        order_config = dict(
                                 positions=load_json_value(ENTRY_SHORT_POSITIONS),
                                 take_profit=load_json_value(ENTRY_SHORT_TAKE_PROFIT),
                                 stop_loss=load_json_value(ENTRY_SHORT_STOP_LOSS))
@@ -877,58 +899,85 @@ class {{ strategy['class_name'] }}:
         )
         return ret
 
-    def calculate_tp_sl_pips(self, is_tp, tp_config, sl_config, order_size, balance):
-        pips = 0
+    def calculate_tp_sl_pips(self, config, base_pips, order_size, balance):
+        pips = None
         money = None
-        if is_tp:
-            config = tp_config
-        else:
-            config = sl_config
-        if isinstance(config, dict):
+        if config is None:
+            pips = 0
+        elif isinstance(config, dict):
             config_type = config["type"]
             if config_type == "pips":
                 pips = config["pips"]
             elif config_type == "money":
                 money = float(config["money"])
                 pips = self.runner.money_to_pips(abs(money), order_size)
-            elif config_type == "money1":
-                money = config["money"]
-                group_target_money, rt, rs = to_float(money, failed_value=0)
-                if group_target_money > 0:
-                    if rt == "percent":
-                        group_target_money = balance * group_target_money
-                    return group_target_money
-                return 0
             elif config_type == "percent":
-                percent = config["percent"]
+                percent, rt, rs = to_float(config["percent"], failed_value=0)
                 percent_source = config["source"]
                 if percent_source == "atr":
-                    percent_atr_period = config["period"]
-                    percent_atr_timeframe = config["timeframe"]
-            elif type == "pl-ratio":
-                pass
-        return pips, money
+                    period = config["period"]
+                    timeframe = config["timeframe"]
+                    shift = config.get('shift', 0)
+                    symbol_data = GetSymbolData(Symbol(), timeframe=timeframe, size=period+shift+1)
+                    atr = iATR(symbol_data, timeperiod=period, shift=0)
+                    if not isnull(atr):
+                        points = float(atr * abs(percent))
+                        pips = self.runner.points_to_pips(points)
+                else:
+                    money = float(balance * abs(percent))
+                    pips = self.runner.money_to_pips(money, order_size)
+            elif config_type == "pl-ratio":
+                ratio = float(config["ratio"])
+                if ratio > 0:
+                    pips = base_pips * ratio
+        return dict(pips=pips, money=money)
 
     def calculate_order_data(self, order_config, balance):
-        order_size = 0
+        order_size = None
         tp_pips = 0
         sl_pips = 0
-        profit_loss_ratio = order_config.get("profit_loss_ratio", 0)
-        # if profit_loss_ratio > 0:
-        #     ret["profit_loss_ratio"] = profit_loss_ratio
+        cal_list = []
         positions = order_config.get("positions", None)
         if isinstance(positions, dict):
             pos_type = positions["type"]
-            if pos_type == "fixed":
+            if pos_type == "volume":
                 order_size = positions["volume"]
         #
         tp_config = order_config.get("take_profit", None)
         sl_config = order_config.get("stop_loss", None)
-        tp_pips, tp_money = self.calculate_tp_sl_pips(True, tp_config, sl_config, order_size, balance)
-        sl_pips, sl_money = self.calculate_tp_sl_pips(False, tp_config, sl_config, order_size, balance)
+        #
+        result = dict(tp={'pips': None}, sl={'pips': None})
+        if tp_config and tp_config['type'] == 'pl-ratio':
+            cal_list.append(dict(name='sl', config=sl_config, base_pip_name='tp'))
+            cal_list.append(dict(name='tp', config=tp_config, base_pip_name='sl'))
+        else:
+            cal_list.append(dict(name='tp', config=tp_config, base_pip_name='sl'))
+            cal_list.append(dict(name='sl', config=sl_config, base_pip_name='tp'))
+        #
+        for cal in cal_list:
+            base_pips = result[cal['base_pip_name']]['pips']
+            data = self.calculate_tp_sl_pips(cal['config'], base_pips, order_size, balance)
+            if data['pips'] is None:
+                return None
+            result[cal['name']] = data
+
+        #calculate order size
+        pos_money = None
+        if pos_type == 'money':
+            pos_money = float(positions["money"])
+        elif pos_type == "percent":
+            percent, rt, rs = to_float(positions["percent"], failed_value=0)
+            pos_money = float(balance * percent)
+        if pos_money is not None:
+            if pos_money > 0:
+                order_size = self.money_to_lots(pos_money, result['tp']['pips'])
+            elif pos_money < 0:
+                order_size = self.money_to_lots(abs(pos_money), result['sl']['pips'])
+
+        #
         return dict(order_size=order_size,
-                    take_profit=dict(pips=tp_pips, money=tp_money, points=self.runner.pips_to_points(tp_pips)),
-                    stop_loss=dict(pips=sl_pips, money=sl_money, points=self.runner.pips_to_points(sl_pips)))
+                    take_profit=dict(pips=result['tp']['pips'], money=result['tp']['money'], points=self.runner.pips_to_points(result['tp']['pips'])),
+                    stop_loss=dict(pips=result['sl']['pips'], money=result['sl']['money'], points=self.runner.pips_to_points(result['sl']['pips'])))
 
     def calculate_trade_size(self, order_data, fees, multiplier=1):
         tp_pips = order_data['take_profit']['pips']
@@ -1305,12 +1354,12 @@ class {{ strategy['class_name'] }}:
             return next
         #
         if cmd == OrderCommand.BUY:
-            order_config = dict(profit_loss_ratio=ENTRY_LONG_PROFIT_LOSS_RATIO,
+            order_config = dict(
                                 positions=load_json_value(ENTRY_LONG_POSITIONS),
                                 take_profit=load_json_value(ENTRY_LONG_TAKE_PROFIT),
                                 stop_loss=load_json_value(ENTRY_LONG_STOP_LOSS))
         else:
-            order_config = dict(profit_loss_ratio=ENTRY_SHORT_PROFIT_LOSS_RATIO,
+            order_config = dict(
                                 positions=load_json_value(ENTRY_SHORT_POSITIONS),
                                 take_profit=load_json_value(ENTRY_SHORT_TAKE_PROFIT),
                                 stop_loss=load_json_value(ENTRY_SHORT_STOP_LOSS))
