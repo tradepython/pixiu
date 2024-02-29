@@ -5,10 +5,6 @@
       "name": "StrategyBase",
       "template": "../templates/ea_strategy_base.j2",
       "variables": {
-          "debug": {
-            "type": "bool",
-            "value": true
-          },
           "notify": {
             "type": "bool",
             "value": false
@@ -35,62 +31,6 @@
           },
           "group_open_direction": {
             "type": "int", "value": 0, "options": {"0": "Auto", "100": "Reverse", "200": "Breakout"},
-            "script_settings": true
-          },
-          "group_max_loss": {
-            "type": "str", "value": "0",
-            "desc": {"en": "Maximum loss per group (must be negative or negative percentage, e.g. -10%, -200), 0-Unlimited",
-                     "zh": "每组最大亏损（必须为负值或负百分比，如：-10%, -200）, 0-无限制"},
-            "required": true,
-            "script_settings": true
-          },
-          "group_max_orders": {
-            "type": "int", "value": 1,
-            "desc": {"en": "Maximum orders per group, 0-Unlimited",
-              "zh": "每组最大订单数, 0-无限制"},
-            "required": true,
-            "script_settings": true
-          },
-          "risk_enable_night_open": {
-            "type": "bool", "value": true,
-            "desc": {"en": "Enable opening positions at night (21-23)",
-              "zh": "允许夜间开仓"},
-            "required": false,
-            "script_settings": true
-          },
-          "risk_enable_night_holding": {
-            "type": "bool", "value": true,
-            "desc": {"en": "Enable holding positions overnight",
-              "zh": "允许夜间持仓"},
-            "required": false,
-            "script_settings": true
-          },
-          "risk_enable_weekend_holding": {
-            "type": "bool", "value": false,
-            "desc": {"en": "Enable holding positions over the weekend",
-              "zh": "允许周末持仓"},
-            "required": false,
-            "script_settings": true
-          },
-          "risk_enable_group_across_days": {
-            "type": "bool", "value": false,
-            "desc": {"en": "Allow trading groups across days",
-              "zh": "允许交易组跨天"},
-            "required": false,
-            "script_settings": true
-          },
-          "risk_enable_open_crossing": {
-            "type": "bool", "value": true,
-            "desc": {"en": "When the price is volatile, you can open positions across the price the low or high point within 10 minutes)",
-              "zh": "当价格波动大的时候可以跨越价格开仓"},
-            "required": false,
-            "script_settings": true
-          },
-          "risk_enable_finish_group_max_loss": {
-            "type": "bool", "value": true,
-            "desc": {"en": "End the group when the maximum group loss is reached",
-              "zh": "达到组最大损失时结束此组"},
-            "required": false,
             "script_settings": true
           },
           "risk_day_max_loss": {

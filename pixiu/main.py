@@ -5,7 +5,7 @@ from pixiu.pxtester import PXTester
 from pixiu.builder import EABuilder
 from tabulate import tabulate
 from ctypes import c_wchar_p
-import json
+import json5 as json
 import uuid
 import hashlib
 import traceback

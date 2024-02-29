@@ -467,6 +467,18 @@ class EABuilder:
     def call_module_function(self, module, func, params):
         pass
 
+    def parse_runner_variables_config(self, build_data, strategy_name):
+        runner_config = self.builder_config['runner_config']
+        rc = runner_config[strategy_name]
+        #
+        variables = {}
+        index = 0
+        for key in rc['variables']:
+            variables[key] = VariableBuilder(self, key, rc['variables'][key], index, build_data)
+            index += 1
+        build_data['runner_variables'] = variables
+        return build_data
+
     def parse_strategy_variables_config(self, build_data, strategy_name):
         strategy_config = self.builder_config['strategy_config']
         sc = strategy_config[strategy_name]
@@ -504,6 +516,50 @@ class EABuilder:
             functions[key] = FunctionBuilder(self, key, functions_config[key], index, build_data)
             index += 1
         build_data['functions'] = functions
+        return build_data
+
+    def parse_options_config(self, build_data, options_config):
+        default_options = dict(
+            enable_trailing_profit=dict(default=True, type='bool',
+                                 desc=dict(en=f"Enable order trailing profit.")),
+            enable_weekend_holding=dict(default=True, type='bool',
+                                 desc=dict(en=f"Enable holding positions over the weekend.")),
+            enable_night_open=dict(default=True, type='bool',
+                                 desc=dict(en=f"Enable opening positions at night (21-23).")),
+            enable_night_holding=dict(default=True, type='bool',
+                                 desc=dict(en=f"Enable holding positions overnight.")),
+            enable_group_across_days=dict(default=True, type='bool',
+                                 desc=dict(en=f"Allow trading groups across days.")),
+            enable_open_crossing=dict(default=True, type='bool',
+                                 desc=dict(en=f"When the price is volatile, you can open positions across the price "
+                                              f"the low or high point.")),
+        )
+        system_variables = build_data.get('system_variables', {})
+        index = len(system_variables)
+        # checking options
+        for opt_name in default_options:
+            if opt_name not in options_config:
+                options_config[opt_name] = default_options[opt_name]['default']
+        #
+        for opt_name in options_config:
+            key = f"options_{opt_name}"
+            opt_val = options_config[opt_name]
+            script_settings = True
+            #
+            opt_type = 'str'
+            opt_desc = dict(en="")
+            default_item = default_options.get(opt_name, None)
+            if default_item is not None:
+                opt_type = default_item['type']
+                opt_desc = default_item['desc']
+            #
+            config = dict(type=opt_type, value=json.dumps(opt_val, quote_keys=True) if opt_type == 'str' else opt_val,
+                          desc=opt_desc, required=True, script_settings=script_settings
+                          )
+            system_variables[key] = VariableBuilder(self, key, config, index, build_data)
+            index += 1
+        build_data['system_variables'] = system_variables
+
         return build_data
 
     def parse_entry_config(self, build_data, entry_config):
@@ -571,12 +627,14 @@ class EABuilder:
                 return None
             trading = build_config['trading']
             coding = build_config['coding']
+            self.parse_runner_variables_config(build_data,  coding['runner']['name'])
             self.parse_strategy_variables_config(build_data,  coding['strategy']['name'])
             self.parse_variables_config(build_data, trading['variables'])
             self.parse_symbols_config(build_data, trading['symbols'])
             self.parse_functions_config(build_data, trading['functions'])
             self.parse_entry_config(build_data, trading['entry'])
             self.parse_exit_config(build_data, trading['exit'])
+            self.parse_options_config(build_data, trading['options'])
             build_info = dict(config=build_config, data=build_data)
         except:
             traceback.print_exc()
@@ -615,7 +673,7 @@ class EABuilder:
             #system variables
 
             #
-            for var_cat in ('system_variables', 'strategy_variables', 'variables'):
+            for var_cat in ('system_variables', 'runner_variables', 'strategy_variables', 'variables'):
                 for key in build_data[var_cat]:
                     pd = build_data[var_cat][key]
                     variables_codes.append(pd.build_code(options))

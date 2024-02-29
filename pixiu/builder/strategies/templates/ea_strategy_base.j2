@@ -54,24 +54,6 @@ def to_float(x, failed_value=None):
         pass
     return ret, ret_type, ret_source
 
-def parse_risk_trailing_profit_protection(value):
-    if not value:
-        return 0, 0, 0
-    args = value.split(':')
-    if len(args) != 2:
-        return -1, 0, 0
-    try:
-        amount = float(args[0])
-        if amount < 0:
-            return -1, 0, 0
-        minutes = int(args[1])
-        if minutes < 1 or minutes > 480:
-            return -1, 0, 0
-        return 0, amount, minutes
-    except:
-        pass
-    return -1, 0, 0
-
 def load_json_value(value, default=None):
     ret = default
     try:
@@ -169,8 +151,21 @@ def valid_order_config(dir, order_config):
         if pos_type is None or pos_type not in ('volume', 'money', 'percent'):
             errmsg = f'Invalid positions type of {dir} order !'
             return False, errmsg
+        pos_martingale = pos_conf.get('martingale', None)
+        if pos_martingale is not None:
+            if isinstance(pos_martingale, bool):
+                pass
+            elif isinstance(pos_martingale, dict):
+                multiplier = pos_martingale.get('multiplier', 0)
+                if multiplier < 0:
+                    errmsg = f'Invalid positions martingale multiplier of {dir} order (must be positive) !'
+                    return False, errmsg
+            else:
+                errmsg = f'Invalid positions martingale of {dir} order !'
+                return False, errmsg
+
         if pos_type == 'volume':
-            order_volume = int(pos_conf.get('volume', 0))
+            order_volume = float(pos_conf.get('volume', 0))
             if order_volume <= 0:
                 errmsg = f'Invalid positions volume of {dir} order (must be positive) !'
                 return False, errmsg
@@ -214,18 +209,6 @@ def PX_ValidScriptSettings(new_settings):
         if 'params' not in new_settings:
             return dict(success=False, errmsg='Not found params')
         params = new_settings['params']
-
-        group_max_loss = params['group_max_loss']['value']
-        v, rt, rs = to_float(group_max_loss)
-        errmsg = 'group_max_loss must be negative or negative percentage or zero'
-        if v is None or v > 0:
-            return dict(success=False, errmsg=errmsg)
-        if rs and not valid_source(rs):
-            return dict(success=False, errmsg=errmsg)
-
-        group_max_orders = int(params['group_max_orders']['value'])
-        if group_max_orders < 0:
-            return dict(success=False, errmsg=f"The group_max_orders must be positive or 0.")
 
         risk_day_max_loss = float(params['risk_day_max_loss']['value'])
         if risk_day_max_loss > 0:
@@ -281,26 +264,6 @@ class {{ strategy['class_name'] }}:
             return True
         return False
 
-    def lots_to_profit(self, lots, pips):
-        usd_pip = self.runner.usdpip()
-        if usd_pip is None or usd_pip == 0:
-            return 0.0
-        profit = lots * (usd_pip * pips * SymbolInfo("trade_contract_size"))
-        if isnull(profit):
-            return 0.0
-        return profit
-
-    def money_to_lots(self, profit, pips):
-        usd_pip = self.runner.usdpip()
-        if usd_pip is None or usd_pip == 0:
-            return 0.0
-        lots = profit / (usd_pip * pips * SymbolInfo("trade_contract_size"))
-        if isnull(lots):
-            return 0.0
-        minLot = SymbolInfo("volume_min")
-        ret = int((lots+minLot) / minLot) * minLot
-        return ret
-
     def adjust_price(self, price, opt, digits=None):
         d = None
         if digits is None:
@@ -336,16 +299,16 @@ class {{ strategy['class_name'] }}:
         reason = ''
         d = Time()
         if not reason and self.is_night(d):
-            if not RISK_ENABLE_NIGHT_OPEN:
-                reason = f"RISK_ENABLE_NIGHT_OPEN"
-            elif not RISK_ENABLE_NIGHT_HOLDING:
-                reason = f"RISK_ENABLE_NIGHT_HOLDING"
+            if not OPTIONS_ENABLE_NIGHT_OPEN:
+                reason = f"OPTIONS_ENABLE_NIGHT_OPEN"
+            elif not OPTIONS_ENABLE_NIGHT_HOLDING:
+                reason = f"OPTIONS_ENABLE_NIGHT_HOLDING"
             elif self.is_weekend(d):
-                if not RISK_ENABLE_WEEKEND_HOLDING:
-                    reason = f"RISK_ENABLE_WEEKEND_HOLDING"
+                if not OPTIONS_ENABLE_WEEKEND_HOLDING:
+                    reason = f"OPTIONS_ENABLE_WEEKEND_HOLDING"
         if not reason and self.is_weekend(d) and d.hour > (19 + TRADING_TIME_ZONE_OFFSET):
-            if not RISK_ENABLE_WEEKEND_HOLDING:
-                reason = f"RISK_ENABLE_WEEKEND_HOLDING"
+            if not OPTIONS_ENABLE_WEEKEND_HOLDING:
+                reason = f"OPTIONS_ENABLE_WEEKEND_HOLDING"
         if reason:
             s = d.strftime("%Y-%m-%d %H:%M:%S %A")
             self.runner.debug_print(f"WARNING: Can't open new order. (Reason: {reason} @ {s})", notify=False)
@@ -469,13 +432,13 @@ class {{ strategy['class_name'] }}:
                 osp['time'] = current_time_string
                 osp['time_ts'] = current_time_ts
                 save_order_data = True
-        amount = self.lots_to_profit(order.volume, step_pips)
+        amount = self.runner.lots_to_money(order.volume, step_pips)
         net_profit = group_info['stats']['net_profit']
 
         if net_profit >= target_profit + amount:
             trailing_profit_start_points = current_profit_points
 
-        if current_profit_points >= trailing_profit_start_points:
+        if OPTIONS_ENABLE_TRAILING_PROFIT and current_profit_points >= trailing_profit_start_points:
             new_take_profit = order.take_profit + trailing_profit_points if is_long else order.take_profit - trailing_profit_points
             new_stop_loss = price - trailing_profit_points if is_long else price + trailing_profit_points
             if is_long:
@@ -711,7 +674,7 @@ class {{ strategy['class_name'] }}:
             return self.delete_settings_data(cache_name)
         return True
 
-    def process_hedging_group_trailing_profit(self, order, group_info, params):
+    def process_group_trailing_profit(self, order, group_info, params):
         if not order.is_market():
             return False
         if order.status == OrderStatus.CLOSED:
@@ -765,11 +728,11 @@ class {{ strategy['class_name'] }}:
         NIGHT_HOLDING = 'NIGHT_HOLDING'
         WEEKEND_HOLDING = 'WEEKEND_HOLDING'
         if close_reason not in (NIGHT_HOLDING, WEEKEND_HOLDING):
-            if not RISK_ENABLE_NIGHT_HOLDING and self.is_night(d):
+            if not OPTIONS_ENABLE_NIGHT_HOLDING and self.is_night(d):
                 close_reason = NIGHT_HOLDING
 
         if close_reason not in (NIGHT_HOLDING, WEEKEND_HOLDING):
-            if not RISK_ENABLE_WEEKEND_HOLDING and self.is_weekend(d):
+            if not OPTIONS_ENABLE_WEEKEND_HOLDING and self.is_weekend(d):
                 close_reason = WEEKEND_HOLDING
 
         if close_reason in (NIGHT_HOLDING, WEEKEND_HOLDING):
@@ -800,7 +763,7 @@ class {{ strategy['class_name'] }}:
         processed = False
         for oid in group_info['orders']:
             o = GetOrder(oid)
-            if self.process_hedging_group_trailing_profit(o, group_info, params):
+            if self.process_group_trailing_profit(o, group_info, params):
                 processed = True
 
         return processed
@@ -839,22 +802,13 @@ class {{ strategy['class_name'] }}:
             source_id = next_trade_data_config.get('source_id', None)
             if source_id is not None:
                 return True
-        if not RISK_ENABLE_GROUP_ACROSS_DAYS:
+        if not OPTIONS_ENABLE_GROUP_ACROSS_DAYS:
             current_time = Time()
             group_init_time = datetime.fromtimestamp(group_info['init']['ts'])
             if group_init_time.date() != current_time.date():
                 return True
 
         return False
-
-
-    def get_group_max_loss(self, group_info):
-        group_max_loss, rt, rs = to_float(GROUP_MAX_LOSS, failed_value=0)
-        if group_max_loss < 0:
-            if rt == 'percent':
-                group_max_loss = group_info['init']['balance'] * group_max_loss
-            return group_max_loss
-        return 0
 
     def get_today_stats(self, item, group_info):
         stats = self.load_stats(stats_name='days')
@@ -938,10 +892,15 @@ class {{ strategy['class_name'] }}:
         sl_pips = 0
         cal_list = []
         positions = order_config.get("positions", None)
+        martingale = None
         if isinstance(positions, dict):
             pos_type = positions["type"]
             if pos_type == "volume":
-                order_size = positions["volume"]
+                order_size = float(positions["volume"])
+            martingale = positions.get('martingale', None)
+            if martingale is not None:
+                if isinstance(martingale, bool) and martingale:
+                    martingale  = dict(multiplier=0)
         #
         tp_config = order_config.get("take_profit", None)
         sl_config = order_config.get("stop_loss", None)
@@ -970,31 +929,39 @@ class {{ strategy['class_name'] }}:
             pos_money = float(balance * percent)
         if pos_money is not None:
             if pos_money > 0:
-                order_size = self.money_to_lots(pos_money, result['tp']['pips'])
+                order_size = self.runner.money_to_lots(pos_money, result['tp']['pips'])
             elif pos_money < 0:
-                order_size = self.money_to_lots(abs(pos_money), result['sl']['pips'])
+                order_size = self.runner.money_to_lots(abs(pos_money), result['sl']['pips'])
 
         #
-        return dict(order_size=order_size,
+        return dict(order_size=order_size, martingale=martingale,
                     take_profit=dict(pips=result['tp']['pips'], money=result['tp']['money'], points=self.runner.pips_to_points(result['tp']['pips'])),
                     stop_loss=dict(pips=result['sl']['pips'], money=result['sl']['money'], points=self.runner.pips_to_points(result['sl']['pips'])))
 
-    def calculate_trade_size(self, order_data, fees, multiplier=1):
+    def calculate_trade_size(self, order_data, fees, net_profit):
         tp_pips = order_data['take_profit']['pips']
         sl_pips = order_data['stop_loss']['pips']
 
         ep_size = 0
         fees_size = 0
         if fees < 0:
-            fees_size = self.money_to_lots(abs(fees), tp_pips)
+            fees_size = self.runner.money_to_lots(abs(fees), tp_pips)
         group_init_order_size = order_data['order_size']
         base_lots = group_init_order_size
-        loss_amount = 0
-        target_profit = self.lots_to_profit(base_lots, tp_pips)
-        if loss_amount < 0:
-            l_lots = self.money_to_lots(abs(loss_amount), tp_pips) * multiplier
+        multiplier = 0
+        martingale = order_data.get('martingale', None)
+        if martingale:
+            multiplier = float(martingale.get('multiplier', 0))
+            if multiplier <= 0:
+                tp_sl_ratio = tp_pips / sl_pips
+                multi = 1 / tp_sl_ratio
+                multiplier = 1 + multi
+        target_profit = self.runner.lots_to_money(base_lots, tp_pips)
+        loss_amount = net_profit
+        if loss_amount < 0 and multiplier > 0:
+            l_lots = self.runner.money_to_lots(abs(loss_amount), tp_pips) * multiplier
             target_profit = target_profit + abs(loss_amount)
-            l_min_lots = self.money_to_lots(target_profit, tp_pips)
+            l_min_lots = self.runner.money_to_lots(target_profit, tp_pips)
             base_lots = max(l_min_lots, l_lots)
         base_size = base_lots + ep_size + fees_size
         return base_size, target_profit
@@ -1085,7 +1052,7 @@ class {{ strategy['class_name'] }}:
     def get_group_finished_reason(self, symbol, current_time, group_info, symbol_orders):
         trade_data = group_info['trade_data']
         if len(group_info['opened_orders']) == 0:
-            if not RISK_ENABLE_GROUP_ACROSS_DAYS:
+            if not OPTIONS_ENABLE_GROUP_ACROSS_DAYS:
                 group_init_time = datetime.fromtimestamp(group_info['init']['ts'])
                 if group_init_time.date() != current_time.date():
                     reason = 'GROUP_ACROSS_DAYS'
@@ -1100,19 +1067,6 @@ class {{ strategy['class_name'] }}:
                     return reason, message
                 else:
                     sd_h1 = GetSymbolData(symbol, timeframe=TimeFrame.H1, size=10)
-                    if RISK_ENABLE_FINISH_GROUP_MAX_LOSS:
-                        group_max_loss = self.get_group_max_loss(group_info)
-                        if group_max_loss < 0:
-                            if group_max_loss >= symbol_orders['closed_net_profit']:
-                                reason = 'GROUP_MAX_LOSS'
-                                message = f"{group_max_loss} >= {symbol_orders['closed_net_profit']}"
-                                return reason, message
-                        if GROUP_MAX_ORDERS > 0:
-                            group_orders = len(group_info['sorted_orders'])
-                            if group_orders >= GROUP_MAX_ORDERS:
-                                reason = 'GROUP_MAX_ORDERS'
-                                message = f"{group_orders} >= {GROUP_MAX_ORDERS}"
-                                return reason, message
                     valid_range = trade_data.get('valid_range', None)
                     if valid_range is not None:
                         if not self.is_price_in_range(sd_h1.close[1], valid_range) \
@@ -1365,7 +1319,7 @@ class {{ strategy['class_name'] }}:
                                 stop_loss=load_json_value(ENTRY_SHORT_STOP_LOSS))
         order_data = self.calculate_order_data(order_config, group_info['init']['balance'])
 
-        base_size, target_profit = self.calculate_trade_size(order_data, fees)
+        base_size, target_profit = self.calculate_trade_size(order_data, fees, net_profit)
         if base_size is None:
             return next
         size = base_size
@@ -1404,11 +1358,6 @@ class {{ strategy['class_name'] }}:
 
     def open_next(self, trading_info, new_order_list, params):
         stats_info = trading_info['stats']
-        group_max_loss = self.get_group_max_loss(trading_info)
-        if group_max_loss < 0:
-            if group_max_loss >= stats_info['net_profit']:
-                self.runner.debug_print(f"open_next: GROUP_MAX_LOSS limit. ({group_max_loss} >= {stats_info['net_profit']})")
-                return False
         if RISK_DAY_MAX_LOSS < 0:
             today_loss = self.get_today_stats('loss', trading_info)
             if RISK_DAY_MAX_LOSS >= today_loss:
@@ -1421,12 +1370,12 @@ class {{ strategy['class_name'] }}:
                 self.runner.debug_print(f"open_next: RISK_DAY_MAX_PROFIT limit. ({RISK_DAY_MAX_PROFIT} <= {today_profit})")
                 return False
 
-        if GROUP_MAX_ORDERS > 0:
+        group_max_orders = trading_info.get('group_max_orders', 0)
+        if group_max_orders > 0:
             group_orders = len(trading_info['sorted_orders'])
-            if group_orders >= GROUP_MAX_ORDERS:
-                self.runner.debug_print(f"open_next: GROUP_MAX_ORDERS limit. ({group_orders} >= {GROUP_MAX_ORDERS})")
+            if group_orders >= group_max_orders:
+                self.runner.debug_print(f"open_next: GROUP_MAX_ORDERS limit. ({group_orders} >= {group_max_orders})")
                 return False
-
 
         spread_points = abs(Ask() - Bid()) * 0.25
         trade_data = trading_info['trade_data']
@@ -1450,7 +1399,7 @@ class {{ strategy['class_name'] }}:
                 open_order = True
                 open_reason = 'OPEN_PRICE'
             if not open_order:
-                if RISK_ENABLE_OPEN_CROSSING and ask > max_price:
+                if OPTIONS_ENABLE_OPEN_CROSSING and ask > max_price:
                     if Low() <= min_price - spread_points:
                         open_order = True
                         open_reason = 'OPEN_CROSSING'
@@ -1479,7 +1428,7 @@ class {{ strategy['class_name'] }}:
                 open_order = True
                 open_reason = 'OPEN_PRICE'
             if not open_order:
-                if RISK_ENABLE_OPEN_CROSSING and bid < min_price:
+                if OPTIONS_ENABLE_OPEN_CROSSING and bid < min_price:
                     if High() >= max_price + spread_points:
                         open_order = True
                         open_reason = 'OPEN_CROSSING'

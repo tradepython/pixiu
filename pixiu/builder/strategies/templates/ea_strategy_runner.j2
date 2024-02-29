@@ -18,11 +18,12 @@ class EAStrategyRunner:
             }
         }
 
+
     def init_data(self, *args, **kwargs):
         return True
 
     def debug_print(self, message, add_info=True, notify=False):
-        if not self.options.get('debug_mode', False):
+        if not self.options.get('debug_print', False):
             return
         if add_info:
             msg = f"[{Symbol()}]({str(Time()), Open(), Low(), High(), Close(), Ask(), Bid()}) {message}"
@@ -45,6 +46,15 @@ class EAStrategyRunner:
     def calculate_size(self, open_price, close_price, max_sl_amount):
         return self.money_to_lots(max_sl_amount, self.points_to_pips(abs(close_price - open_price)))
 
+    def lots_to_money(self, lots, pips):
+        usd_pip = self.usdpip()
+        if usd_pip is None or usd_pip == 0:
+            return 0.0
+        money = lots * (usd_pip * pips * SymbolInfo("trade_contract_size"))
+        if isnull(money):
+            return 0.0
+        return money
+
     def money_to_lots(self, money, pips):
         usd_pip = self.usdpip()
         if usd_pip is None or usd_pip == 0:
@@ -53,10 +63,7 @@ class EAStrategyRunner:
         if isnull(lots):
             return 0.0
         minLot = SymbolInfo("volume_min")
-        ret = math.floor(lots / minLot) * minLot
-        if ret > lots:
-            self.self.debug_print("calculate_size: want: %f > %f" % (ret, lots))
-            return 0.0
+        ret = int((lots+minLot) / minLot) * minLot
         return ret
 
     def money_to_pips(self, money, volume):
@@ -272,7 +279,8 @@ open_processes = [
 order_processes = [
 ]
 runner.options = {
-    'run_processes': run_processes, 'open_processes': open_processes, 'order_processes': order_processes
+    'run_processes': run_processes, 'open_processes': open_processes, 'order_processes': order_processes,
+    'debug_print': DEBUG_PRINT
 }
 
 runner.run()

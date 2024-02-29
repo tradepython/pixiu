@@ -1,5 +1,18 @@
 
 
+### [2024-02-29]
+#### Version:
+#####   Package:
+#####    pixiu: 0.126.*.2024029
+#####
+#### **Descriptions：**
+     1.Modify ea_strategy_base.j2:
+       1) Remove GROUP_MAX_ORDERS
+     2.Modify ea_strategy_runner.j2
+       1) Add DEBUG_PRINT
+     3.Modify ea_builder.py:
+       1) Add parse_runner_variables_config, parse_options_config
+
 ### [2024-02-28]
 #### Version:
 #####   Package:
