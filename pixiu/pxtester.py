@@ -13,6 +13,7 @@ from datetime import timedelta, datetime
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from pathlib import Path
+import os
 
 #
 from pixiu.api import (TimeFrame, )
@@ -40,7 +41,6 @@ class PXTester(EATester):
         self.write_log(f"Order Log: #{log_dict['id']}: {log_dict}", type='order')
         self.tick_order_logs.append(log_dict)
 
-
     def add_account_log(self, log_dict):
         super(PXTester, self).add_account_log(log_dict)
         self.write_log(f"Account Log: {log_dict}", type='account')
@@ -49,6 +49,13 @@ class PXTester(EATester):
         with open(test_config_path) as f:
             s = f.read()
             return json.loads(s)
+
+    def config_path_to_abs_path(self, config_file_path, file_path):
+        ret = file_path
+        if not os.path.isabs(file_path):
+            dir = os.path.dirname(config_file_path)
+            ret = os.path.abspath(os.path.join(dir, file_path))
+        return ret
 
     def parse_test_config(self, test_config_path, test_name, script_path, log_path=None, print_log_type=None):
         test_config = self.read_test_config(test_config_path)
@@ -66,9 +73,7 @@ class PXTester(EATester):
         #
         tick_data = test_params['tick_data']
         if isinstance(tick_data, str):
-            # data = np.genfromtxt(tick_data, delimiter=',',
-            #                      dtype=[('s', object), ('t', float), ('o', float), ('h', float), ('c', float),
-            #                             ('l', float), ('v', float), ('a', float), ('b', float), ], skip_header=1)
+            tick_data = self.config_path_to_abs_path(test_config_path, tick_data)
             try:
                 data = np.genfromtxt(tick_data, delimiter=',',
                                      dtype=[('s', object), ('t', 'datetime64[s]'), ('o', float), ('h', float), ('c', float),

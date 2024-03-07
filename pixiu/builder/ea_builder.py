@@ -1,13 +1,8 @@
 
 import os
-import io
-import token
 import json5 as json
-from tokenize import generate_tokens
-from token import tok_name
 import traceback
 from jinja2 import Template
-from pixiu.api.defines import (TimeFrame, OrderType, OrderCommand, RunModeValue, PositionType, OrderStatus)
 from black import format_str, FileMode
 import importlib
 
@@ -669,9 +664,6 @@ class EABuilder:
                                             {"name": "top_signal", "color": "#89F3DAFF"},
                                             {"name": "bottom_signal", "color": "#e7dc48"}]
                   }})
-            #'{long: {profit_loss_ratio: 4, positions: {type: "fixed", volume: 1.0}, take_profit: {type: "pips", pips: 60}, stop_loss: {type: "pips", pips: 10}}, short: {profit_loss_ratio: 4, positions: {type: "fixed", volume: 1.0}, take_profit: {type: "pips", pips: 60}, stop_loss: {type: "pips", pips: 10}}}'
-            #system variables
-
             #
             for var_cat in ('system_variables', 'runner_variables', 'strategy_variables', 'variables'):
                 for key in build_data[var_cat]:
@@ -683,33 +675,7 @@ class EABuilder:
                         vssc = pd.get_valid_script_settings_codes()
                         if vssc is not None:
                             valid_script_settings_codes.append(vssc)
-            # for key in build_data['system_variables']:
-            #     pd = build_data['system_variables'][key]
-            #     variables_codes.append(pd.build_code(options))
-            #     ss = pd.get_script_settings()
-            #     if pd.script_settings:
-            #         script_settings['params'][pd.name] = ss
-            #         vssc = pd.get_valid_script_settings_codes()
-            #         if vssc is not None:
-            #             valid_script_settings_codes.append(vssc)
-            # for key in build_data['strategy_variables']:
-            #     pd = build_data['strategy_variables'][key]
-            #     variables_codes.append(pd.build_code(options))
-            #     ss = pd.get_script_settings()
-            #     if pd.script_settings:
-            #         script_settings['params'][pd.name] = ss
-            #         vssc = pd.get_valid_script_settings_codes()
-            #         if vssc is not None:
-            #             valid_script_settings_codes.append(vssc)
-            # for key in build_data['variables']:
-            #     pd = build_data['variables'][key]
-            #     variables_codes.append(pd.build_code(options))
-            #     ss = pd.get_script_settings()
-            #     if pd.script_settings:
-            #         script_settings['params'][pd.name] = ss
-            #         vssc = pd.get_valid_script_settings_codes()
-            #         if vssc is not None:
-            #             valid_script_settings_codes.append(vssc)
+
             entry_codes = self.generate_entry_exit_code(build_data, options, 'entry')
             exit_codes = self.generate_entry_exit_code(build_data, options, 'exit')
             #
@@ -724,15 +690,6 @@ class EABuilder:
                             script_settings=script_settings
                             )
             runner = dict(code=dict())
-            # print(f"def can_open_order(self):")
-            # for c in codes:
-            #     if isinstance(c, tuple):
-            #         for t in c:
-            #             print(f"    {t}")
-            #     else:
-            #         print(f"    {c}")
-            #
-            # load strategy template
             strategy_name = build_config['coding']['strategy']['name']
             strategy_config = self.get_builder_config('strategy_config')
             config_data = strategy_config[strategy_name]
@@ -742,8 +699,7 @@ class EABuilder:
             print(strategy_class_code)
             runner['strategy_class_name'] = strategy['class_name']
             runner['code']['strategy_class'] = strategy_class_code
-            # runner['code']['main'] = self.get_code()
-            #
+
             # load strategy template
             runner_name = build_config['coding']['runner']['name']
             runner_config = self.get_builder_config('runner_config')

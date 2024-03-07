@@ -12,7 +12,11 @@
           "timeframe": { "type": "timeframe", "value": "H1", "name": "timeframe", "required": true,
                          "script_settings": true,
                          "valid": [{"condition": "not %obj", "errmsg": "Invalid timeframe"}]
-          }
+          },
+          "adx": { "type": "int", "value": 20},
+          "adx_period": { "type": "int", "value": 5},
+          "near_period": { "type": "int", "value": 60},
+          "far_period": { "type": "int", "value": 90}
         },
         "symbols": {
           "current_symbol_d1": {
@@ -27,20 +31,20 @@
           }
         },
         "functions": {
-            "adx_5": {"module": "indicator", "name": "ADX",
-              "params": {"symbol_data": "@symbols/current_symbol_d1", "period": 5, "shift": 0}
+            "adx": {"module": "indicator", "name": "ADX",
+              "params": {"symbol_data": "@symbols/current_symbol_d1", "period": "@var/adx_period", "shift": 0}
             },
-            "ma_60": {"module": "indicator", "name": "MA",
-              "params": {"symbol_data": "@symbols/current_symbol.close", "period": 60, "shift": 0, "matype": 0}
+            "ma_near": {"module": "indicator", "name": "MA",
+              "params": {"symbol_data": "@symbols/current_symbol.close", "period": "@var/near_period", "shift": 0, "matype": 0}
             },
-            "ma_90": {"module": "indicator", "name": "MA",
-              "params": {"symbol_data": "@symbols/current_symbol.close", "period": 90, "shift": 0, "matype": 0}
+            "ma_far": {"module": "indicator", "name": "MA",
+              "params": {"symbol_data": "@symbols/current_symbol.close", "period": "@var/far_period", "shift": 0, "matype": 0}
             },
-            "tema_60": {"module": "indicator", "name": "TEMA",
-              "params": {"symbol_data": "@symbols/current_symbol.close", "period": 60, "shift": 0}
+            "tema_near": {"module": "indicator", "name": "TEMA",
+              "params": {"symbol_data": "@symbols/current_symbol.close", "period": "@var/near_period", "shift": 0}
             },
-            "tema_90": {"module": "indicator", "name": "TEMA",
-              "params": {"symbol_data": "@sym/current_symbol.close", "period": 90, "shift": 0}
+            "tema_far": {"module": "indicator", "name": "TEMA",
+              "params": {"symbol_data": "@sym/current_symbol.close", "period": "@var/far_period", "shift": 0}
             }
         },
         "entry": {
@@ -129,13 +133,13 @@
             "condition": [
               {"op": "and",
                 "values": [
-                  ["@functions/adx_5", ">", 20],
-                  ["@functions/ma_60", ">", "@functions/ma_90"],
-                  ["@functions/tema_60", ">", "@functions/tema_90"],
+                  ["@functions/adx", ">", "@var/adx"],
+                  ["@functions/ma_near", ">", "@functions/ma_far"],
+                  ["@functions/tema_near", ">", "@functions/tema_far"],
                   {"op": "or",
                         "values": [
-                            ["@functions/adx_5", ">", 20],
-                            ["@func/ma_60", ">", "@functions/ma_90"]
+                            ["@functions/adx", ">", "@var/adx"],
+                            ["@func/ma_near", ">", "@functions/ma_far"]
                         ]
                   }
                 ]
@@ -145,8 +149,8 @@
           "short": {
             "condition": [
               {"op": "and", "values": [
-                ["@functions/adx_5", "<", 20],
-                ["@functions/ma_60", "<", "@functions/ma_90"]
+                ["@functions/adx", "<", "@var/adx"],
+                ["@functions/ma_near", "<", "@functions/ma_far"]
               ]}
             ]
           }
@@ -156,12 +160,12 @@
             "condition": [
               {"op": "and",
                 "values": [
-                  ["@functions/adx_5", "<", 20],
-                  ["@functions/ma_60", "<", "@functions/ma_90"],
+                  ["@functions/adx", "<", "@var/adx"],
+                  ["@functions/ma_near", "<", "@functions/ma_far"],
                   {"op": "or",
                         "values": [
-                            ["@functions/adx_5", "<", 20],
-                            ["@functions/ma_60", "<", "@functions/ma_90"]
+                            ["@functions/adx", "<", "@var/adx"],
+                            ["@functions/ma_near", "<", "@functions/ma_far"]
                         ]
                   }
                 ]
@@ -171,8 +175,8 @@
           "short": {
             "condition": [
               {"op": "and", "values": [
-                ["@functions/adx_5", ">", 20],
-                ["@functions/ma_60", ">", "@functions/ma_90"]
+                ["@functions/adx", ">", "@var/adx"],
+                ["@functions/ma_near", ">", "@functions/ma_far"]
               ]}
             ]
           }

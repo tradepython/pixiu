@@ -3,6 +3,7 @@ from multiprocessing import (Pool, Process, Manager, Queue, Value)
 from pixiu.tester.ea_tester_graph import EATesterGraphServer
 from pixiu.pxtester import PXTester
 from pixiu.builder import EABuilder
+from pixiu.optimizer import EAOptimizer
 from tabulate import tabulate
 from ctypes import c_wchar_p
 import json5 as json
@@ -428,6 +429,10 @@ class MainApp:
             build_config = json.loads(build_config_string)
             ea_builder.build(build_config, ea_output_path)
 
+    def optimize_ea(self, config_file, ea_output_path):
+        ea_optimizer = EAOptimizer({})
+        ea_optimizer.optimize(config_file, ea_output_path)
+
 
 
 def main(*args, **kwargs):
@@ -452,11 +457,18 @@ def main(*args, **kwargs):
     parser_build.add_argument('-c', '--buildconfig', type=str, required=True, help='Build config path')
     parser_build.add_argument('-o', '--output', type=str, required=True, help='EA output path')
     parser_build.add_argument('-t', '--test', type=str, required=False, help='Test')
+    #
+    parser_build = subparsers.add_parser('optimize', help='Optimize EA')
+    parser_build.add_argument('-c', '--optimizeconfig', type=str, required=True, help='Optimize config path')
+    parser_build.add_argument('-o', '--output', type=str, required=True, help='EA output path')
+    parser_build.add_argument('-t', '--test', type=str, required=False, help='Test')
     # parser_build.add_argument('-b', '--build', type=str, required=False, help='Build EA')
 
     args = parser.parse_args()
     if args.action_name == 'build':
         MainApp(args).build_ea(args.buildconfig, args.output)
+    elif args.action_name == 'optimize':
+        MainApp(args).optimize_ea(args.optimizeconfig, args.output)
     else:
         manager = Manager()
 

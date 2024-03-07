@@ -1,5 +1,46 @@
 
 
+### [2024-03-07]
+#### Version:
+#####   Package:
+#####    pixiu: 0.130.*.20240307
+#####
+#### **Descriptions：**
+     1.Modify pxtester.py:
+      1) Add config_path_to_abs_path
+     2.Modify ea_optimizer.py:
+      1) Modify parse_config, optimize
+
+### [2024-03-06]
+#### Version:
+#####   Package:
+#####    pixiu: 0.129.*.20240306
+#####
+#### **Descriptions：**
+     1.Modify main.py:
+       1) Add action optimize
+
+### [2024-03-05]
+#### Version:
+#####   Package:
+#####    pixiu: 0.128.*.20240305
+#####
+#### **Descriptions：**
+     1.Modify build_strategy.json:
+       1) Add variables: adx, adx_period, near_peroid, far_peroid for optimization
+     
+
+### [2024-03-03]
+#### Version:
+#####   Package:
+#####    pixiu: 0.127.*.20240303
+#####
+#### **Descriptions：**
+     1.Modify ea_builder.py:
+       1) Clean codes
+     2.Create ea_optimizer.py
+
+
 ### [2024-02-29]
 #### Version:
 #####   Package:
