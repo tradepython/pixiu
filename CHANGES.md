@@ -1,5 +1,15 @@
 
 
+### [2024-03-08]
+#### Version:
+#####   Package:
+#####    pixiu: 0.131.*.20240308
+#####
+#### **Descriptions：**
+     1.Modify ea_optimizer.py:
+       1) optimize
+
+
 ### [2024-03-07]
 #### Version:
 #####   Package:
