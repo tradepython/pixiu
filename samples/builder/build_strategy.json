@@ -48,7 +48,7 @@
             }
         },
         "entry": {
-          "order0": {
+          "order": {
             "script_settings": false,
             "positions": {"type": "volume", "volume": 1.0},
             "take_profit": {"type": "pips", "pips": 80},
@@ -124,7 +124,7 @@
             "take_profit": {"type": "money", "money": 60},
             "stop_loss":  {"type": "money", "money": -10}
           },
-          "order": {
+          "order15": {
             "positions": {"type": "percent", "percent": "10%", "martingale": true},
             "take_profit": {"type": "pl-ratio", "ratio": 1.5},
             "stop_loss": {"type": "percent", "percent": "-10%", "source": "atr", "period": 5, "timeframe": "d1"}

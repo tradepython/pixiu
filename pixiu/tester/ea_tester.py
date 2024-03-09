@@ -632,7 +632,7 @@ class EATester(EABase):
         #
         if self.report['max_volume']['value'] < new_order['volume']:
             self.report['max_volume']['value'] = new_order['volume']
-        elif self.report['min_volume']['value'] is None or self.report['min_volume']['value'] > new_order['volume'] > 0:
+        if self.report['min_volume']['value'] is None or self.report['min_volume']['value'] > new_order['volume'] > 0:
             self.report['min_volume']['value'] = new_order['volume']
 
         #

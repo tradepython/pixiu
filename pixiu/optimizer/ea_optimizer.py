@@ -33,7 +33,37 @@ class EAOptimizer:
         self.name = None
         self.source = None
         self.stop_optimize = False
-        self.opt_tasks_info_dict = {}
+        self.opt_tasks_info_dict = {'tasks': {}, 'reports': {}}
+        self.report_item_template = {
+            "balance": {},
+            "total_net_profit": {},
+            "total_net_profit_rate": {},
+            "sharpe_ratio": {},
+            "sortino_ratio": {},
+            "absolute_drawdown": {},
+            "max_drawdown": {},
+            "max_drawdown_rate": {},
+            "min_volume": {},
+            "max_volume": {},
+            "total_trades": {},
+            "profit_trades": {},
+            "win_rate": {},
+            "trade_max_profit": {},
+            "trade_avg_profit": {},
+            "trade_max_loss": {},
+            "trade_avg_loss": {},
+            "loss_trades": {},
+            "gross_profit": {},
+            "gross_loss": {},
+            "short_positions": {},
+            "short_positions_win": {},
+            "long_positions": {},
+            "long_positions_win": {},
+            "max_consecutive_wins": {},
+            "max_consecutive_wins_money": {},
+            "max_consecutive_losses": {},
+            "max_consecutive_losses_money": {},
+            }
 
     def config_path_to_abs_path(self, config_file_path, file_path):
         ret = file_path
@@ -132,11 +162,11 @@ class EAOptimizer:
                             new_val = values_config[element_id]
                             if new_val:
                                 element.value.value = new_val #ast.Constant(value=new_val)
-        code = compile(source, file_path, 'exec')
-        exec(code, gloabl_dict, local_dict)
+        # code = compile(source, file_path, 'exec')
+        # exec(code, gloabl_dict, local_dict)
         new_source = astunparse.unparse(ps)
-        code = compile(new_source, file_path, 'exec')
-        exec(code, gloabl_dict, local_dict)
+        # code = compile(new_source, file_path, 'exec')
+        # exec(code, gloabl_dict, local_dict)
         with open(file_path, 'w') as f:
             f.write(new_source)
         code_md5 = hashlib.md5(new_source.encode("utf-8")).hexdigest()
@@ -268,31 +298,66 @@ class EAOptimizer:
                     break
         return ret
 
+    def init_task_report_config(self, symbol, report_config):
+        report_config['symbol'] = symbol
+        report_config['asc'] = {}
+        report_config['desc'] = {}
+        for key in self.report_item_template:
+            report_config['asc'][key] = []
+            report_config['desc'][key] = []
+
+    def update_task_report(self, symbol, task_uid, report, report_config, count=10):
+        if symbol != report_config['symbol']:
+            return False
+        for key in self.report_item_template:
+            for sort in (('asc', False), ('desc', True)):
+                data = report_config[sort[0]][key]
+                uid_list = list(map(lambda x: x[1], data))
+                if task_uid not in uid_list:
+                    value = report[key]['value']
+                    pair = (value, task_uid)
+                    data.append(pair)
+                    try:
+                        data.sort(key=lambda tup: tup[0], reverse=sort[1])
+                    except:
+                        traceback.print_exc()
+        return True
+
+
+
     def check_task_result(self, result_dict, opt_config_path):
         updated = False
         remove_list = []
-        for task_uid in result_dict:
-            result = result_dict[task_uid]['result']
-            symbol = result_dict[task_uid]['symbol']
+        for task_ticket in result_dict:
+            ri = result_dict[task_ticket]
+            task_uid = ri['task_uid']
+            result = ri['result']
+            symbol = ri['symbol']
             if isinstance(result, AsyncResult):
                 if result.ready():
-                    test_report = result_dict[task_uid]['test_report']
-                    report = json.loads(test_report.value)
-                    print(report)
-                    remove_list.append(task_uid)
+                    test_report = ri['test_report']
+                    report = json.loads(test_report.value)['report']
+                    remove_list.append(task_ticket)
                     # create result file
                     file_name = f"{task_uid}-result"
                     #
-                    opt_tasks_info = self.get_opt_tasks_info(symbol)
+                    opt_tasks_info = self.get_opt_tasks_info(symbol, 'tasks')
                     task_info = opt_tasks_info['tasks'][task_uid]
                     task_info['status'] = TaskStatus.FINISHED
                     opt_tasks_config_path = self.make_task_path(opt_config_path, symbol, task_uid)
                     file_path = self.make_opt_config_file_path(file_name, opt_tasks_config_path)
-                    self.save_optimization_config(file_path, dict(report=report))
+                    result_config = dict(report=report,
+                                         time_utc=datetime.utcnow().isoformat(),
+                                         ts_utc=datetime.utcnow().timestamp())
+                    self.save_optimization_config(file_path, result_config)
                     #
                     opt_tasks_info['running_tasks'].pop(task_uid, None)
                     opt_tasks_info['finished_tasks'][task_uid] = dict(task_uid=task_uid)
-                    self.set_opt_tasks_info_update_flag(symbol)
+                    self.set_opt_tasks_info_update_flag(symbol, info_type='tasks')
+                    #
+                    report_config = self.get_opt_tasks_info(symbol, 'reports')
+                    self.update_task_report(symbol, task_uid, report, report_config, count=10)
+                    self.set_opt_tasks_info_update_flag(symbol, info_type='reports')
                     updated = True
             if self.stop_optimize:
                 break
@@ -312,33 +377,37 @@ class EAOptimizer:
                 break
         return busy_count
 
-    def get_opt_tasks_info(self, symbol, config_uid=None, opt_config_path=None):
+    def get_opt_tasks_info(self, symbol, info_type, config_uid=None, opt_config_path=None):
         if config_uid and opt_config_path:
-            tasks_file_name = f"{config_uid}-{symbol}-tasks"
+            tasks_file_name = f"{config_uid}-{symbol}-{info_type}"
             file_path = self.make_opt_config_file_path(tasks_file_name, opt_config_path)
             opt_tasks_info = self.load_optimization_config(file_path)
             if opt_tasks_info is None:
                 opt_tasks_info = {}
-            self.opt_tasks_info_dict[symbol] = dict(info=opt_tasks_info, path=file_path, updated=False)
+            self.opt_tasks_info_dict[info_type][symbol] = dict(info=opt_tasks_info, path=file_path, updated=False)
         else:
-            opt_tasks_info = self.opt_tasks_info_dict.get(symbol, dict(info={}, path=None, updated=False))['info']
+            opt_tasks_info = self.opt_tasks_info_dict[info_type].get(symbol, dict(info={}, path=None, updated=False))['info']
         return opt_tasks_info
 
-    def write_opt_tasks_info(self,  symbol=None):
-        if symbol is None:
-            for sym in self.opt_tasks_info_dict:
-                data = self.opt_tasks_info_dict[sym]
-                if data['updated']:
-                    self.save_optimization_config(data['path'], data['info'])
-                    data['updated'] = False
-        else:
-            data = self.opt_tasks_info_dict.get(symbol, None)
-            if data:
-                self.save_optimization_config(data['path'], data['info'])
-                data['updated'] = False
+    def _write_opt_tasks_info(self,  data):
+        data['info']['time_utc'] = datetime.utcnow().isoformat()
+        data['info']['ts_utc'] = datetime.utcnow().timestamp()
+        self.save_optimization_config(data['path'], data['info'])
+        data['updated'] = False
 
-    def set_opt_tasks_info_update_flag(self,  symbol, updated=True):
-        data = self.opt_tasks_info_dict.get(symbol, None)
+    def write_opt_tasks_info(self, info_type, symbol=None):
+        if symbol is None:
+            for sym in self.opt_tasks_info_dict[info_type]:
+                data = self.opt_tasks_info_dict[info_type][sym]
+                if data['updated']:
+                    self._write_opt_tasks_info(data)
+        else:
+            data = self.opt_tasks_info_dict[info_type].get(symbol, None)
+            if data:
+                self._write_opt_tasks_info(data)
+
+    def set_opt_tasks_info_update_flag(self, symbol, info_type, updated=True):
+        data = self.opt_tasks_info_dict[info_type].get(symbol, None)
         if data:
             data['updated'] = updated
 
@@ -349,7 +418,7 @@ class EAOptimizer:
         for symbol in opt_config['symbols']:
             # tasks_file_name = f"{config_uid}-{symbol}-tasks"
             # opt_tasks_info = self.load_optimization_config(tasks_file_name, opt_config_path)
-            opt_tasks_info = self.get_opt_tasks_info(symbol, config_uid, opt_config_path)
+            opt_tasks_info = self.get_opt_tasks_info(symbol, 'tasks', config_uid, opt_config_path)
             test_name = f"test{symbol.upper()}"
             if len(opt_tasks_info) == 0:
                 waiting_tasks = {}
@@ -365,7 +434,11 @@ class EAOptimizer:
                 opt_tasks_info['finished_tasks'] = {}
                 opt_tasks_info['running_tasks'] = {}
                 opt_tasks_info['error_tasks'] = {}
-                self.set_opt_tasks_info_update_flag(symbol)
+                self.set_opt_tasks_info_update_flag(symbol, info_type='tasks')
+            report_config = self.get_opt_tasks_info(symbol, 'reports', config_uid, opt_config_path)
+            if len(report_config) == 0:
+                self.init_task_report_config(symbol, report_config)
+                self.set_opt_tasks_info_update_flag(symbol, info_type='reports')
             task_count = max_tasks - len(task_list)
             if task_count <= 0:
                 break
@@ -394,19 +467,22 @@ class EAOptimizer:
             for task_config in tasks:
                 task_uid = task_config['task_uid']
                 symbol = task_config['symbol']
-                if task_uid not in result_dict:
-                    opt_tasks_info = self.get_opt_tasks_info(symbol)
+                task_ticket = hashlib.md5(f"{symbol}-{task_uid}".encode("utf-8")).hexdigest()
+                if task_ticket not in result_dict:
+                    opt_tasks_info = self.get_opt_tasks_info(symbol, 'tasks')
                     opt_tasks_info['running_tasks'][task_uid] = dict(task_uid=task_uid)
                     opt_tasks_info['waiting_tasks'].pop(task_uid, None)
                     test_report = manager.Value(c_wchar_p, '')
                     ret = self.run_optimization_task(pool, manager, task_config, test_report)
-                    result_dict[task_uid] = dict(result=ret, test_report=test_report, symbol=symbol)
-                    self.set_opt_tasks_info_update_flag(symbol)
+                    result_dict[task_ticket] = dict(task_uid=task_uid, result=ret, test_report=test_report,
+                                                    symbol=symbol)
+                    self.set_opt_tasks_info_update_flag(symbol, info_type='tasks')
             # self.write_opt_tasks_info()
             #
             busy_count = self.count_task_processing(result_dict)
             self.check_task_result(result_dict, opt_config_path)
-            self.write_opt_tasks_info()
+            self.write_opt_tasks_info(info_type='tasks')
+            self.write_opt_tasks_info(info_type='reports')
             if len(tasks) == 0 and busy_count <= 0:
                 break
             if busy_count < max_tasks:

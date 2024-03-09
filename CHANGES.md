@@ -1,5 +1,16 @@
 
 
+### [2024-03-09]
+#### Version:
+#####   Package:
+#####    pixiu: 0.132.*.20240309
+#####
+#### **Descriptions：**
+     1.Modify ea_optimizer.py:
+      1) Add testing report 
+     2.Modify ea_tester.py:
+      1) __add_market_order__: min_volume
+
 ### [2024-03-08]
 #### Version:
 #####   Package:
