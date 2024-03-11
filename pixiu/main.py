@@ -182,34 +182,6 @@ class MainApp:
         row.append(total_value)
         return report_str
 
-    #
-    # def output_report(self, reports):
-    #     report_str = f"\n-- Result (Tag: {self.tag}) --\n"
-    #     idx = 1
-    #     data = []
-    #     headers = self.test_names
-    #     for key in reports:
-    #         item = reports[key][self.test_names[0]]
-    #         report_str += f"{idx:02d}). {item['desc']}: "
-    #         row = [idx, item['desc']]
-    #         for tn in self.test_names:
-    #             item = reports[key][tn]
-    #             precision = item.get('precision', 2)
-    #             item_type = item.get('type', 'value')
-    #             if item_type == 'value':
-    #                 v = round(item['value'], precision)
-    #             elif item_type == '%':  # %
-    #                 v = f"{round(item['value']*100, precision)} %"
-    #             else:  # str
-    #                 v = item['value']
-    #             report_str += f"{v}  | "
-    #             row.append(v)
-    #         data.append(row)
-    #
-    #         report_str += "\n"
-    #         idx += 1
-    #     print(f"Output (Tag: {self.tag}):")
-    #     print(tabulate(data, headers=headers, tablefmt="pretty"))
 
     def run_tester(self, test_config_path, test_name, script_path, log_path, print_log_type, result_value, graph,
                    message_queue, graph_data, exec):
@@ -429,9 +401,9 @@ class MainApp:
             build_config = json.loads(build_config_string)
             ea_builder.build(build_config, ea_output_path)
 
-    def optimize_ea(self, config_file, ea_output_path):
+    def optimize_ea(self, config_file, ea_output_path, mode='fast'):
         ea_optimizer = EAOptimizer({})
-        ea_optimizer.optimize(config_file, ea_output_path)
+        ea_optimizer.optimize(config_file, ea_output_path, mode=mode)
 
 
 
@@ -462,13 +434,14 @@ def main(*args, **kwargs):
     parser_build.add_argument('-c', '--optimizeconfig', type=str, required=True, help='Optimize config path')
     parser_build.add_argument('-o', '--output', type=str, required=True, help='EA output path')
     parser_build.add_argument('-t', '--test', type=str, required=False, help='Test')
+    parser_build.add_argument('-m', '--mode', type=str, default='fast', required=False, help='Mode')
     # parser_build.add_argument('-b', '--build', type=str, required=False, help='Build EA')
 
     args = parser.parse_args()
     if args.action_name == 'build':
         MainApp(args).build_ea(args.buildconfig, args.output)
     elif args.action_name == 'optimize':
-        MainApp(args).optimize_ea(args.optimizeconfig, args.output)
+        MainApp(args).optimize_ea(args.optimizeconfig, args.output, args.mode)
     else:
         manager = Manager()
 

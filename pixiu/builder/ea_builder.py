@@ -563,12 +563,12 @@ class EABuilder:
         system_variables = build_data.get('system_variables', {})
         oc = build_data['entry'].get_order_config(None)
         index = 0
-        for dir in ('long', 'short'):
-            oc_dir = oc[dir]
+        for d in ('long', 'short'):
+            oc_dir = oc[d]
             for oc_item in oc_dir:
                 script_settings = oc_dir.get('script_settings', True)
                 oc_val = oc_dir[oc_item]
-                key = f"entry_{dir}_{oc_item}"
+                key = f"entry_{d}_{oc_item}"
                 #
                 if oc_item == 'profit_loss_ratio':
                     oc_item_type = "int"
@@ -577,13 +577,13 @@ class EABuilder:
                 #
                 oc_item_desc = dict(en="")
                 if oc_item == 'profit_loss_ratio':
-                    oc_item_desc = dict(en=f"Profit/loss ratio of {dir} orders.")
+                    oc_item_desc = dict(en=f"Profit/loss ratio of {d} orders.")
                 elif oc_item == 'positions':
-                    oc_item_desc = dict(en=f"The positions of {dir} orders.")
+                    oc_item_desc = dict(en=f"The positions of {d} orders.")
                 elif oc_item == 'take_profit':
-                    oc_item_desc = dict(en=f"Take profit on {dir} orders.")
+                    oc_item_desc = dict(en=f"Take profit on {d} orders.")
                 elif oc_item == 'stop_loss':
-                    oc_item_desc = dict(en=f"Stop loss on {dir} orders.")
+                    oc_item_desc = dict(en=f"Stop loss on {d} orders.")
                 elif oc_item == 'script_settings':
                     continue
                 #

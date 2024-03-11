@@ -1,5 +1,23 @@
 
 
+### [2024-03-11]
+#### Version:
+#####   Package:
+#####    pixiu: 0.134.*.20240311
+#####
+#### **Descriptions：**
+     1.Modify ea_optimizer.py:
+       1) Add show_stats
+
+### [2024-03-10]
+#### Version:
+#####   Package:
+#####    pixiu: 0.133.*.20240310
+#####
+#### **Descriptions：**
+     1.Modify ea_optimizer.py:
+       1) Add task stats
+
 ### [2024-03-09]
 #### Version:
 #####   Package:
