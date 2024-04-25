@@ -8,190 +8,205 @@
       "functions": {
         "ADX": {
           "method": "adx",
-          "params": {
-            "symbol_data": {"required": true, "type": "symbol_data"},
-            "period": {"required": true, "type": "number"},
-            "shift": {"required": true, "type": "number", "default": 1}
-          },
-          "return": {"type": "number", "variable": {"prefix": "adx"}}
+          "params": [
+            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "period", "required": true, "type": "number"},
+            {"name": "shift", "required": true, "type": "number", "default": 1}
+          ],
+          "return": {"type": "number", "variable": {"prefix": "adx"}},
+          "desc": "Average Directional Movement Index (Momentum Indicators)"
         },
         "MA": {
           "method": "ma",
-          "params": {
-            "symbol_data": {"required": true, "type": "symbol_data"},
-            "period": {"required": true, "type": "number"},
-            "matype": {"required": true, "type": "number"},
-            "shift": {"required": true, "type": "number", "default": 1}
-          },
-          "return": {"type": "number"}
+          "params": [
+            {"name": "price_data", "required": true, "type": "price_data"},
+            {"name": "period", "required": true, "type": "number"},
+            {"name": "matype", "required": true, "type": "number"},
+            {"name": "shift", "required": true, "typ4e": "number", "default": 1}
+          ],
+          "return": {"type": "number"},
+          "desc": "Calculates the Moving Average indicator and returns its value"
         },
         "AD": {
           "method": "ad",
-          "params": {
-            "symbol_data": {"required": true, "type": "symbol_data"},
-            "shift": {"required": true, "type": "number", "default": 1}
-          },
+          "params": [
+            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "shift", "required": true, "type": "number", "default": 1}
+          ],
           "return": {"type": "number"},
           "desc": "Chaikin A/D Line (Volume Indicators)"
         },
         "ATR": {
           "method": "atr",
-          "params": {
-            "symbol_data": {"required": true, "type": "symbol_data"},
-            "period": {"required": true, "type": "number"},
-            "shift": {"required": true, "type": "number", "default": 1}
-          },
+          "params": [
+            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "period", "required": true, "type": "number"},
+            {"name": "shift", "required": true, "type": "number", "default": 1}
+          ],
           "return": {"type": "number"},
           "desc": "Average True Range (Volatility Indicators)"
         },
         "BANDS": {
           "method": "bands",
-          "params": {
-            "symbol_data": {"required": true, "type": "symbol_data"},
-            "period": {"required": true, "type": "number"},
-            "stddev_up": {"required": true, "type": "number", "default": 2},
-            "stddev_down": {"required": true, "type": "number", "default": 2},
-            "matype": {"required": true, "type": "number", "default": 0},
-            "shift": {"required": true, "type": "number", "default": 1}
-          },
+          "params": [
+            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "period", "required": true, "type": "number"},
+            {"name": "stddev_up", "required": true, "type": "number", "default": 2},
+            {"name": "stddev_down", "required": true, "type": "number", "default": 2},
+            {"name": "matype", "required": true, "type": "number", "default": 0},
+            {"name": "shift", "required": true, "type": "number", "default": 1}
+          ],
+
           "return": {"type": "number"},
           "desc": "Bollinger Bands (Overlap Studies)"
         },
         "CCI": {
           "method": "cci",
-          "params": {
-            "symbol_data": {"required": true, "type": "symbol_data"},
-            "period": {"required": true, "type": "number"},
-            "shift": {"required": true, "type": "number", "default": 1}
-          },
+          "params": [
+            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "period", "required": true, "type": "number"},
+            {"name": "shift", "required": true, "type": "number", "default": 1}
+          ],
+
           "return": {"type": "number"},
           "desc": "Commodity Channel Index (Momentum Indicators)"
         },
         "CHAIKIN": {
           "method": "chaikin",
-          "params": {
-            "symbol_data": {"required": true, "type": "symbol_data"},
-            "fast": {"required": true, "type": "number"},
-            "slow": {"required": true, "type": "number"},
-            "shift": {"required": true, "type": "number", "default": 1}
-          },
+          "params": [
+            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "fast", "required": true, "type": "number"},
+            {"name": "slow", "required": true, "type": "number"},
+            {"name": "shift", "required": true, "type": "number", "default": 1}
+          ],
+
           "return": {"type": "number"},
           "desc": "Chaikin A/D Oscillator (Volume Indicators)"
         },
         "DEMA": {
           "method": "dema",
-          "params": {
-            "symbol_data": {"required": true, "type": "symbol_data"},
-            "period": {"required": true, "type": "number"},
-            "shift": {"required": true, "type": "number", "default": 1}
-          },
+          "params": [
+            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "period", "required": true, "type": "number"},
+            {"name": "shift", "required": true, "type": "number", "default": 1}
+          ],
+
           "return": {"type": "number"},
           "desc": "Double Exponential Moving Average (Overlap Studies)"
         },
         "MOMENTUM": {
           "method": "momentum",
-          "params": {
-            "symbol_data": {"required": true, "type": "symbol_data"},
-            "period": {"required": true, "type": "number"},
-            "shift": {"required": true, "type": "number", "default": 1}
-          },
+          "params": [
+            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "period", "required": true, "type": "number"},
+            {"name": "shift", "required": true, "type": "number", "default": 1}
+          ],
+
           "return": {"type": "number"},
           "desc": "Momentum (Momentum Indicators)"
         },
         "MFI": {
           "method": "mfi",
-          "params": {
-            "symbol_data": {"required": true, "type": "symbol_data"},
-            "period": {"required": true, "type": "number"},
-            "shift": {"required": true, "type": "number", "default": 1}
-          },
+          "params": [
+            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "period", "required": true, "type": "number"},
+            {"name": "shift", "required": true, "type": "number", "default": 1}
+          ],
+
           "return": {"type": "number"},
           "desc": "Money Flow Index (Momentum Indicators)"
         },
         "MACD": {
           "method": "macd",
-          "params": {
-            "symbol_data": {"required": true, "type": "symbol_data"},
-            "fast": {"required": true, "type": "number"},
-            "slow": {"required": true, "type": "number"},
-            "signal": {"required": true, "type": "number"},
-            "shift": {"required": true, "type": "number", "default": 1}
-          },
+          "params": [
+            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "fast", "required": true, "type": "number"},
+            {"name": "slow", "required": true, "type": "number"},
+            {"name": "signal", "required": true, "type": "number"},
+            {"name": "shift", "required": true, "type": "number", "default": 1}
+          ],
+
           "return": {"type": "number"},
           "desc": "Moving Average Convergence/Divergence (Momentum Indicators)"
         },
         "OBV": {
           "method": "obv",
-          "params": {
-            "symbol_data": {"required": true, "type": "symbol_data"},
-            "shift": {"required": true, "type": "number", "default": 1}
-          },
+          "params": [
+            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "shift", "required": true, "type": "number", "default": 1}
+          ],
+
           "return": {"type": "number"},
           "desc": "On Balance Volume (Volume Indicators)"
         },
         "SAR": {
           "method": "sar",
-          "params": {
-            "symbol_data": {"required": true, "type": "symbol_data"},
-            "acc": {"required": true, "type": "number"},
-            "max": {"required": true, "type": "number"},
-            "shift": {"required": true, "type": "number", "default": 1}
-          },
+          "params": [
+            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "acc", "required": true, "type": "number"},
+            {"name": "max", "required": true, "type": "number"},
+            {"name": "shift", "required": true, "type": "number", "default": 1}
+          ],
+
           "return": {"type": "number"},
           "desc": "Parabolic SAR (Overlap Studies)"
         },
         "RSI": {
           "method": "rsi",
-          "params": {
-            "symbol_data": {"required": true, "type": "symbol_data"},
-            "period": {"required": true, "type": "number"},
-            "shift": {"required": true, "type": "number", "default": 1}
-          },
+          "params": [
+            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "period", "required": true, "type": "number"},
+            {"name": "shift", "required": true, "type": "number", "default": 1}
+          ],
+
           "return": {"type": "number"},
           "desc": "Relative Strength Index (Momentum Indicators)"
         },
         "STDDEV": {
           "method": "stddev",
-          "params": {
-            "symbol_data": {"required": true, "type": "symbol_data"},
-            "period": {"required": true, "type": "number"},
-            "stddev": {"required": true, "type": "number", "default": 1},
-            "shift": {"required": true, "type": "number", "default": 1}
-          },
+          "params": [
+            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "period", "required": true, "type": "number"},
+            {"name": "stddev", "required": true, "type": "number", "default": 1},
+            {"name": "shift", "required": true, "type": "number", "default": 1}
+          ],
+
           "return": {"type": "number"},
           "desc": "Standard Deviation (Statistic Functions)"
         },
         "STOCH": {
           "method": "stochastic",
-          "params": {
-            "symbol_data": {"required": true, "type": "symbol_data"},
-            "fastk": {"required": true, "type": "number", "default": 5},
-            "slowk": {"required": true, "type": "number", "default": 3},
-            "slowk_matype": {"required": true, "type": "number", "default": 0},
-            "slowd": {"required": true, "type": "number", "default": 3},
-            "slowd_matype": {"required": true, "type": "number", "default": 0},
-            "shift": {"required": true, "type": "number", "default": 1}
-          },
+          "params": [
+            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "fastk", "required": true, "type": "number", "default": 5},
+            {"name": "slowk", "required": true, "type": "number", "default": 3},
+            {"name": "slowk_matype", "required": true, "type": "number", "default": 0},
+            {"name": "slowd", "required": true, "type": "number", "default": 3},
+            {"name": "slowd_matype", "required": true, "type": "number", "default": 0},
+            {"name": "shift", "required": true, "type": "number", "default": 1}
+          ],
+
           "return": {"type": "number"},
           "desc": "Stochastic (Momentum Indicators)"
         },
         "TEMA": {
           "method": "tema",
-          "params": {
-            "symbol_data": {"required": true, "type": "symbol_data"},
-            "period": {"required": true, "type": "number"},
-            "shift": {"required": true, "type": "number", "default": 1}
-          },
+          "params": [
+            {"name": "price_data", "required": true, "type": "price_data"},
+            {"name": "period", "required": true, "type": "number"},
+            {"name": "shift", "required": true, "type": "number", "default": 1}
+          ],
+
           "return": {"type": "number"},
           "desc": "Triple Exponential Moving Average (Overlap Studies)"
         },
         "WPR": {
           "method": "wpr",
-          "params": {
-            "symbol_data": {"required": true, "type": "symbol_data"},
-            "period": {"required": true, "type": "number"},
-            "shift": {"required": true, "type": "number", "default": 1}
-          },
+          "params": [
+            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "period", "required": true, "type": "number"},
+            {"name": "shift", "required": true, "type": "number", "default": 1}
+          ],
           "return": {"type": "number"},
           "desc": "Williams' %R (Momentum Indicators)"
         }

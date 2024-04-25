@@ -10,22 +10,6 @@ class IndicatorModule:
     def generate_code(self, function_name, options, params_list):
         cw = CodeWriter()
         return cw.generate_code(function_name, options, params_list)
-    # def generate_code(self, function_name, options, params_list):
-    #     params = options['params']
-    #     params_string = ""
-    #     for name in params_list:
-    #         val_name = name
-    #         if isinstance(name, dict):
-    #             d = name
-    #             name = d['name']
-    #             val_name = d['val_name']
-    #         val = params[name]
-    #         params_string = f"{params_string}, {val_name}={val}" if params_string else f"{val_name}={val}"
-    #     code = f"{function_name}({params_string})"
-    #     variables = options.get('variables', None)
-    #     if variables:
-    #         code = f"{variables[0]['name']} = {code}"
-    #     return code
 
     def adx(self, options):
         """ Average Directional Movement Index (Momentum Indicators)"""
@@ -33,33 +17,13 @@ class IndicatorModule:
                                                     {"name": "period", "val_name": "timeperiod"},
                                                     "shift"))
         return code
-        # params = options['params']
-        # symbol_data = params['symbol_data']
-        # period = params['period']
-        # shift = params['shift']
-        # code = f"iADX({symbol_data}, timeperiod={period}, shift={shift})"
-        # variables = options.get('variables', None)
-        # if variables:
-        #     code = f"{variables[0]['name']} = {code}"
-        # return code
 
     def ma(self, options):
         """Calculates the Moving Average indicator and returns its value."""
         code = self.generate_code("iMA", options, (
-            {"name": "symbol_data", "val_name": "price_data"},
+            {"name": "price_data", "val_name": "symbol_data"},
             {"name": "period", "val_name": "timeperiod"}, "shift", "matype"))
         return code
-        # params = options['params']
-        # symbol_data = params['symbol_data']
-        # period = params['period']
-        # matype = params['matype']
-        # shift = params['shift']
-        # code = f"iMA({symbol_data}, timeperiod={period}, matype={matype}, shift={shift})"
-        # variables = options.get('variables', None)
-        # if variables:
-        #     code = f"{variables[0]['name']} = {code}"
-        # codes = (code, )
-        # return codes
 
     def ad(self, options):
         """Chaikin A/D Line (Volume Indicators)"""
@@ -170,7 +134,7 @@ class IndicatorModule:
 
     def tema(self, options):
         """Triple Exponential Moving Average (Overlap Studies)"""
-        code = self.generate_code("iTEMA", options, ("symbol_data",
+        code = self.generate_code("iTEMA", options, ({"name": "price_data", "val_name": "symbol_data"},
                                                     {"name": "period", "val_name": "timeperiod"},
                                                     "shift"))
         return code

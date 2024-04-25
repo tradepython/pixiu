@@ -5,6 +5,9 @@ import traceback
 from jinja2 import Template
 from black import format_str, FileMode
 import importlib
+import hashlib
+from .tpeac_parser import (TPEACParser, )
+
 
 file_dir = os.path.dirname(__file__)
 
@@ -29,23 +32,17 @@ class ElementBuilder:
     def get_value(self, config, value):
         ret = value
         if isinstance(value, str):
-            va = value.split('/')
+            va = value.split('.')
             if len(va) > 1:
                 if va[0] in ('@variables', '@var'):
-                    items = va[1].split('.')
+                    items = va[1:]
                     parameter_builder = self.build_data['variables'][items[0]]
                     ret = parameter_builder.get_variable_name()
-                    # if len(items) > 1:
-                    #     for i in items[1:]:
-                    #         ret = f"{ret}.{i}"
                     ret = self.__write_value_items__(ret,  items)
                 elif va[0] in ('@symbols', '@sym'):
-                    items = va[1].split('.')
+                    items = va[1:]
                     symbol_builder = self.build_data['symbols'][items[0]]
                     ret = symbol_builder.get_variable_name()
-                    # if len(items) > 1:
-                    #     for i in items[1:]:
-                    #         ret = f"{ret}.{i}"
                     ret = self.__write_value_items__(ret,  items)
                 elif va[0] in ('@functions', '@func'):
                     func_builder = self.build_data['functions'][va[1]]
@@ -209,10 +206,14 @@ class SymbolBuilder(ElementBuilder):
 
 
 class FunctionBuilder(ElementBuilder):
-
     def __init__(self, builder, key, config, index, build_data):
         super(FunctionBuilder, self).__init__(builder, key, config, index, build_data)
         self.modules = {}
+
+    @property
+    def md5(self):
+        func_md5 = hashlib.md5(json.dumps(self.config, sort_keys=True).encode('utf-8')).hexdigest()
+        return func_md5
 
     @property
     def module(self):
@@ -253,8 +254,16 @@ class FunctionBuilder(ElementBuilder):
         cls = self.get_module(module)
         func = getattr(cls, func_config['method'])
         param_dict = {}
-        for key in func_config['params']:
-            param_dict[key] = self.get_value(func_config['params'][key], self.params[key])
+        # for key in func_config['params']:
+        #     param_dict[key] = self.get_value(func_config['params'][key], self.params[key])
+        for idx in range(len(func_config['params'])):
+            fc = func_config['params'][idx]
+            key = fc['name']
+            if isinstance(self.params, dict):
+                val = self.params[key]
+            else:
+                val = self.params[idx]
+            param_dict[key] = self.get_value(fc, val)
         options['params'] = param_dict
 
         return func(cls(), options)
@@ -298,29 +307,62 @@ class EntryBuilder(ElementBuilder):
         short = self.config['short']
         return short
 
-    def generate_operation_element_code(self, element):
-        v0 = self.get_value(None, element[0])
-        v1 = self.get_value(None, element[1])
-        v2 = self.get_value(None, element[2])
-        c = f"{v0} {v1} {v2}"
-        # code = f"{code} {op} {c}" if code else f"{c}"
-        return c
+    # def generate_operation_element_code(self, element):
+    #     v0 = self.get_value(None, element[0])
+    #     v1 = self.get_value(None, element[1])
+    #     v2 = self.get_value(None, element[2])
+    #     c = f"{v0} {v1} {v2}"
+    #     # code = f"{code} {op} {c}" if code else f"{c}"
+    #     return c
 
-    def generate_condition_elements_code(self, code,   condition_elements):
-        op = condition_elements['op']
-        values = condition_elements['values']
-        for val in values:
-            if isinstance(val, list):
-                c = self.generate_operation_element_code(val)
-            else:
-                c = self.generate_condition_elements_code('', val)
-            code = f"{code} {op} {c}" if code else f"{c}"
-        return f"({code})"
+    # def generate_condition_elements_code(self, code,   condition_elements):
+    #     # op = condition_elements['op']
+    #     # values = condition_elements['values']
+    #     val = condition_elements
+    #     op = ''
+    #     # for val in values:
+    #     if isinstance(val, list):
+    #         c = self.generate_operation_element_code(val)
+    #     else:
+    #         # c = self.generate_condition_elements_code('', val)
+    #         c = val
+    #     code = f"{code} {op} {c}" if code else f"{c}"
+    #     return f"({code})"
+
+    # def generate_condition_elements_code(self, code,   condition_elements):
+    #     op = condition_elements['op']
+    #     values = condition_elements['values']
+    #     for val in values:
+    #         if isinstance(val, list):
+    #             c = self.generate_operation_element_code(val)
+    #         else:
+    #             c = self.generate_condition_elements_code('', val)
+    #         code = f"{code} {op} {c}" if code else f"{c}"
+    #     return f"({code})"
+    #
+    def get_expression_value(self, string):
+        v = self.get_value(None, string)
+        return True, v
+
+    def add_functions_dict(self, func):
+        func_obj = self.builder.find_functions_config(self.build_data, func)
+        if func_obj is None:
+            func_obj = self.builder.add_functions_config(self.build_data, None, func)
+        return func_obj.key
 
     def generate_condition_code(self, condition_config):
-        code = ''
-        for cc in condition_config:
-            code = self.generate_condition_elements_code(code, cc)
+        tpeac = TPEACParser(options=dict(get_expression_value=self.get_expression_value,
+                                         add_functions_dict=self.add_functions_dict))
+        if isinstance(condition_config, list):
+            code = tpeac.build_config_to_expression(condition_config)
+        elif isinstance(condition_config, str):
+            bc = tpeac.expression_to_build_config(condition_config)
+            code = tpeac.build_config_to_expression(bc)
+        else:
+            raise 'Error: Invalid condition format'
+        # code = ''
+        # for cc in condition_config:
+        #     code = self.generate_condition_elements_code(code, cc)
         return code
 
     def parse_order_config(self, config):
@@ -462,29 +504,41 @@ class EABuilder:
     def call_module_function(self, module, func, params):
         pass
 
-    def parse_runner_variables_config(self, build_data, strategy_name):
-        runner_config = self.builder_config['runner_config']
-        rc = runner_config[strategy_name]
+    def parse_template_variables_config(self, build_data, strategy_name):
+        template_config = self.builder_config['template_config']
+        rc = template_config[strategy_name]
         #
         variables = {}
         index = 0
         for key in rc['variables']:
             variables[key] = VariableBuilder(self, key, rc['variables'][key], index, build_data)
             index += 1
-        build_data['runner_variables'] = variables
+        build_data['template_variables'] = variables
         return build_data
 
-    def parse_strategy_variables_config(self, build_data, strategy_name):
-        strategy_config = self.builder_config['strategy_config']
-        sc = strategy_config[strategy_name]
-        #
-        variables = {}
-        index = 0
-        for key in sc['variables']:
-            variables[key] = VariableBuilder(self, key, sc['variables'][key], index, build_data)
-            index += 1
-        build_data['strategy_variables'] = variables
-        return build_data
+    # def parse_runner_variables_config(self, build_data, strategy_name):
+    #     runner_config = self.builder_config['runner_config']
+    #     rc = runner_config[strategy_name]
+    #     #
+    #     variables = {}
+    #     index = 0
+    #     for key in rc['variables']:
+    #         variables[key] = VariableBuilder(self, key, rc['variables'][key], index, build_data)
+    #         index += 1
+    #     build_data['runner_variables'] = variables
+    #     return build_data
+    #
+    # def parse_strategy_variables_config(self, build_data, strategy_name):
+    #     strategy_config = self.builder_config['strategy_config']
+    #     sc = strategy_config[strategy_name]
+    #     #
+    #     variables = {}
+    #     index = 0
+    #     for key in sc['variables']:
+    #         variables[key] = VariableBuilder(self, key, sc['variables'][key], index, build_data)
+    #         index += 1
+    #     build_data['strategy_variables'] = variables
+    #     return build_data
 
     def parse_variables_config(self, build_data, variables_config):
         variables = {}
@@ -504,15 +558,78 @@ class EABuilder:
         build_data['symbols'] = symbols
         return build_data
 
+    def add_functions_config(self, build_data, key, func_config, index=None):
+        functions = build_data['functions']
+        functions_md5 = build_data['functions_md5']
+        functions_names = build_data['functions_names']
+        #
+        if index is None:
+            index = len(functions)
+
+        if key is None:
+            func_name = func_config['name'].lower()
+            n = f"{func_name}"
+            name_list = functions_names.get(n, [])
+            i = len(name_list) + 1
+            key = n
+            while True:
+                key = f"{func_name}_{i}"
+                if key not in name_list:
+                    break
+                i += 1
+        #
+        func = FunctionBuilder(self, key, func_config, index, build_data)
+        functions[key] = func
+        functions_md5[func.md5] = func
+        fn = f"{func.name.lower()}"
+        name_list = functions_names.get(fn, [])
+        name_list.append(key)
+        functions_names[fn] = name_list
+        return func
+
+    def find_functions_config(self, build_data, func_config):
+        # functions = build_data['functions']
+        functions_md5 = build_data['functions_md5']
+        # functions_names = build_data['functions_names']
+        #
+        func = FunctionBuilder(self, None, func_config, 0, build_data)
+        #
+        ret = functions_md5.get(func.md5, None)
+        return ret
+
+
     def parse_functions_config(self, build_data, functions_config):
-        functions = {}
+        build_data['functions'] = {}
+        build_data['functions_md5'] = {}
+        build_data['functions_names'] = {}
         index = 0
         for key in functions_config:
-            functions[key] = FunctionBuilder(self, key, functions_config[key], index, build_data)
+            self.add_functions_config(build_data, key, functions_config[key], index)
             index += 1
-        build_data['functions'] = functions
+        # build_data['functions'] = functions
+        # build_data['functions_md5'] = functions_md5
+        # build_data['functions_names'] = functions_names
         return build_data
 
+    # def parse_functions_config(self, build_data, functions_config):
+    #     functions = {}
+    #     functions_md5 = {}
+    #     functions_names = {}
+    #     index = 0
+    #     for key in functions_config:
+    #         func = FunctionBuilder(self, key, functions_config[key], index, build_data)
+    #         functions[key] = func
+    #         functions_md5[func.md5] = func
+    #         fn = f"{func.name.lower()}"
+    #         name_list = functions_names.get(fn, [])
+    #         name_list.append(key)
+    #         functions_names[fn] = name_list
+    #         index += 1
+    #     build_data['functions'] = functions
+    #     build_data['functions_md5'] = functions_md5
+    #     build_data['functions_names'] = functions_names
+    #     return build_data
+    #
     def parse_options_config(self, build_data, options_config):
         default_options = dict(
             enable_trailing_profit=dict(default=True, type='bool',
@@ -622,8 +739,9 @@ class EABuilder:
                 return None
             trading = build_config['trading']
             coding = build_config['coding']
-            self.parse_runner_variables_config(build_data,  coding['runner']['name'])
-            self.parse_strategy_variables_config(build_data,  coding['strategy']['name'])
+            # self.parse_runner_variables_config(build_data,  coding['runner']['name'])
+            self.parse_template_variables_config(build_data,  coding['template']['name'])
+            # self.parse_strategy_variables_config(build_data,  coding['strategy']['name'])
             self.parse_variables_config(build_data, trading['variables'])
             self.parse_symbols_config(build_data, trading['symbols'])
             self.parse_functions_config(build_data, trading['functions'])
@@ -637,6 +755,10 @@ class EABuilder:
 
     def generate_entry_exit_code(self, build_data, options, code_type):
         codes = []
+        #
+        ed = build_data[code_type]
+        code = ed.build_code({})
+        #
         for key in build_data['symbols']:
             sd = build_data['symbols'][key]
             codes.append(sd.build_code(options))
@@ -646,9 +768,10 @@ class EABuilder:
             fd = build_data['functions'][key]
             codes.append(fd.build_code(options))
 
-        options = {}
-        ed = build_data[code_type]
-        codes.append(ed.build_code(options))
+        # options = {}
+        # ed = build_data[code_type]
+        # codes.append(ed.build_code(options))
+        codes.append(code)
         return codes
 
     def generate_ea_code(self, build_info):
@@ -665,7 +788,8 @@ class EABuilder:
                                             {"name": "bottom_signal", "color": "#e7dc48"}]
                   }})
             #
-            for var_cat in ('system_variables', 'runner_variables', 'strategy_variables', 'variables'):
+            # for var_cat in ('system_variables', 'runner_variables', 'strategy_variables', 'variables'):
+            for var_cat in ('system_variables', 'template_variables', 'variables'):
                 for key in build_data[var_cat]:
                     pd = build_data[var_cat][key]
                     variables_codes.append(pd.build_code(options))
@@ -690,32 +814,83 @@ class EABuilder:
                             script_settings=script_settings
                             )
             runner = dict(code=dict())
-            strategy_name = build_config['coding']['strategy']['name']
-            strategy_config = self.get_builder_config('strategy_config')
-            config_data = strategy_config[strategy_name]
+            template_name = build_config['coding']['template']['name']
+            template_config = self.get_builder_config('template_config')
+            config_data = template_config[template_name]
             j2_file = open(config_data['template_abs_path'])
             template = Template(j2_file.read())
-            strategy_class_code = template.render(strategy=strategy)
-            print(strategy_class_code)
-            runner['strategy_class_name'] = strategy['class_name']
-            runner['code']['strategy_class'] = strategy_class_code
-
-            # load strategy template
-            runner_name = build_config['coding']['runner']['name']
-            runner_config = self.get_builder_config('runner_config')
-            config_data = runner_config[runner_name]
-            j2_file = open(config_data['template_abs_path'])
-            template = Template(j2_file.read())
-            ret = template.render(runner=runner)
+            ret = template.render(strategy=strategy)
             print(ret)
         except:
             traceback.print_exc()
         return ret
+    #
+    # def generate_ea_code(self, build_info):
+    #     ret = None
+    #     try:
+    #         #
+    #         build_data = build_info['data']
+    #         build_config = build_info['config']
+    #         options = {}
+    #         variables_codes = []
+    #         valid_script_settings_codes = []
+    #         script_settings = dict(params={}, charts={"price": {"series": [
+    #                                         {"name": "top_signal", "color": "#89F3DAFF"},
+    #                                         {"name": "bottom_signal", "color": "#e7dc48"}]
+    #               }})
+    #         #
+    #         for var_cat in ('system_variables', 'runner_variables', 'strategy_variables', 'variables'):
+    #             for key in build_data[var_cat]:
+    #                 pd = build_data[var_cat][key]
+    #                 variables_codes.append(pd.build_code(options))
+    #                 ss = pd.get_script_settings()
+    #                 if pd.script_settings:
+    #                     script_settings['params'][pd.name] = ss
+    #                     vssc = pd.get_valid_script_settings_codes()
+    #                     if vssc is not None:
+    #                         valid_script_settings_codes.append(vssc)
+    #
+    #         entry_codes = self.generate_entry_exit_code(build_data, options, 'entry')
+    #         exit_codes = self.generate_entry_exit_code(build_data, options, 'exit')
+    #         #
+    #         pc = self.generate_code_string_list(variables_codes)
+    #         ecl = self.generate_code_string_list(entry_codes)
+    #         exl = self.generate_code_string_list(exit_codes)
+    #         vsscl = self.generate_code_string_list(valid_script_settings_codes)
+    #         # script_settings_code = json.dumps(script_settings, quote_keys=True)
+    #         strategy = dict(class_name=build_config['name'],
+    #                         code=dict(variables=pc, get_entry_data=ecl, get_exit_data=exl,
+    #                                   valid_script_settings=vsscl),
+    #                         script_settings=script_settings
+    #                         )
+    #         runner = dict(code=dict())
+    #         strategy_name = build_config['coding']['strategy']['name']
+    #         strategy_config = self.get_builder_config('strategy_config')
+    #         config_data = strategy_config[strategy_name]
+    #         j2_file = open(config_data['template_abs_path'])
+    #         template = Template(j2_file.read())
+    #         strategy_class_code = template.render(strategy=strategy)
+    #         print(strategy_class_code)
+    #         runner['strategy_class_name'] = strategy['class_name']
+    #         runner['code']['strategy_class'] = strategy_class_code
+    #
+    #         # load strategy template
+    #         runner_name = build_config['coding']['runner']['name']
+    #         runner_config = self.get_builder_config('runner_config')
+    #         config_data = runner_config[runner_name]
+    #         j2_file = open(config_data['template_abs_path'])
+    #         template = Template(j2_file.read())
+    #         ret = template.render(runner=runner)
+    #         print(ret)
+    #     except:
+    #         traceback.print_exc()
+    #     return ret
 
     def load_builder_config(self, config_path, builder_config):
         module_config = builder_config.get('module_config', {})
-        strategy_config = builder_config.get('strategy_config', {})
-        runner_config = builder_config.get('runner_config', {})
+        # strategy_config = builder_config.get('strategy_config', {})
+        # runner_config = builder_config.get('runner_config', {})
+        template_config = builder_config.get('template_config', {})
         config_dir = os.path.dirname(config_path)
         with open(config_path) as f:
             strategy_list = json.loads(f.read())
@@ -728,13 +903,17 @@ class EABuilder:
                         conf_name = conf_data['name']
                         builder_conf = module_config
                         check_abs_path_name = 'file'
-                    elif conf_type == 'strategy_config':
+                    # elif conf_type == 'strategy_config':
+                    #     conf_name = conf_data['name']
+                    #     builder_conf = strategy_config
+                    #     check_abs_path_name = 'template'
+                    # elif conf_type == 'runner_config':
+                    #     conf_name = conf_data['name']
+                    #     builder_conf = runner_config
+                    #     check_abs_path_name = 'template'
+                    elif conf_type == 'template_config':
                         conf_name = conf_data['name']
-                        builder_conf = strategy_config
-                        check_abs_path_name = 'template'
-                    elif conf_type == 'runner_config':
-                        conf_name = conf_data['name']
-                        builder_conf = runner_config
+                        builder_conf = template_config
                         check_abs_path_name = 'template'
                     else:
                         raise "Unknown conf type"
@@ -750,8 +929,9 @@ class EABuilder:
                     builder_conf[conf_name] = conf_data
         #
         builder_config['module_config'] = module_config
-        builder_config['strategy_config'] = strategy_config
-        builder_config['runner_config'] = runner_config
+        builder_config['template_config'] = template_config
+        # builder_config['strategy_config'] = strategy_config
+        # builder_config['runner_config'] = runner_config
 
         return builder_config
 
@@ -762,15 +942,20 @@ class EABuilder:
                 ret.append(os.path.join(config_path, filename))
         return ret
 
-    def build(self, config, output_path, format_code=True):
+    def build_code(self, config, format_code=False):
         #
         build_info = self.parse_build_config(config[0])
         ea_code = self.generate_ea_code(build_info)
         if ea_code is None:
-            return False
+            return None
         if format_code:
             ea_code = format_str(ea_code, mode=FileMode())
-        # print(ea_code)
+        return ea_code
+
+    def build(self, config, output_path, format_code=True):
+        ea_code = self.build_code(config, format_code=format_code)
+        if ea_code is None:
+            return False
         with open(output_path, "w") as f:
             f.write(ea_code)
         return True

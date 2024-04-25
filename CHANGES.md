@@ -1,5 +1,37 @@
 
 
+### [2024-04-25]
+#### Version:
+#####   Package:
+#####    pixiu: 0.137.*.20240425
+#####
+#### **Descriptions：**
+     1.Add tpeac_parser.py
+     2.Modified ea_builder.py:
+       1) get_value: '.' instead of '/'
+       2) generate_condition_elements_code
+       3) Add add_functions_config, find_functions_config
+     3.Remove strategy_base.json, runner_base.json, ea_strategy_base.j2, ea_runner_base.j2 
+       
+
+### [2024-04-23]
+#### Version:
+#####   Package:
+#####    pixiu: 0.136.*.20240423
+#####
+#### **Descriptions：**
+     1.Modified ea_builder.py:
+       
+
+### [2024-04-22]
+#### Version:
+#####   Package:
+#####    pixiu: 0.135.*.20240422
+#####
+#### **Descriptions：**
+     1.Modified ea_builder.py:
+       1) Add build_code
+
 ### [2024-03-11]
 #### Version:
 #####   Package:

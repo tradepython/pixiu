@@ -21,30 +21,30 @@
         "symbols": {
           "current_symbol_d1": {
             "symbol": 0,
-            "timeframe": "@variables/timeframe_d1",
+            "timeframe": "@variables.timeframe_d1",
             "size": 60
           },
           "current_symbol": {
             "symbol": 0,
-            "timeframe": "@var/timeframe",
+            "timeframe": "@var.timeframe",
             "size": 60
           }
         },
         "functions": {
             "adx": {"module": "indicator", "name": "ADX",
-              "params": {"symbol_data": "@symbols/current_symbol_d1", "period": "@var/adx_period", "shift": 0}
+              "params": {"symbol_data": "@symbols.current_symbol_d1", "period": "@var.adx_period", "shift": 0}
             },
             "ma_near": {"module": "indicator", "name": "MA",
-              "params": {"symbol_data": "@symbols/current_symbol.close", "period": "@var/near_period", "shift": 0, "matype": 0}
+              "params": {"price_data": "@symbols.current_symbol.close", "period": "@var.near_period", "shift": 0, "matype": 0}
             },
             "ma_far": {"module": "indicator", "name": "MA",
-              "params": {"symbol_data": "@symbols/current_symbol.close", "period": "@var/far_period", "shift": 0, "matype": 0}
+              "params": {"price_data": "@symbols.current_symbol.close", "period": "@var.far_period", "shift": 0, "matype": 0}
             },
             "tema_near": {"module": "indicator", "name": "TEMA",
-              "params": {"symbol_data": "@symbols/current_symbol.close", "period": "@var/near_period", "shift": 0}
+              "params": {"price_data": "@symbols.current_symbol.close", "period": "@var.near_period", "shift": 0}
             },
             "tema_far": {"module": "indicator", "name": "TEMA",
-              "params": {"symbol_data": "@sym/current_symbol.close", "period": "@var/far_period", "shift": 0}
+              "params": {"price_data": "@sym.current_symbol.close", "period": "@var.far_period", "shift": 0}
             }
         },
         "entry": {
@@ -131,15 +131,19 @@
           },
           "long": {
             "condition": [
+                  ["@functions.adx", ">", "@var.adx"], "and", ["@functions.ma_near", ">", "@functions.ma_far"], "and", ["@functions.tema_near", ">", "@functions.tema_far"],
+                    "and", [["@functions.adx", ">", "@var.adx"], "or", ["@func.ma_near", ">", "@functions.ma_far"]]
+            ],
+            "condition0": [
               {"op": "and",
                 "values": [
-                  ["@functions/adx", ">", "@var/adx"],
-                  ["@functions/ma_near", ">", "@functions/ma_far"],
-                  ["@functions/tema_near", ">", "@functions/tema_far"],
+                  ["@functions.adx", ">", "@var.adx"],
+                  ["@functions.ma_near", ">", "@functions.ma_far"],
+                  ["@functions.tema_near", ">", "@functions.tema_far"],
                   {"op": "or",
                         "values": [
-                            ["@functions/adx", ">", "@var/adx"],
-                            ["@func/ma_near", ">", "@functions/ma_far"]
+                            ["@functions.adx", ">", "@var.adx"],
+                            ["@func.ma_near", ">", "@functions.ma_far"]
                         ]
                   }
                 ]
@@ -147,25 +151,28 @@
             ]
           },
           "short": {
-            "condition": [
+            "condition": "indicator.ADX(@symbols.current_symbol_d1, @var.adx_period, 0) < @var.adx and indicator.MA(@symbols.current_symbol.close, @var.near_period, 0, 0) < indicator.MA(@symbols.current_symbol.close, @var.far_period, 0, 0)",
+            "condition0": [
               {"op": "and", "values": [
-                ["@functions/adx", "<", "@var/adx"],
-                ["@functions/ma_near", "<", "@functions/ma_far"]
+                ["@functions.adx", "<", "@var.adx"],
+                ["@functions.ma_near", "<", "@functions.ma_far"]
               ]}
             ]
           }
         },
         "exit": {
           "long": {
-            "condition": [
+            "condition": [["@functions.adx", "<", "@var.adx"], "and", ["@functions.ma_near", "<", "@functions.ma_far"], "and", [["@functions.adx", "<", "@var.adx"], "or",
+              ["@functions.ma_near", "<", "@functions.ma_far"]]],
+            "condition0": [
               {"op": "and",
                 "values": [
-                  ["@functions/adx", "<", "@var/adx"],
-                  ["@functions/ma_near", "<", "@functions/ma_far"],
+                  ["@functions.adx", "<", "@var.adx"],
+                  ["@functions.ma_near", "<", "@functions.ma_far"],
                   {"op": "or",
                         "values": [
-                            ["@functions/adx", "<", "@var/adx"],
-                            ["@functions/ma_near", "<", "@functions/ma_far"]
+                            ["@functions.adx", "<", "@var.adx"],
+                            ["@functions.ma_near", "<", "@functions.ma_far"]
                         ]
                   }
                 ]
@@ -173,10 +180,11 @@
             ]
           },
           "short": {
-            "condition": [
+            "condition": [["@functions.adx", ">", "@var.adx"], "and", ["@functions.ma_near", ">", "@functions.ma_far"]],
+            "condition0": [
               {"op": "and", "values": [
-                ["@functions/adx", ">", "@var/adx"],
-                ["@functions/ma_near", ">", "@functions/ma_far"]
+                ["@functions.adx", ">", "@var.adx"],
+                ["@functions.ma_near", ">", "@functions.ma_far"]
               ]}
             ]
           }
@@ -191,8 +199,9 @@
         }
       },
       "coding": {
-        "strategy": {"name": "StrategyBase", "version": "1.00.00"},
-        "runner": {"name": "EAStrategyRunner", "version": "1.07.00"}
+//        "strategy": {"name": "StrategyBase", "version": "1.00.00"},
+//        "runner": {"name": "EAStrategyRunner", "version": "1.07.00"},
+        "template": {"name": "DefaultStrategy", "version": "1.07.00"}
         }
 
     }

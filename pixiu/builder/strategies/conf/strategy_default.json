@@ -1,10 +1,15 @@
 [
   {
-    "strategy_config": {
+    "template_config": {
       "version": "v1.0alpha",
-      "name": "StrategyBase",
-      "template": "../templates/ea_strategy_base.j2",
+      "name": "DefaultStrategy",
+      "template": "../templates/ea_strategy_default.j2",
       "variables": {
+          "debug_print": {
+            "type": "bool",
+            "value": true,
+            "script_settings": true
+          },
           "notify": {
             "type": "bool",
             "value": false
