@@ -199,8 +199,6 @@
         }
       },
       "coding": {
-//        "strategy": {"name": "StrategyBase", "version": "1.00.00"},
-//        "runner": {"name": "EAStrategyRunner", "version": "1.07.00"},
         "template": {"name": "DefaultStrategy", "version": "1.07.00"}
         }
 

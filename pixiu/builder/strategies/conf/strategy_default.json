@@ -75,7 +75,9 @@
             "required": false,
             "script_settings": true
           }
-        }
+        },
+      "entry": "get_entry_data",
+      "exit": "get_exit_data"
     }
   }
 ]

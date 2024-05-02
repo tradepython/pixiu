@@ -808,19 +808,26 @@ class EABuilder:
             exl = self.generate_code_string_list(exit_codes)
             vsscl = self.generate_code_string_list(valid_script_settings_codes)
             # script_settings_code = json.dumps(script_settings, quote_keys=True)
-            strategy = dict(class_name=build_config['name'],
-                            code=dict(variables=pc, get_entry_data=ecl, get_exit_data=exl,
-                                      valid_script_settings=vsscl),
-                            script_settings=script_settings
-                            )
-            runner = dict(code=dict())
             template_name = build_config['coding']['template']['name']
             template_config = self.get_builder_config('template_config')
             config_data = template_config[template_name]
+            template_code = dict(variables=pc, get_entry_data=ecl, get_exit_data=exl,
+                        valid_script_settings=vsscl)
+            if isinstance(config_data['entry'], str):
+                entry_func_name = config_data['entry']
+            if isinstance(config_data['exit'], str):
+                exit_func_name = config_data['exit']
+            template_code[entry_func_name] = ecl
+            template_code[exit_func_name] = exl
+            strategy = dict(class_name=build_config['name'],
+                            code=template_code,
+                            script_settings=script_settings
+                            )
+
             j2_file = open(config_data['template_abs_path'])
             template = Template(j2_file.read())
             ret = template.render(strategy=strategy)
-            print(ret)
+            # print(ret)
         except:
             traceback.print_exc()
         return ret

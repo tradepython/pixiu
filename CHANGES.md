@@ -1,5 +1,24 @@
 
 
+### [2024-05-02]
+#### Version:
+#####   Package:
+#####    pixiu: 0.139.*.20240502
+#####
+#### **Descriptions：**
+     1.Modified ea_optimizer.py:
+       1) Add parse_config_file
+       2) Add generate_optimization_code
+
+### [2024-04-26]
+#### Version:
+#####   Package:
+#####    pixiu: 0.138.*.20240426
+#####
+#### **Descriptions：**
+     1.Modified ea_builder.py:
+       1) Add entry_func_name, exit_func_name support
+
 ### [2024-04-25]
 #### Version:
 #####   Package:

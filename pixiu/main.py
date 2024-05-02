@@ -402,8 +402,8 @@ class MainApp:
             ea_builder.build(build_config, ea_output_path)
 
     def optimize_ea(self, config_file, ea_output_path, mode='fast'):
-        ea_optimizer = EAOptimizer({})
-        ea_optimizer.optimize(config_file, ea_output_path, mode=mode)
+        ea_optimizer = EAOptimizer(dict(config_file_path=config_file, output_path=ea_output_path,))
+        ea_optimizer.optimize(options=dict(mode=mode))
 
 
 

@@ -31,10 +31,12 @@ class EAOptimizer:
 
     def __init__(self, params):
         super(object, self).__init__()
+        self.config_file_path = params.get('config_file_path', None)
+        self.output_path = params.get('output_path', None)
+        self.optimization_config = None
         self.symbols = []
         self.variables = {}
         self.name = None
-        self.source = None
         self.stop_optimize = False
         self.opt_tasks_info_dict = {'tasks': {}, 'reports': {}}
         self.report_item_template = {
@@ -68,30 +70,54 @@ class EAOptimizer:
             "max_consecutive_losses_money": {},
             }
 
-    def config_path_to_abs_path(self, config_file_path, file_path):
+    def get_source_code(self):
+        source = self.config_path_to_abs_path(self.optimization_config['source'])
+        code = open(source).read()
+        return code
+
+    def get_test_config(self):
+        test_config = self.config_path_to_abs_path(self.optimization_config['test_config'])
+        return test_config
+
+    def get_symbols(self):
+        symbols = self.optimization_config['optimization']['symbols']
+        return symbols
+
+    def get_variables(self):
+        variables = self.optimization_config['optimization']['variables']
+        return variables
+
+    def config_path_to_abs_path(self, file_path):
         ret = file_path
         if not os.path.isabs(file_path):
-            d = os.path.dirname(config_file_path)
+            d = os.path.dirname(self.config_file_path)
             ret = os.path.abspath(os.path.join(d, file_path))
         return ret
 
-    def parse_config(self, config_file):
-        with open(config_file) as f:
+    def load_config_file(self):
+        with open(self.config_file_path) as f:
             config_string = f.read()
             config = json.loads(config_string)
-        optimization_config = config[0]['optimization_config']
-        self.name = optimization_config['name']
-        self.source = self.config_path_to_abs_path(config_file, optimization_config['source'])
-        source_md5 = hashlib.md5(open(self.source, 'rb').read()).hexdigest()
+            self.optimization_config = config[0]['optimization_config']
+
+    def parse_config(self):
+        if not self.optimization_config:
+            return None
+        self.name = self.optimization_config['name']
+        # self.source = self.config_path_to_abs_path(self.optimization_config['source'])
+        code = self.get_source_code()
+        # source_md5 = hashlib.md5(open(self.source, 'rb').read()).hexdigest()
+        source_md5 = hashlib.md5(code.encode('utf-8')).hexdigest()
         #
-        symbols = optimization_config['optimization']['symbols']
+        symbols = self.get_symbols()
+        variables = self.get_variables()
         variables_dict = {}
         var_list_dict = {}
         flag_list = []
-        for var in optimization_config['optimization']['variables']:
-            var_name = optimization_config['optimization']['variables'][var].get('name', None)
+        for var in variables:
+            var_name = variables[var].get('name', None)
             var_name = var if var_name is None else var_name
-            var_val = optimization_config['optimization']['variables'][var]
+            var_val = variables[var]
             self.variables[var_name] = var_val
             flag_list.append(f"{var_name}-{var_val['start']}-{var_val['stop']}-{var_val['step']}")
             for v in range(var_val['start'], var_val['stop'], var_val['step']):
@@ -120,15 +146,19 @@ class EAOptimizer:
         flag_list.sort()
         flag = source_md5 + '-' + '-'.join(flag_list)
         flag_uid = hashlib.md5(flag.encode("utf-8")).hexdigest()
-        test_config = self.config_path_to_abs_path(config_file, optimization_config['test_config'])
+        test_config = self.get_test_config()
         opt_config = dict(type="optimization_config", config_uid=flag_uid,
                           symbols=symbols,
                           variables=opt_var_config,
                           test_config=test_config,
-                          test_log_config=optimization_config['test_log_config'],
+                          test_log_config=self.optimization_config['test_log_config'],
                           time_utc=datetime.utcnow().isoformat(),
                           ts_utc=datetime.utcnow().timestamp())
         return opt_config
+
+    def valid_config(self):
+        return True
+
 
     def make_opt_config_file_path(self, file_name, opt_config_path):
         file_path = os.path.abspath(os.path.join(opt_config_path, f"{file_name}.json"))
@@ -149,12 +179,7 @@ class EAOptimizer:
             traceback.print_exc()
         return None
 
-    def generate_optimization_code_file(self, file_path, config):
-        source = open(self.source).read()
-        gloabl_dict = dict()
-        local_dict = dict()
-        # values_config = dict(ADX=123, ADX_PERIOD=456, NEAR_PERIOD=789, FAR_PERIOD=101112)
-        values_config = config['variables']
+    def generate_optimization_code(self, source, values_config, result=None):
         ps = ast.parse(source)
         for element in ps.body:
             if isinstance(element, ast.Assign):
@@ -164,18 +189,49 @@ class EAOptimizer:
                         if element_id in values_config:
                             new_val = values_config[element_id]
                             if new_val:
-                                element.value.value = new_val #ast.Constant(value=new_val)
-        # code = compile(source, file_path, 'exec')
-        # exec(code, gloabl_dict, local_dict)
-        new_source = astunparse.unparse(ps)
-        # code = compile(new_source, file_path, 'exec')
-        # exec(code, gloabl_dict, local_dict)
+                                element.value.value = new_val
+                                if result is not None:
+                                    result[element_id] = dict(result=0, )
+        return ps
+
+    def generate_optimization_code_file(self, file_path, config):
+        code = self.get_source_code()
+        values_config = config['variables']
+        ps = self.generate_optimization_code(code, values_config)
+        new_code = astunparse.unparse(ps)
         with open(file_path, 'w') as f:
-            f.write(new_source)
-        code_md5 = hashlib.md5(new_source.encode("utf-8")).hexdigest()
+            f.write(new_code)
+        code_md5 = hashlib.md5(new_code.encode("utf-8")).hexdigest()
         config['code_md5'] = code_md5
         config['script_path'] = file_path
 
+   # def generate_optimization_code_file(self, file_path, config):
+   #      source = self.get_source_code()
+   #      gloabl_dict = dict()
+   #      local_dict = dict()
+   #      # values_config = dict(ADX=123, ADX_PERIOD=456, NEAR_PERIOD=789, FAR_PERIOD=101112)
+   #      values_config = config['variables']
+   #      ps = ast.parse(source)
+   #      for element in ps.body:
+   #          if isinstance(element, ast.Assign):
+   #              if isinstance(element.targets[0], ast.Name):
+   #                  if isinstance(element.targets[0].ctx, ast.Store):
+   #                      element_id = element.targets[0].id
+   #                      if element_id in values_config:
+   #                          new_val = values_config[element_id]
+   #                          if new_val:
+   #                              element.value.value = new_val #ast.Constant(value=new_val)
+   #      # code = compile(source, file_path, 'exec')
+   #      # exec(code, gloabl_dict, local_dict)
+   #      new_source = astunparse.unparse(ps)
+   #      # code = compile(new_source, file_path, 'exec')
+   #      # exec(code, gloabl_dict, local_dict)
+   #      with open(file_path, 'w') as f:
+   #          f.write(new_source)
+   #      code_md5 = hashlib.md5(new_source.encode("utf-8")).hexdigest()
+   #      config['code_md5'] = code_md5
+   #      config['script_path'] = file_path
+   #
     def run_tester(self, test_config_path, test_name, script_path, log_path, print_log_type, result_value):
         try:
             pxt = PXTester(test_config_path=test_config_path, test_name=test_name, script_path=script_path,
@@ -450,9 +506,9 @@ class EAOptimizer:
         opt_config_path = os.path.join(output_path, d)
         return opt_config_path
 
-    def stats(self, config_file, output_path):
-        opt_config = self.parse_config(config_file)
-        opt_config_path = self.make_config_path(opt_config, output_path)
+    def stats(self):
+        opt_config = self.parse_config_file()
+        opt_config_path = self.make_config_path(opt_config, self.output_path)
         self._stats(opt_config, opt_config_path)
 
     def output_report(self, symbol, tag, opt_config, report_config, report_items):
@@ -542,9 +598,9 @@ class EAOptimizer:
         row.append(v)
         return report_str
 
-    def show_stats(self, config_file, output_path, symbols=None):
-        opt_config = self.parse_config(config_file)
-        opt_config_path = self.make_config_path(opt_config, output_path)
+    def show_stats(self, symbols=None):
+        opt_config = self.parse_config_file()
+        opt_config_path = self.make_config_path(opt_config, self.output_path)
         config_uid = opt_config['config_uid']
         if symbols is None:
             symbols = opt_config['symbols']
@@ -566,12 +622,21 @@ class EAOptimizer:
             tag = f"{symbol}({config_uid})"
             self.output_report(symbol, tag, opt_config, report_config, report_items=report_items)
 
-    def optimize(self, config_file, output_path, max_tasks=os.cpu_count(), mode='fast'):
+    def optimize(self, options):
+        max_tasks = options.get('max_tasks', os.cpu_count())
+        mode = options.get('mode', 'fast')
+        #
+        if self.config_file_path:
+            self.load_config_file()
+        opt_config = self.parse_config()
+        if opt_config is None:
+            print(f"Error: parse config")
+            return
+        #
         opt_start_time = datetime.now()
         pixiu_version = pkg_resources.get_distribution('pixiu').version
         print(f"\n\n == PiXiu({pixiu_version}) Optimization Start: {opt_start_time} \n\n")
-        opt_config = self.parse_config(config_file)
-        opt_config_path = self.make_config_path(opt_config, output_path)
+        opt_config_path = self.make_config_path(opt_config, self.output_path)
         os.makedirs(opt_config_path, exist_ok=True)
         file_name = opt_config['config_uid']
         file_path = self.make_opt_config_file_path(file_name, opt_config_path)
@@ -617,7 +682,7 @@ class EAOptimizer:
         pool.close()
         pool.join()
         opt_end_time = datetime.now()
-        print(f"\n\n == PiXiu Backtesting End: {opt_end_time}, Total Time: {(opt_end_time - opt_start_time).total_seconds()} sec, {config_file} == \n\n")
+        print(f"\n\n == PiXiu Backtesting End: {opt_end_time}, Total Time: {(opt_end_time - opt_start_time).total_seconds()} sec, {self.config_file_path} == \n\n")
 
-        self.show_stats(config_file, output_path)
+        self.show_stats()
 
