@@ -799,11 +799,11 @@ iStochastic(self, symbol_data, fastk_period, slowk_period, slowk_matype, slowd_p
            Returns:
                    Stochastic
 
-iTEMA(self, symbol_data, timeperiod, shift=0)
+iTEMA(self, price_data, timeperiod, shift=0)
    Triple Exponential Moving Average (Overlap Studies)
 
            Parameters:
-                   symbol_data (object): The symbol data.
+                   price_data (object): The price data.
                    timeperiod (int): The time period.
                    shift: Index of the value taken from the buffer
                    (shift relative to the current the given amount of periods ago).

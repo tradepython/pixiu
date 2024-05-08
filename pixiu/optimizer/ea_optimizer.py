@@ -100,6 +100,20 @@ class EAOptimizer:
             config = json.loads(config_string)
             self.optimization_config = config[0]['optimization_config']
 
+    def calculate_optimization_task_count(self):
+        variables = self.get_variables()
+        task_count = 1
+        for var in variables:
+            var_name = variables[var].get('name', None)
+            var_name = var if var_name is None else var_name
+            var_val = variables[var]
+            task_count *= (var_val['stop'] - var_val['start']) / var_val['step']
+        return task_count
+
+    def generate_variable_md5(self, variable_dict):
+        md5 = hashlib.md5(json.dumps(variable_dict, sort_keys=True).encode('utf-8')).hexdigest()
+        return md5
+
     def parse_config(self):
         if not self.optimization_config:
             return None
@@ -135,12 +149,10 @@ class EAOptimizer:
         opt_var_config = {}
         for prd in prd_list:
             val = {}
-            key = ""
             for p in prd:
                 v = variables_dict[p]
                 val[v[0]] = v[1]
-                key = f"{key}-{p}" if key else f"{p}"
-                key = hashlib.md5(key.encode("utf-8")).hexdigest()
+            key = self.generate_variable_md5(val)
             opt_var_config[key] = val
         #
         flag_list.sort()
@@ -156,9 +168,64 @@ class EAOptimizer:
                           ts_utc=datetime.utcnow().timestamp())
         return opt_config
 
+    # def parse_config(self):
+    #     if not self.optimization_config:
+    #         return None
+    #     self.name = self.optimization_config['name']
+    #     # self.source = self.config_path_to_abs_path(self.optimization_config['source'])
+    #     code = self.get_source_code()
+    #     # source_md5 = hashlib.md5(open(self.source, 'rb').read()).hexdigest()
+    #     source_md5 = hashlib.md5(code.encode('utf-8')).hexdigest()
+    #     #
+    #     symbols = self.get_symbols()
+    #     variables = self.get_variables()
+    #     variables_dict = {}
+    #     var_list_dict = {}
+    #     flag_list = []
+    #     for var in variables:
+    #         var_name = variables[var].get('name', None)
+    #         var_name = var if var_name is None else var_name
+    #         var_val = variables[var]
+    #         self.variables[var_name] = var_val
+    #         flag_list.append(f"{var_name}-{var_val['start']}-{var_val['stop']}-{var_val['step']}")
+    #         for v in range(var_val['start'], var_val['stop'], var_val['step']):
+    #             n = f"{var_name}_{v}"
+    #             variables_dict[n] = (var_name, v)
+    #             vl = var_list_dict.get(var_name, [])
+    #             vl.append(n)
+    #             var_list_dict[var_name] = vl
+    #     #
+    #     var_list = []
+    #     for key in var_list_dict:
+    #         var_list.append(var_list_dict[key])
+    #
+    #     prd_list = list(itertools.product(*var_list))
+    #     opt_var_config = {}
+    #     for prd in prd_list:
+    #         val = {}
+    #         key = ""
+    #         for p in prd:
+    #             v = variables_dict[p]
+    #             val[v[0]] = v[1]
+    #             key = f"{key}-{p}" if key else f"{p}"
+    #             key = hashlib.md5(key.encode("utf-8")).hexdigest()
+    #         opt_var_config[key] = val
+    #     #
+    #     flag_list.sort()
+    #     flag = source_md5 + '-' + '-'.join(flag_list)
+    #     flag_uid = hashlib.md5(flag.encode("utf-8")).hexdigest()
+    #     test_config = self.get_test_config()
+    #     opt_config = dict(type="optimization_config", config_uid=flag_uid,
+    #                       symbols=symbols,
+    #                       variables=opt_var_config,
+    #                       test_config=test_config,
+    #                       test_log_config=self.optimization_config['test_log_config'],
+    #                       time_utc=datetime.utcnow().isoformat(),
+    #                       ts_utc=datetime.utcnow().timestamp())
+    #     return opt_config
+
     def valid_config(self):
         return True
-
 
     def make_opt_config_file_path(self, file_name, opt_config_path):
         file_path = os.path.abspath(os.path.join(opt_config_path, f"{file_name}.json"))

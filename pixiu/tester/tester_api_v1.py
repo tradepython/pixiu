@@ -450,14 +450,14 @@ class TesterAPI_V1(API_V1_Base):
         return self.__get_indicator__(f"stochastic:{fastk_period}:{slowk_period}:{slowk_matype}:{slowd_period}:{slowd_matype}", shift, IndicatiorID.STOCHASTIC, symbol_data,
                                       fastk_period, slowk_period, slowk_matype, slowd_period, slowd_matype)
 
-    def iTEMA(self, symbol_data, timeperiod, shift=0):
+    def iTEMA(self, price_data, timeperiod, shift=0):
         '''
         Triple Exponential Moving Average
         Parameters
-            symbol_data:
+            price_data:
         '''
         # real = ADX(high, low, close, timeperiod=14)
-        return self.__get_indicator__(f"tema:{timeperiod}", shift, IndicatiorID.TEMA, symbol_data, timeperiod)
+        return self.__get_indicator__(f"tema:{timeperiod}", shift, IndicatiorID.TEMA, price_data, timeperiod)
 
     def iWPR(self, symbol_data, timeperiod, shift=0):
         '''

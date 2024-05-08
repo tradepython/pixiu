@@ -804,12 +804,12 @@ class APIStub(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def iTEMA(self, symbol_data, timeperiod, shift=0):
+    def iTEMA(self, price_data, timeperiod, shift=0):
         '''
         Triple Exponential Moving Average (Overlap Studies)
 
                 Parameters:
-                        symbol_data (object): The symbol data.
+                        price_data (object): The symbol data.
                         timeperiod (int): The time period.
                         shift: Index of the value taken from the buffer
                         (shift relative to the current the given amount of periods ago).

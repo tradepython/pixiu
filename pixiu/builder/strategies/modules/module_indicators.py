@@ -21,7 +21,7 @@ class IndicatorModule:
     def ma(self, options):
         """Calculates the Moving Average indicator and returns its value."""
         code = self.generate_code("iMA", options, (
-            {"name": "price_data", "val_name": "symbol_data"},
+            {"name": "price_data", "val_name": "price_data"},
             {"name": "period", "val_name": "timeperiod"}, "shift", "matype"))
         return code
 
@@ -134,7 +134,7 @@ class IndicatorModule:
 
     def tema(self, options):
         """Triple Exponential Moving Average (Overlap Studies)"""
-        code = self.generate_code("iTEMA", options, ({"name": "price_data", "val_name": "symbol_data"},
+        code = self.generate_code("iTEMA", options, ({"name": "price_data", "val_name": "price_data"},
                                                     {"name": "period", "val_name": "timeperiod"},
                                                     "shift"))
         return code

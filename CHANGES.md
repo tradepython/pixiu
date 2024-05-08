@@ -1,5 +1,17 @@
 
 
+### [2024-05-08]
+#### Version:
+#####   Package:
+#####    pixiu: 0.140.*.20240508
+#####
+#### **Descriptions：**
+     1.Modified api.py:
+       1) iTEMA: symbol_data -> price_data
+     2.Modified ea_optimizer.py:
+       1) Add calculate_optimization_task_count, generate_variable_md5
+        
+
 ### [2024-05-02]
 #### Version:
 #####   Package:
