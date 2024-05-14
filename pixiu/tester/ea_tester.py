@@ -55,6 +55,14 @@ class TickMode():
 MAX_DATA_LENGTH = 1048576 #1MB
 class EATester(EABase):
     """EA Tester"""
+    FM_MAX_DRAWDOWN_UPDATED           = 0b0000000000000001
+    FM_TRADE_MAX_LOSS_UPDATED         = 0b0000000000000010
+    FM_TRADE_MAX_PROFIT_UPDATED       = 0b0000000000000100
+    FM_MAX_CONSECUTIVE_WINS_UPDATED   = 0b0000000000001000
+    FM_MAX_CONSECUTIVE_LOSSES_UPDATED = 0b0000000000010000
+    FM_START                          = 0b0000000000100000
+    FM_END                            = 0b0000000001000000
+
     def __init__(self, params):
         super(EATester, self).__init__(params)
         #
@@ -162,22 +170,23 @@ class EATester(EABase):
         # self.current_api = TesterAPI_V1(tester=self, data_source={}, default_symbol=self.symbol)
         self.current_api = self.get_api()
         self.data = {DataScope.EA_VERSION: {}, DataScope.EA: {}, DataScope.ACCOUNT: {}, DataScope.EA_SETTIGNS: {}}
+        self.set_errid(EID_OK)
         #
+        self.reset_flags()
+
+    def set_errid(self, errid):
+        self.errid = errid
+
+    def get_errid(self):
+        return self.errid
+
+    def reset_flags(self):
+        self.flags = 0
+        # self.flags = dict(max_drawdown_updated=False, trade_max_loss_updated=False,
+        #                   max_consecutive_wins_updated=False, max_consecutive_losses_updated=False)
 
     def get_api(self):
         return TesterAPI_V1(tester=self, data_source={}, default_symbol=self.symbol)
-
-    # def parse_script(self, script_text):
-    #     ret = {}
-    #     try:
-    #         ret = EABase.parse_script_text(script_text)
-    #         script_init_settings = {}
-    #         r = self.get_script_init_settings(script_text)
-    #         if 'script_settings' in r:
-    #             ret['script_settings'] = r['script_settings']
-    #     except:
-    #         traceback.print_exc()
-    #     return ret
 
     def add_chart(self, name, **kwargs):
         try:
@@ -223,76 +232,6 @@ class EATester(EABase):
             traceback.print_exc()
             return False
         return True
-
-    # def get_script_init_settings(self, script_text):
-    #     ret = {}
-    #     try:
-    #         if not script_text or not isinstance(script_text, str):
-    #             return ret
-    #         sg = safe_globals.copy()
-    #         # sg['AddChart'] = EABase({}).add_chart
-    #         # sg['AddParam'] = EABase({}).add_param
-    #         # sg['_print_'] = EABase({}).fake
-    #         # sg['assertTrue'] = EABase({}).fake
-    #         # sg['assertEqual'] = EABase({}).fake
-    #         # sg['RunMode'] = EABase({}).fake
-    #         # sg['RunModeValue'] = EABase({}).fake
-    #         # sg['TimeFrame'] = EABase({}).fake
-    #         loc = {}
-    #         # self.import_module('pixiu.api.errors', self.safe_globals)
-    #         api = TesterAPI_V1(tester=self, data_source={}, default_symbol="")
-    #         api.set_fun(sg)
-    #         for k in self.global_values:
-    #             sg[k] = self.global_values[k]
-    #         #
-    #         self.current_tick_index = 0
-    #         # self.tick_info = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0]],
-    #         self.tick_info = np.zeros((1,),
-    #                  dtype=[('s', object), ('t', float), ('o', float), ('h', float), ('c', float),
-    #                     ('l', float), ('v', float), ('a', float), ('b', float), ])
-    #         self.account_info = None
-    #         self.add_ea_settings = dict(charts={}, params={})
-    #
-    #         #
-    #         # for k in sg:
-    #         #     sg[k] = self.global_values[k]
-    #
-    #         # keywords = ['author', 'copyright', 'name', 'version', 'label', 'script_settings', 'lib', 'library']
-    #         lib_bc = EABase.compile(script_text, 'init_script')
-    #         # ret = eval(lib_bc, "InitConfig()")
-    #         try:
-    #             exec(lib_bc, sg)
-    #         except:
-    #             # traceback.print_exc()
-    #             pass
-    #         # exec PX_InitScriptSettings
-    #         script_settings = {}
-    #         try:
-    #             settings = eval("PX_InitScriptSettings()", sg)
-    #             if isinstance(settings, dict):
-    #                 script_settings = settings.copy()
-    #         except:
-    #             traceback.print_exc()
-    #
-    #         #copy add ea settings
-    #         for cn in self.add_ea_settings['charts']:
-    #             script_settings['charts'][cn] = self.add_ea_settings['charts'][cn].copy()
-    #         for pn in self.add_ea_settings['params']:
-    #             script_settings['params'][pn] = self.add_ea_settings['params'][pn].copy()
-    #         # ret2 = eval("EA_InitScriptSettings", sg)()
-    #         try:
-    #             valid_ret = eval(f"PX_ValidScriptSettings", sg)(script_settings)
-    #             if valid_ret is not None:
-    #                 if not valid_ret['success']:
-    #                     print(f"PX_ValidScriptSettings: errmsg={valid_ret.get('errmsg', None)}")
-    #                     return None
-    #         except:
-    #             # traceback.print_exc()
-    #             pass
-    #         ret['script_settings'] = script_settings
-    #     except:
-    #         traceback.print_exc()
-    #     return ret
 
     def percent_str_to_float(self, val, default):
         try:
@@ -1528,10 +1467,13 @@ class EATester(EABase):
         if self.report['max_drawdown']['value'] > self.temp['max_drawdown']:
             self.report['max_drawdown']['value'] = self.temp['max_drawdown']
             self.report['max_drawdown_rate']['value'] = self.temp['max_drawdown_rate']
+            # self.flags['max_drawdown_updated'] = True
+            self.flags |= EATester.FM_MAX_DRAWDOWN_UPDATED
 
     def __update_report__(self, is_long, profit, trades=1):
+        ret = False
         if profit == 0:
-            return
+            return ret
         profit = round(profit, self.default_digits)
         if profit > 0:
             self.report['profit_trades']['value'] += trades
@@ -1541,6 +1483,9 @@ class EATester(EABase):
 
             if self.report['trade_max_profit']['value'] < profit:
                 self.report['trade_max_profit']['value'] = profit
+                # self.flags['trade_max_profit_updated'] = True
+                self.flags |= EATester.FM_TRADE_MAX_PROFIT_UPDATED
+
             if is_long:
                 self.report['long_positions_win']['value'] += trades
             else:
@@ -1559,6 +1504,8 @@ class EATester(EABase):
 
             if np.isnan(self.report['trade_max_loss']['value']) or self.report['trade_max_loss']['value'] > profit:
                 self.report['trade_max_loss']['value'] = profit
+                # self.flags['trade_max_loss_updated'] = True
+                self.flags |= EATester.FM_TRADE_MAX_LOSS_UPDATED
 
             self.temp['consecutive_losses'] += trades
             self.temp['consecutive_losses_money'] = self.temp['consecutive_losses_money'] + profit
@@ -1569,13 +1516,13 @@ class EATester(EABase):
         #max dd
         if self.temp['account_max_equity'] < self.account['equity']:
             # #calculate maxdd: https://www.investopedia.com/terms/m/maximum-drawdown-mdd.asp
-            self.__update_report_max_dd__()
+            ret = self.__update_report_max_dd__()
             #
             self.temp['account_max_equity'] = self.account['equity']
             self.temp['account_min_equity'] = self.account['equity']
         else:
             if self.temp['account_min_equity'] > self.account['equity']:
-                self.__update_report_max_dd__()
+                ret = self.__update_report_max_dd__()
                 self.temp['account_min_equity'] = self.account['equity']
         #
 
@@ -1592,10 +1539,16 @@ class EATester(EABase):
         #     self.report['max_drawdown_rate']['value'] = 0
         if self.report['max_consecutive_wins']['value'] < self.temp['consecutive_wins']:
             self.report['max_consecutive_wins']['value'] = self.temp['consecutive_wins']
+            # self.flags['max_consecutive_wins_updated'] = True
+            self.flags |= EATester.FM_MAX_CONSECUTIVE_WINS_UPDATED
+
         if self.report['max_consecutive_wins_money']['value'] < self.temp['consecutive_wins_money']:
             self.report['max_consecutive_wins_money']['value'] = self.temp['consecutive_wins_money']
         if self.report['max_consecutive_losses']['value'] < self.temp['consecutive_losses']:
             self.report['max_consecutive_losses']['value'] = self.temp['consecutive_losses']
+            # self.flags['max_consecutive_losses_updated'] = True
+            self.flags |= EATester.FM_MAX_CONSECUTIVE_LOSSES_UPDATED
+
         if self.report['max_consecutive_losses_money']['value'] > self.temp['consecutive_losses_money']:
             self.report['max_consecutive_losses_money']['value'] = self.temp['consecutive_losses_money']
         self.report['total_net_profit']['value'] = self.report['gross_profit']['value'] - abs(
@@ -1612,73 +1565,8 @@ class EATester(EABase):
         self.report['sharpe_ratio']['value'] = ratio['sharpe_ratio']
         self.report['sortino_ratio']['value'] = ratio['sortino_ratio']
 
-    # def __update_report__(self, is_long, profit, trades=1):
-    #     if profit == 0:
-    #         return
-    #     profit = round(profit, self.default_digits)
-    #     if profit > 0:
-    #         self.report['profit_trades']['value'] += trades
-    #         self.report['gross_profit']['value'] = self.report['gross_profit']['value'] + profit
-    #         self.report['trade_avg_profit']['value'] = self.report['gross_profit']['value'] / \
-    #                                                    self.report['profit_trades']['value']
-    #
-    #         if self.report['trade_max_profit']['value'] < profit:
-    #             self.report['trade_max_profit']['value'] = profit
-    #         if is_long:
-    #             self.report['long_positions_win']['value'] += trades
-    #         else:
-    #             self.report['short_positions_win']['value'] += trades
-    #
-    #         self.temp['consecutive_wins'] += trades
-    #         self.temp['consecutive_wins_money'] = self.temp['consecutive_wins_money'] + profit
-    #         self.temp['consecutive_losses'] = 0
-    #         self.temp['consecutive_losses_money'] = 0
-    #         #self.account['currency']
-    #     else:
-    #         self.report['loss_trades']['value'] += trades
-    #         self.report['gross_loss']['value'] = self.report['gross_loss']['value'] + profit
-    #         self.report['trade_avg_loss']['value'] = self.report['gross_loss']['value'] / self.report['loss_trades'][
-    #             'value']
-    #
-    #         if np.isnan(self.report['trade_max_loss']['value']) or self.report['trade_max_loss']['value'] > profit:
-    #             self.report['trade_max_loss']['value'] = profit
-    #
-    #         self.temp['consecutive_losses'] += trades
-    #         self.temp['consecutive_losses_money'] = self.temp['consecutive_losses_money'] + profit
-    #         self.temp['consecutive_wins'] = 0
-    #         self.temp['consecutive_wins_money'] = 0
-    #         #
-    #     #
-    #     #
-    #     if self.temp['account_max_equity'] < self.account['equity']:
-    #         self.temp['account_max_equity'] = self.account['equity']
-    #     if self.temp['account_min_equity'] > self.account['equity']:
-    #         self.temp['account_min_equity'] = self.account['equity']
-    #     #
-    #     self.report['max_drawdown']['value'] = self.temp['account_max_equity'] - self.temp['account_min_equity']
-    #     if self.temp['account_max_equity'] > 0:
-    #         self.report['max_drawdown_rate']['value'] = self.report['max_drawdown']['value'] / self.temp['account_max_equity']
-    #     else:
-    #         self.report['max_drawdown_rate']['value'] = 0
-    #     if self.report['max_consecutive_wins']['value'] < self.temp['consecutive_wins']:
-    #         self.report['max_consecutive_wins']['value'] = self.temp['consecutive_wins']
-    #     if self.report['max_consecutive_wins_money']['value'] < self.temp['consecutive_wins_money']:
-    #         self.report['max_consecutive_wins_money']['value'] = self.temp['consecutive_wins_money']
-    #     if self.report['max_consecutive_losses']['value'] < self.temp['consecutive_losses']:
-    #         self.report['max_consecutive_losses']['value'] = self.temp['consecutive_losses']
-    #     if self.report['max_consecutive_losses_money']['value'] > self.temp['consecutive_losses_money']:
-    #         self.report['max_consecutive_losses_money']['value'] = self.temp['consecutive_losses_money']
-    #     self.report['total_net_profit']['value'] = self.report['gross_profit']['value'] - abs(
-    #         self.report['gross_loss']['value'])
-    #     if self.report['total_net_profit']['value'] < 0:
-    #         self.report['absolute_drawdown']['value'] = abs(self.report['total_net_profit']['value'])
-    #     #
-    #     if self.report['total_trades']['value'] > 0:
-    #         self.report['win_rate']['value'] = self.report['profit_trades']['value'] / self.report['total_trades']['value']
-    #     #Total net profit rate
-    #     if self.report['init_balance']['value'] > 0:
-    #         self.report['total_net_profit_rate']['value'] = self.report['total_net_profit']['value'] / self.report['init_balance']['value']
-    #
+        return ret
+
 
     def __calculate_pip_with_quote_currency__(self, price):
         return 1.0
@@ -2164,6 +2052,7 @@ class EATester(EABase):
         update_log_task = None
         exception_message = None
         try:
+            self.set_errid(EID_OK)
             test_start_time = datetime.now()
             pixiu_version = pkg_resources.get_distribution('pixiu').version
             self.write_log(f"\n\n == PiXiu({pixiu_version}) Backtesting Start: {test_start_time}, Ticket: {ticket}, Symbol: {self.symbol}, Period: {self.start_time} - {self.end_time}, "
@@ -2175,6 +2064,7 @@ class EATester(EABase):
                 if not valid_script_settings['success']:
                     errmsg = valid_script_settings.get('errmsg', None)
                     exception_message = f"ValidScriptSettings Error: {errmsg}"
+                    self.set_errid(EID_EAT_ERROR)
                     raise Exception(exception_message)
             #
             self.init_data()
@@ -2197,14 +2087,15 @@ class EATester(EABase):
             for i in range(self.tick_test_start_index, count):
                 try:
                     #
+                    self.reset_flags()
+                    if i == self.tick_test_start_index:
+                        self.flags |= EATester.FM_START
                     if self.tick_max_count is not None and i >= self.tick_max_count:
                         break
                     if self.stop:
+                        self.set_errid(EID_EAT_TEST_STOP)
                         raise PXErrorCode(EID_EAT_TEST_STOP)
                     #
-                    # if i < self.tick_test_start_index:
-                    #     self.current_tick_index += 1
-                    #     continue
                     self.on_begin_tick()
                     self.set_account(self.account, expiration=expiration)
                     # #
@@ -2222,8 +2113,10 @@ class EATester(EABase):
                     # #
                     if exit != 0:
                         if exit == 2:
+                            self.set_errid(EID_EAT_NOT_ENOUGH_MONEY)
                             raise PXErrorCode(EID_EAT_NOT_ENOUGH_MONEY)
                         else:
+                            self.set_errid(EID_EAT_EA_DEAD)
                             raise PXErrorCode(EID_EAT_EA_DEAD)
                     # self.current_tick_index += 1
                     self.on_end_tick()
@@ -2233,10 +2126,12 @@ class EATester(EABase):
                         raise exc
                     traceback.print_exc()
                     exception_msg = self.on_execute_exception()
-
                     errid = EID_EAT_ERROR
+                    if self.get_errid() == EID_OK:
+                        self.set_errid(EID_EAT_ERROR)
                     break
             #
+            self.flags |= EATester.FM_END
             try:
                 if self.current_tick_index >= count:
                     self.current_tick_index = count - 1

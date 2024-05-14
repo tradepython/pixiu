@@ -1,5 +1,17 @@
 
 
+### [2024-05-14]
+#### Version:
+#####   Package:
+#####    pixiu: 0.141.*.20240514
+#####
+#### **Descriptions：**
+     1.Modified ea_tester.py:
+       1) Add reset_flags
+       2) Add get_errid, set_errid
+     2.ea_optimizer.py:
+       1) Add generator, max_tasks
+        
 ### [2024-05-08]
 #### Version:
 #####   Package:
