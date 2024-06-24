@@ -1,5 +1,14 @@
 
 
+### [2024-06-24]
+#### Version:
+#####   Package:
+#####    pixiu: 0.142.*.20240624
+#####
+#### **Descriptions：**
+   1.ea_builder.py:
+     1) Add valid_order_config
+
 ### [2024-05-14]
 #### Version:
 #####   Package:

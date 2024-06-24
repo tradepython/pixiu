@@ -48,7 +48,7 @@
             }
         },
         "entry": {
-          "order": {
+          "order0": {
             "script_settings": false,
             "positions": {"type": "volume", "volume": 1.0},
             "take_profit": {"type": "pips", "pips": 80},
@@ -76,13 +76,14 @@
           },
           "order5": {
             "positions": {"type": "volume", "volume": 1.0},
-            "take_profit": {"type": "percent", "percent": "100%", "source": "atr", "period": 5, "timeframe": "d1"},
+//            "take_profit": {"type": "percent", "percent": "100%", "source": "atr", "period": 5, "timeframe": "d1"},
+            "take_profit": {"type": "percent", "percent": "100%", "source": {"name": "atr", "params": {"period": 5, "timeframe": "d1"}}},
             "stop_loss":  {"type": "percent", "percent": "-1%", "source": "balance"}
           },
           "order6": {
             "positions": {"type": "volume", "volume": 1.0},
             "take_profit": {"type": "pl-ratio", "ratio": 1.5},
-            "stop_loss": {"type": "percent", "percent": "-100%", "source": "atr", "period": 5, "timeframe": "d1"}
+            "stop_loss": {"type": "percent", "percent": "-100%", "source": {"name": "atr", "params": {"period": 5, "timeframe": "d1"}}}
           },
           "order7": {
             "positions": {"type": "money", "money": 100},
@@ -107,11 +108,11 @@
           "order11": {
             "positions": {"type": "percent", "percent": "10%"},
             "take_profit": {"type": "pl-ratio", "ratio": 1.5},
-            "stop_loss": {"type": "percent", "percent": "-100%", "source": "atr", "period": 5, "timeframe": "d1"}
+            "stop_loss": {"type": "percent", "percent": "-100%", "source": {"name": "atr", "params": {"period": 5, "timeframe": "d1"}}}
           },
-          "order12": {
+          "order": {
             "positions": {"type": "percent", "percent": "-2%"},
-            "take_profit": {"type": "percent", "percent": "100%", "source": "atr", "period": 5, "timeframe": "d1", "shift": 1},
+            "take_profit": {"type": "percent", "percent": "100%", "source": {"name": "atr", "params": {"period": 5, "timeframe": "d1", "shift": 1}}},
             "stop_loss":  {"type": "pl-ratio", "ratio": 0.3}
           },
           "order13": {
@@ -127,7 +128,7 @@
           "order15": {
             "positions": {"type": "percent", "percent": "10%", "martingale": true},
             "take_profit": {"type": "pl-ratio", "ratio": 1.5},
-            "stop_loss": {"type": "percent", "percent": "-10%", "source": "atr", "period": 5, "timeframe": "d1"}
+            "stop_loss": {"type": "percent", "percent": "-10%", "source": {"name": "atr", "params": {"period": 5, "timeframe": "d1"}}}
           },
           "long": {
             "condition": [

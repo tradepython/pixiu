@@ -365,6 +365,197 @@ class EntryBuilder(ElementBuilder):
         #     code = self.generate_condition_elements_code(code, cc)
         return code
 
+    def valid_source(self, source):
+        valid_source = ('balance',)
+        return source in valid_source
+
+    def p2f(self, x, failed_value=None):
+        try:
+            source = None
+            if isinstance(x, str) and len(x) > 1:
+                s = x.strip(' ')
+                if s[-1:] == '%':
+                    return float(x.rstrip('%')) / 100, 'percent', source
+                else:
+                    ary = s.split(':')
+                    if len(ary) == 2:
+                        if ary[0][-1:] == '%':
+                            source = ary[1].lower()
+                            return float(ary[0].rstrip('%')) / 100, 'percent', source
+        except:
+            pass
+        return failed_value, None, None
+
+    def to_float(self, x, failed_value=None):
+        ret = failed_value
+        ret_type = None
+        ret_source = None
+        try:
+            if isinstance(x, float):
+                ret = x
+                ret_type = 'float'
+            elif isinstance(x, int):
+                ret = x
+                ret_type = 'int'
+            else:
+                ret, ret_type, ret_source = self.p2f(x)
+                if ret is None:
+                    ret = float(x)
+                    ret_type = 'float'
+        except:
+            pass
+        return ret, ret_type, ret_source
+
+    def valid_order_config_tp_sl(self, dir, is_tp, conf, tp_type, sl_type, order_volume):
+        conf_name = 'take profit' if is_tp else 'stop loss'
+        conf_type = tp_type if is_tp else sl_type
+        neg_or_pos = 'positive' if is_tp else 'negative'
+        sign = 1 if is_tp else -1
+        check_order_volume = False
+
+        if conf:
+            errmsg = f'Invalid {conf_name} of {dir} order !'
+            try:
+                conf_type = conf.get('type', None)
+                if conf_type is None or conf_type not in ('pips', 'money', 'percent', 'pl-ratio'):
+                    errmsg = f'Invalid {conf_name} type of {dir} order !'
+                    return False, errmsg
+                if conf_type == 'pips':
+                    pips = int(conf.get('pips', 0))
+                    if pips <= 0:
+                        errmsg = f'Invalid {conf_name} pips of {dir} order (must be {neg_or_pos}) !'
+                        return False, errmsg
+                elif conf_type == 'money':
+                    money = float(conf.get('money', 0))
+                    if money * sign <= 0:
+                        errmsg = f'Invalid {conf_name} money of {dir} order (must be {neg_or_pos}) !'
+                        return False, errmsg
+                    check_order_volume = True
+                elif conf_type == 'percent':
+                    percent = conf.get('percent', None)
+                    v, rt, rs = self.to_float(percent)
+                    if v is None or v * sign <= 0:
+                        errmsg = f'Invalid {conf_name} percent of {dir} order (must be {neg_or_pos}) !'
+                        return False, errmsg
+                    source = conf.get('source', 'balance')
+                    if source:
+                        source_dict = {'params': {}}
+                        if isinstance(source, str):
+                            pass
+                        elif isinstance(source, dict):
+                            source_dict = source
+                            source = source_dict['name']
+                        else:
+                            errmsg = f'Invalid {conf_name} source of {dir} order !'
+                            return False, errmsg
+                        if source not in ('balance', 'atr'):
+                            errmsg = f'Invalid {conf_name} source of {dir} order !'
+                            return False, errmsg
+                        if source in ('atr',):
+                            period = source_dict['params'].get('period', 0)
+                            if period <= 0:
+                                errmsg = f'Invalid {conf_name} atr period of {dir} order !'
+                                return False, errmsg
+                            timeframe = source_dict['params'].get('timeframe', None)
+                            if timeframe is None:
+                                errmsg = f'Invalid {conf_name} atr timeframe of {dir} order !'
+                                return False, errmsg
+                            shift = source_dict['params'].get('shift', 0)
+                            if shift < 0:
+                                errmsg = f'Invalid {conf_name} atr shift of {dir} order !'
+                                return False, errmsg
+                        else:
+                            check_order_volume = True
+                elif conf_type == 'pl-ratio':
+                    ratio = float(conf.get('ratio', 0))
+                    if ratio <= 0:
+                        errmsg = f'Invalid profit loss ratio of {dir} order (must be positive) !'
+                        return False, errmsg
+                else:
+                    errmsg = f'Unknown {conf_name} type of {dir} order !'
+                    return False, errmsg
+
+                if tp_type == 'pl-ratio' and sl_type == 'pl-ratio':
+                    errmsg = f'The stop loss and take profit types of {dir} order cannot be \'pl-ratio\' at the same time !'
+                    return False, errmsg
+
+                if check_order_volume and order_volume <= 0:
+                    errmsg = f'Invalid positions volume of {dir} order (must be positive) !'
+                    return False, errmsg
+
+            except:
+                return False, errmsg
+        return True, ''
+
+    def valid_order_config(self, dir, order_config):
+        tp_type = None
+        sl_type = None
+        pos_conf = order_config.get('positions', None)
+        tp_conf = order_config.get('take_profit', None)
+        sl_conf = order_config.get('stop_loss', None)
+        if pos_conf is None:
+            errmsg = f'Positions of {dir} order is None !'
+            return False, errmsg
+
+        order_volume = 0
+        errmsg = f'Invalid positions of {dir} order !'
+        try:
+            pos_type = pos_conf.get('type', None)
+            if pos_type is None or pos_type not in ('volume', 'money', 'percent'):
+                errmsg = f'Invalid positions type of {dir} order !'
+                return False, errmsg
+            pos_martingale = pos_conf.get('martingale', None)
+            if pos_martingale is not None:
+                if isinstance(pos_martingale, bool):
+                    pass
+                elif isinstance(pos_martingale, dict):
+                    multiplier = pos_martingale.get('multiplier', 0)
+                    if multiplier < 0:
+                        errmsg = f'Invalid positions martingale multiplier of {dir} order (must be positive) !'
+                        return False, errmsg
+                else:
+                    errmsg = f'Invalid positions martingale of {dir} order !'
+                    return False, errmsg
+
+            if pos_type == 'volume':
+                order_volume = float(pos_conf.get('volume', 0))
+                if order_volume <= 0:
+                    errmsg = f'Invalid positions volume of {dir} order (must be positive) !'
+                    return False, errmsg
+            elif pos_type == 'money':
+                order_money = float(pos_conf.get('money', 0))
+                if order_money == 0:
+                    errmsg = f'Invalid positions money of {dir} order (must not be zero) !'
+                    return False, errmsg
+            elif pos_type == 'percent':
+                order_percent = pos_conf.get('percent', None)
+                v, rt, rs = self.to_float(order_percent)
+                if v == 0:
+                    errmsg = f'Invalid positions percent of {dir} order (must not be zero) !'
+                    return False, errmsg
+                order_percent_source = pos_conf.get('source', 'balance')
+                if order_percent_source != 'balance':
+                    errmsg = f'Invalid positions source of {dir} order (must be balance) !'
+                    return False, errmsg
+        except:
+            return False, errmsg
+
+        if tp_conf:
+            tp_type = tp_conf.get('type', None)
+
+        if sl_conf:
+            sl_type = sl_conf.get('type', None)
+
+        ret, errmsg = self.valid_order_config_tp_sl(dir, True, tp_conf, tp_type, sl_type, order_volume)
+        if not ret:
+            return ret, errmsg
+
+        ret, errmsg = self.valid_order_config_tp_sl(dir, False, sl_conf, tp_type, sl_type, order_volume)
+        if not ret:
+            return ret, errmsg
+
+        return True, ''
+
     def parse_order_config(self, config):
         ret = None
         os = config.get('order', None)
@@ -426,8 +617,14 @@ class EntryBuilder(ElementBuilder):
         if short_order_config is None:
             short_order_config = default_order_config
         if long_order_config is None or short_order_config is None:
-            raise f"Error: Entry order config not found!"
+            raise Exception(f"Error: Entry order config not found!")
         #
+        valid, errmsg = self.valid_order_config('long', long_order_config)
+        if not valid:
+            raise Exception(errmsg)
+        valid, errmsg = self.valid_order_config('short', short_order_config)
+        if not valid:
+            raise Exception(errmsg)
         return dict(long=long_order_config, short=short_order_config)
 
     def build_code(self, options):
@@ -733,10 +930,11 @@ class EABuilder:
         build_info = None
         build_data = {}
         build_config = None
+        errmsg = ''
         try:
             build_config = config['build_config']
             if build_config['version'] != "v1.0alpha":
-                return None
+                return None, 'Invalid build config version'
             trading = build_config['trading']
             coding = build_config['coding']
             # self.parse_runner_variables_config(build_data,  coding['runner']['name'])
@@ -749,9 +947,10 @@ class EABuilder:
             self.parse_exit_config(build_data, trading['exit'])
             self.parse_options_config(build_data, trading['options'])
             build_info = dict(config=build_config, data=build_data)
-        except:
+        except Exception as e:
+            errmsg = str(e)
             traceback.print_exc()
-        return build_info
+        return build_info, errmsg
 
     def generate_entry_exit_code(self, build_data, options, code_type):
         codes = []
@@ -776,6 +975,7 @@ class EABuilder:
 
     def generate_ea_code(self, build_info):
         ret = None
+        errmsg = ''
         try:
             #
             build_data = build_info['data']
@@ -828,9 +1028,13 @@ class EABuilder:
             template = Template(j2_file.read())
             ret = template.render(strategy=strategy)
             # print(ret)
-        except:
+        except Exception as e:
+            if isinstance(e, KeyError):
+                errmsg = f"Undefined variable {str(e)}"
+            else:
+                errmsg = repr(e)
             traceback.print_exc()
-        return ret
+        return ret, errmsg
     #
     # def generate_ea_code(self, build_info):
     #     ret = None
@@ -951,16 +1155,19 @@ class EABuilder:
 
     def build_code(self, config, format_code=False):
         #
-        build_info = self.parse_build_config(config[0])
-        ea_code = self.generate_ea_code(build_info)
+        errmsg = ''
+        build_info, errmsg = self.parse_build_config(config[0])
+        if build_info is None:
+            return None, errmsg
+        ea_code, errmsg = self.generate_ea_code(build_info)
         if ea_code is None:
-            return None
+            return None, errmsg
         if format_code:
             ea_code = format_str(ea_code, mode=FileMode())
-        return ea_code
+        return ea_code, errmsg
 
     def build(self, config, output_path, format_code=True):
-        ea_code = self.build_code(config, format_code=format_code)
+        ea_code, errmsg = self.build_code(config, format_code=format_code)
         if ea_code is None:
             return False
         with open(output_path, "w") as f:

@@ -102,7 +102,7 @@ class EAOptimizer:
             self.optimization_config = config[0]['optimization_config']
 
     def calculate_optimization_task_count(self):
-        generator = optimization_config['generator']
+        generator = self.optimization_config['optimization']['generator']
         if generator == 'random':
             max_tasks = self.optimization_config['optimization']['max_tasks']
             return max_tasks
@@ -168,7 +168,7 @@ class EAOptimizer:
         test_config = self.get_test_config()
         #
         task_vars = None
-        generator = optimization_config['generator']
+        generator = self.optimization_config['optimization']['generator']
         if generator == 'random':
             max_tasks = self.optimization_config['optimization']['max_tasks']
             keys = random.sample(list(opt_var_config.keys()), max_tasks)

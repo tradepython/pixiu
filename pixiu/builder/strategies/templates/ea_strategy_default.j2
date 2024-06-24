@@ -98,19 +98,28 @@ def valid_order_config_tp_sl(dir, is_tp, conf, tp_type, sl_type, order_volume):
                     return False, errmsg
                 source = conf.get('source', 'balance')
                 if source:
+                    source_dict = {'params': {}}
+                    if isinstance(source, str):
+                        pass
+                    elif isinstance(source, dict):
+                        source_dict = source
+                        source = source_dict['name']
+                    else:
+                        errmsg = f'Invalid {conf_name} source of {dir} order !'
+                        return False, errmsg
                     if source not in ('balance', 'atr'):
                         errmsg = f'Invalid {conf_name} source of {dir} order !'
                         return False, errmsg
-                    if source in ('atr', ):
-                        period = conf.get('period', 0)
+                    if source in ('atr',):
+                        period = source_dict['params'].get('period', 0)
                         if period <= 0:
                             errmsg = f'Invalid {conf_name} atr period of {dir} order !'
                             return False, errmsg
-                        timeframe = conf.get('timeframe', None)
+                        timeframe = source_dict['params'].get('timeframe', None)
                         if timeframe is None:
                             errmsg = f'Invalid {conf_name} atr timeframe of {dir} order !'
                             return False, errmsg
-                        shift = conf.get('shift', 0)
+                        shift = source_dict['params'].get('shift', 0)
                         if shift < 0:
                             errmsg = f'Invalid {conf_name} atr shift of {dir} order !'
                             return False, errmsg
@@ -144,7 +153,7 @@ def valid_order_config(dir, order_config):
     tp_conf = order_config.get('take_profit', None)
     sl_conf = order_config.get('stop_loss', None)
     if pos_conf is None:
-        errmsg = 'Positions of {dir} order is None !'
+        errmsg = f'Positions of {dir} order is None !'
         return False, errmsg
 
     order_volume = 0
