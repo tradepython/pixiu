@@ -200,7 +200,7 @@
         }
       },
       "coding": {
-        "template": {"name": "DefaultStrategy", "version": "1.07.00"}
+        "template": {"package": "pixiu", "name": "DefaultStrategy", "version": "1.07.00"}
         }
 
     }

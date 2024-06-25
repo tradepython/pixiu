@@ -1,5 +1,14 @@
 
 
+### [2024-06-25]
+#### Version:
+#####   Package:
+#####    pixiu: 0.143.*.20240625
+#####
+#### **Descriptions：**
+  1.ea_builder.py:
+    1) Modified load_builder_config: json format
+
 ### [2024-06-24]
 #### Version:
 #####   Package:

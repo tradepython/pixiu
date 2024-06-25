@@ -1,7 +1,7 @@
 [
   {
     "module_config": {
-      "version": "v1.0alpha",
+      "version": "1.0.0",
       "name": "indicator",
       "class": "IndicatorModule",
       "file": "../modules/module_indicators.py",

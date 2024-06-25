@@ -1,7 +1,7 @@
 [
   {
     "template_config": {
-      "version": "v1.0alpha",
+      "version": "1.07.00",
       "name": "DefaultStrategy",
       "template": "../templates/ea_strategy_default.j2",
       "variables": {

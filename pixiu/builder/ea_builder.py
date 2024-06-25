@@ -46,10 +46,10 @@ class ElementBuilder:
                     ret = self.__write_value_items__(ret,  items)
                 elif va[0] in ('@functions', '@func'):
                     func_builder = self.build_data['functions'][va[1]]
-                    var_list = func_builder.get_variables(func_builder.module, func_builder.name)
+                    var_list = func_builder.get_variables(func_builder.package, func_builder.module, func_builder.name)
                     ret = var_list[0]['name']
                 else:
-                    raise f"Unknown path name: {va[0]}"
+                    raise Exception(f"Unknown path name: {va[0]}")
 
         return ret
 
@@ -216,6 +216,11 @@ class FunctionBuilder(ElementBuilder):
         return func_md5
 
     @property
+    def package(self):
+        package = self.config.get('package', 'pixiu')
+        return package
+
+    @property
     def module(self):
         module = self.config['module']
         return module
@@ -230,15 +235,15 @@ class FunctionBuilder(ElementBuilder):
         params = self.config['params']
         return params
 
-    def get_module_config(self, module):
+    def get_module_config(self, package, module, version='latest'):
         module_config = self.builder.get_builder_config('module_config')
-        return module_config[module]
+        return module_config[package][module][version]
 
-    def get_function_config(self, module, name):
-        return self.get_module_config(module)['functions'][name]
+    def get_function_config(self, package, module, name):
+        return self.get_module_config(package, module)['functions'][name]
 
-    def get_module(self, module_name):
-        module_config = self.get_module_config(module_name)
+    def get_module(self, package, module_name):
+        module_config = self.get_module_config(package, module_name)
         module = self.modules.get(module_name, None)
         if module is None:
             spec = importlib.util.spec_from_file_location(module_name, module_config['file_abs_path'])
@@ -249,9 +254,9 @@ class FunctionBuilder(ElementBuilder):
         cls = eval(f"module.{module_config['class']}")
         return cls
 
-    def call_function(self, module, name, options):
-        func_config = self.get_function_config(module, name)
-        cls = self.get_module(module)
+    def call_function(self, package, module, name, options):
+        func_config = self.get_function_config(package, module, name)
+        cls = self.get_module(package, module)
         func = getattr(cls, func_config['method'])
         param_dict = {}
         # for key in func_config['params']:
@@ -268,8 +273,8 @@ class FunctionBuilder(ElementBuilder):
 
         return func(cls(), options)
 
-    def get_variables(self, module, name):
-        func_config = self.get_function_config(module, name)
+    def get_variables(self, package, module, name):
+        func_config = self.get_function_config(package, module, name)
         return_config = func_config.get('return', None)
         if return_config is None:
             return None
@@ -285,9 +290,9 @@ class FunctionBuilder(ElementBuilder):
 
     def build_code(self, options):
         if 'variables' not in options.keys():
-            variables = self.get_variables(self.module, self.name)
+            variables = self.get_variables(self.package, self.module, self.name)
             options['variables'] = variables
-        code = self.call_function(self.module, self.name, options)
+        code = self.call_function(self.package, self.module, self.name, options)
         return code
 
 
@@ -359,7 +364,7 @@ class EntryBuilder(ElementBuilder):
             bc = tpeac.expression_to_build_config(condition_config)
             code = tpeac.build_config_to_expression(bc)
         else:
-            raise 'Error: Invalid condition format'
+            raise Exception('Error: Invalid condition format')
         # code = ''
         # for cc in condition_config:
         #     code = self.generate_condition_elements_code(code, cc)
@@ -701,9 +706,9 @@ class EABuilder:
     def call_module_function(self, module, func, params):
         pass
 
-    def parse_template_variables_config(self, build_data, strategy_name):
+    def parse_template_variables_config(self, build_data, template):
         template_config = self.builder_config['template_config']
-        rc = template_config[strategy_name]
+        rc = self.get_template_data(template, template_config)
         #
         variables = {}
         index = 0
@@ -712,6 +717,13 @@ class EABuilder:
             index += 1
         build_data['template_variables'] = variables
         return build_data
+
+    def get_template_data(self, template, template_config):
+        package = template.get('package', 'pixiu')
+        strategy_name = template['name']
+        strategy_version = template['version']
+        rc = template_config[package][strategy_name][strategy_version]
+        return rc
 
     # def parse_runner_variables_config(self, build_data, strategy_name):
     #     runner_config = self.builder_config['runner_config']
@@ -938,7 +950,7 @@ class EABuilder:
             trading = build_config['trading']
             coding = build_config['coding']
             # self.parse_runner_variables_config(build_data,  coding['runner']['name'])
-            self.parse_template_variables_config(build_data,  coding['template']['name'])
+            self.parse_template_variables_config(build_data,  coding['template'])
             # self.parse_strategy_variables_config(build_data,  coding['strategy']['name'])
             self.parse_variables_config(build_data, trading['variables'])
             self.parse_symbols_config(build_data, trading['symbols'])
@@ -1008,11 +1020,13 @@ class EABuilder:
             exl = self.generate_code_string_list(exit_codes)
             vsscl = self.generate_code_string_list(valid_script_settings_codes)
             # script_settings_code = json.dumps(script_settings, quote_keys=True)
-            template_name = build_config['coding']['template']['name']
-            template_config = self.get_builder_config('template_config')
-            config_data = template_config[template_name]
-            template_code = dict(variables=pc, get_entry_data=ecl, get_exit_data=exl,
-                        valid_script_settings=vsscl)
+
+            # template_name = build_config['coding']['template']['name']
+            # template_config = self.get_builder_config('template_config')
+            # config_data = template_config[template_name]
+            config_data = self.get_template_data(build_config['coding']['template'],
+                                                 self.get_builder_config('template_config'))
+            template_code = dict(variables=pc, get_entry_data=ecl, get_exit_data=exl, valid_script_settings=vsscl)
             if isinstance(config_data['entry'], str):
                 entry_func_name = config_data['entry']
             if isinstance(config_data['exit'], str):
@@ -1101,6 +1115,7 @@ class EABuilder:
         module_config = builder_config.get('module_config', {})
         # strategy_config = builder_config.get('strategy_config', {})
         # runner_config = builder_config.get('runner_config', {})
+        # package, name, version
         template_config = builder_config.get('template_config', {})
         config_dir = os.path.dirname(config_path)
         with open(config_path) as f:
@@ -1111,7 +1126,9 @@ class EABuilder:
                     check_abs_path_name = None
                     conf_data = conf_dict[conf_type]
                     if conf_type == 'module_config':
+                        package = conf_data.get('package', 'pixiu')
                         conf_name = conf_data['name']
+                        version = 'latest' #conf_data['version']
                         builder_conf = module_config
                         check_abs_path_name = 'file'
                     # elif conf_type == 'strategy_config':
@@ -1123,13 +1140,15 @@ class EABuilder:
                     #     builder_conf = runner_config
                     #     check_abs_path_name = 'template'
                     elif conf_type == 'template_config':
+                        package = conf_data.get('package', 'pixiu')
                         conf_name = conf_data['name']
+                        version = conf_data['version']
                         builder_conf = template_config
                         check_abs_path_name = 'template'
                     else:
-                        raise "Unknown conf type"
-                    if conf_name in builder_conf:
-                        raise f"Error: {conf_name} in {conf_type}"
+                        raise Exception("Unknown conf type")
+                    # if conf_name in builder_conf:
+                    #     raise Exception(f"Error: {conf_name} in {conf_type}")
                     #check abs_path
                     if check_abs_path_name:
                         abs_path_name = f"{check_abs_path_name}_abs_path"
@@ -1137,7 +1156,14 @@ class EABuilder:
                         if not abs_path:
                             file_path = conf_data[check_abs_path_name]
                             conf_data[abs_path_name] = os.path.abspath(os.path.join(config_dir, file_path))
-                    builder_conf[conf_name] = conf_data
+                    #
+                    pack = builder_conf.get(package, {})
+                    cg = pack.get(conf_name, {})
+                    if version in cg:
+                        raise Exception(f"Error: {package}.{conf_name}.{version} in {conf_type}")
+                    cg[version] = conf_data
+                    pack[conf_name] = cg
+                    builder_conf[package] = pack
         #
         builder_config['module_config'] = module_config
         builder_config['template_config'] = template_config
