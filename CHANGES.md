@@ -1,5 +1,14 @@
 
 
+### [2024-06-27]
+#### Version:
+#####   Package:
+#####    pixiu: 0.144.*.20240627
+#####
+#### **Descriptions：**
+  1.ea_builder.py:
+    1) parse_options_config: remove default_options
+
 ### [2024-06-25]
 #### Version:
 #####   Package:

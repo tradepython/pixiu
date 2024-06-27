@@ -13,7 +13,6 @@ file_dir = os.path.dirname(__file__)
 
 
 class ElementBuilder:
-
     def __init__(self, builder, key, config, index, build_data):
         self.builder = builder
         self.key = key
@@ -840,48 +839,58 @@ class EABuilder:
     #     return build_data
     #
     def parse_options_config(self, build_data, options_config):
-        default_options = dict(
-            enable_trailing_profit=dict(default=True, type='bool',
-                                 desc=dict(en=f"Enable order trailing profit.")),
-            enable_weekend_holding=dict(default=True, type='bool',
-                                 desc=dict(en=f"Enable holding positions over the weekend.")),
-            enable_night_open=dict(default=True, type='bool',
-                                 desc=dict(en=f"Enable opening positions at night (21-23).")),
-            enable_night_holding=dict(default=True, type='bool',
-                                 desc=dict(en=f"Enable holding positions overnight.")),
-            enable_group_across_days=dict(default=True, type='bool',
-                                 desc=dict(en=f"Allow trading groups across days.")),
-            enable_open_crossing=dict(default=True, type='bool',
-                                 desc=dict(en=f"When the price is volatile, you can open positions across the price "
-                                              f"the low or high point.")),
-        )
-        system_variables = build_data.get('system_variables', {})
-        index = len(system_variables)
+        template_variables = build_data.get('template_variables', {})
         # checking options
-        for opt_name in default_options:
-            if opt_name not in options_config:
-                options_config[opt_name] = default_options[opt_name]['default']
-        #
         for opt_name in options_config:
-            key = f"options_{opt_name}"
+            var = template_variables[opt_name]
             opt_val = options_config[opt_name]
-            script_settings = True
-            #
-            opt_type = 'str'
-            opt_desc = dict(en="")
-            default_item = default_options.get(opt_name, None)
-            if default_item is not None:
-                opt_type = default_item['type']
-                opt_desc = default_item['desc']
-            #
-            config = dict(type=opt_type, value=json.dumps(opt_val, quote_keys=True) if opt_type == 'str' else opt_val,
-                          desc=opt_desc, required=True, script_settings=script_settings
-                          )
-            system_variables[key] = VariableBuilder(self, key, config, index, build_data)
-            index += 1
-        build_data['system_variables'] = system_variables
+            var.config['value'] = json.dumps(opt_val, quote_keys=True) if var.config['type'] == 'str' else opt_val
 
         return build_data
+    # def parse_options_config(self, build_data, options_config):
+    #
+    #     default_options = dict(
+    #         enable_trailing_profit=dict(default=True, type='bool',
+    #                              desc=dict(en=f"Enable order trailing profit.")),
+    #         enable_weekend_holding=dict(default=True, type='bool',
+    #                              desc=dict(en=f"Enable holding positions over the weekend.")),
+    #         enable_night_open=dict(default=True, type='bool',
+    #                              desc=dict(en=f"Enable opening positions at night (21-23).")),
+    #         enable_night_holding=dict(default=True, type='bool',
+    #                              desc=dict(en=f"Enable holding positions overnight.")),
+    #         enable_group_across_days=dict(default=True, type='bool',
+    #                              desc=dict(en=f"Allow trading groups across days.")),
+    #         enable_open_crossing=dict(default=True, type='bool',
+    #                              desc=dict(en=f"When the price is volatile, you can open positions across the price "
+    #                                           f"the low or high point.")),
+    #     )
+    #     system_variables = build_data.get('system_variables', {})
+    #     index = len(system_variables)
+    #     # checking options
+    #     for opt_name in default_options:
+    #         if opt_name not in options_config:
+    #             options_config[opt_name] = default_options[opt_name]['default']
+    #     #
+    #     for opt_name in options_config:
+    #         key = f"options_{opt_name}"
+    #         opt_val = options_config[opt_name]
+    #         script_settings = True
+    #         #
+    #         opt_type = 'str'
+    #         opt_desc = dict(en="")
+    #         default_item = default_options.get(opt_name, None)
+    #         if default_item is not None:
+    #             opt_type = default_item['type']
+    #             opt_desc = default_item['desc']
+    #         #
+    #         config = dict(type=opt_type, value=json.dumps(opt_val, quote_keys=True) if opt_type == 'str' else opt_val,
+    #                       desc=opt_desc, required=True, script_settings=script_settings
+    #                       )
+    #         system_variables[key] = VariableBuilder(self, key, config, index, build_data)
+    #         index += 1
+    #     build_data['system_variables'] = system_variables
+    #
+    #     return build_data
 
     def parse_entry_config(self, build_data, entry_config):
         build_data['entry'] = EntryBuilder(self, None,  entry_config, 0, build_data)

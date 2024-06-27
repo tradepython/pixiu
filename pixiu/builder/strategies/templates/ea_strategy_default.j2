@@ -311,16 +311,16 @@ class {{ strategy['class_name'] }}:
         reason = ''
         d = Time()
         if not reason and self.is_night(d):
-            if not OPTIONS_ENABLE_NIGHT_OPEN:
-                reason = f"OPTIONS_ENABLE_NIGHT_OPEN"
-            elif not OPTIONS_ENABLE_NIGHT_HOLDING:
-                reason = f"OPTIONS_ENABLE_NIGHT_HOLDING"
+            if not ENABLE_NIGHT_OPEN:
+                reason = f"ENABLE_NIGHT_OPEN"
+            elif not ENABLE_NIGHT_HOLDING:
+                reason = f"ENABLE_NIGHT_HOLDING"
             elif self.is_weekend(d):
-                if not OPTIONS_ENABLE_WEEKEND_HOLDING:
-                    reason = f"OPTIONS_ENABLE_WEEKEND_HOLDING"
+                if not ENABLE_WEEKEND_HOLDING:
+                    reason = f"ENABLE_WEEKEND_HOLDING"
         if not reason and self.is_weekend(d) and d.hour > (19 + TRADING_TIME_ZONE_OFFSET):
-            if not OPTIONS_ENABLE_WEEKEND_HOLDING:
-                reason = f"OPTIONS_ENABLE_WEEKEND_HOLDING"
+            if not ENABLE_WEEKEND_HOLDING:
+                reason = f"ENABLE_WEEKEND_HOLDING"
         if reason:
             s = d.strftime("%Y-%m-%d %H:%M:%S %A")
             self.runner.debug_print(f"WARNING: Can't open new order. (Reason: {reason} @ {s})", notify=False)
@@ -450,7 +450,7 @@ class {{ strategy['class_name'] }}:
         if net_profit >= target_profit + amount:
             trailing_profit_start_points = current_profit_points
 
-        if OPTIONS_ENABLE_TRAILING_PROFIT and current_profit_points >= trailing_profit_start_points:
+        if ENABLE_TRAILING_PROFIT and current_profit_points >= trailing_profit_start_points:
             new_take_profit = order.take_profit + trailing_profit_points if is_long else order.take_profit - trailing_profit_points
             new_stop_loss = price - trailing_profit_points if is_long else price + trailing_profit_points
             if is_long:
@@ -740,11 +740,11 @@ class {{ strategy['class_name'] }}:
         NIGHT_HOLDING = 'NIGHT_HOLDING'
         WEEKEND_HOLDING = 'WEEKEND_HOLDING'
         if close_reason not in (NIGHT_HOLDING, WEEKEND_HOLDING):
-            if not OPTIONS_ENABLE_NIGHT_HOLDING and self.is_night(d):
+            if not ENABLE_NIGHT_HOLDING and self.is_night(d):
                 close_reason = NIGHT_HOLDING
 
         if close_reason not in (NIGHT_HOLDING, WEEKEND_HOLDING):
-            if not OPTIONS_ENABLE_WEEKEND_HOLDING and self.is_weekend(d):
+            if not ENABLE_WEEKEND_HOLDING and self.is_weekend(d):
                 close_reason = WEEKEND_HOLDING
 
         if close_reason in (NIGHT_HOLDING, WEEKEND_HOLDING):
@@ -814,7 +814,7 @@ class {{ strategy['class_name'] }}:
             source_id = next_trade_data_config.get('source_id', None)
             if source_id is not None:
                 return True
-        if not OPTIONS_ENABLE_GROUP_ACROSS_DAYS:
+        if not ENABLE_GROUP_ACROSS_DAYS:
             current_time = Time()
             group_init_time = datetime.fromtimestamp(group_info['init']['ts'])
             if group_init_time.date() != current_time.date():
@@ -1064,7 +1064,7 @@ class {{ strategy['class_name'] }}:
     def get_group_finished_reason(self, symbol, current_time, group_info, symbol_orders):
         trade_data = group_info['trade_data']
         if len(group_info['opened_orders']) == 0:
-            if not OPTIONS_ENABLE_GROUP_ACROSS_DAYS:
+            if not ENABLE_GROUP_ACROSS_DAYS:
                 group_init_time = datetime.fromtimestamp(group_info['init']['ts'])
                 if group_init_time.date() != current_time.date():
                     reason = 'GROUP_ACROSS_DAYS'
@@ -1411,7 +1411,7 @@ class {{ strategy['class_name'] }}:
                 open_order = True
                 open_reason = 'OPEN_PRICE'
             if not open_order:
-                if OPTIONS_ENABLE_OPEN_CROSSING and ask > max_price:
+                if ENABLE_OPEN_CROSSING and ask > max_price:
                     if Low() <= min_price - spread_points:
                         open_order = True
                         open_reason = 'OPEN_CROSSING'
@@ -1440,7 +1440,7 @@ class {{ strategy['class_name'] }}:
                 open_order = True
                 open_reason = 'OPEN_PRICE'
             if not open_order:
-                if OPTIONS_ENABLE_OPEN_CROSSING and bid < min_price:
+                if ENABLE_OPEN_CROSSING and bid < min_price:
                     if High() >= max_price + spread_points:
                         open_order = True
                         open_reason = 'OPEN_CROSSING'

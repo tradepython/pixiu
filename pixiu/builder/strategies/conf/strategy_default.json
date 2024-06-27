@@ -5,6 +5,49 @@
       "name": "DefaultStrategy",
       "template": "../templates/ea_strategy_default.j2",
       "variables": {
+          "enable_trailing_profit": {
+            "type": "bool", "value": true,
+            "desc": {"en": "Enable order trailing profit.",
+              "zh": "启用订单追踪利润"},
+            "required": false,
+            "script_settings": true
+          },
+          "enable_weekend_holding": {
+            "type": "bool", "value": false,
+            "desc": {"en": "Enable holding positions over the weekend.",
+              "zh": "允许周末持仓"},
+            "required": false,
+            "script_settings": true
+          },
+          "enable_night_open": {
+            "type": "bool", "value": true,
+            "desc": {"en": "Enable opening positions at night (21-23).",
+              "zh": "允许夜晚开仓(21-23)"},
+            "required": false,
+            "script_settings": true
+          },
+          "enable_night_holding": {
+            "type": "bool", "value": true,
+            "desc": {"en": "Enable holding positions overnight.",
+              "zh": "允许持仓过夜"},
+            "required": false,
+            "script_settings": true
+          },
+          "enable_group_across_days": {
+            "type": "bool", "value": true,
+            "desc": {"en": "Allow trading groups across days.",
+              "zh": "允许组跨天"},
+            "required": false,
+            "script_settings": true
+          },
+          "enable_open_crossing": {
+            "type": "bool", "value": true,
+            "desc": {"en": "When the price is volatile, you can open positions across the price the low or high point.",
+              "zh": "当价格波动时，您可以在价格的低点或高点开仓"},
+            "required": false,
+            "script_settings": true
+          },
+
           "debug_print": {
             "type": "bool",
             "value": true,
@@ -32,7 +75,7 @@
           },
           "group_cold_down_minute": {
             "type": "int", "value": 0, "min": 0, "max": 1440,
-            "script_settings": true,
+            "script_settings": true
           },
           "group_open_direction": {
             "type": "int", "value": 0, "options": {"0": "Auto", "100": "Reverse", "200": "Breakout"},
