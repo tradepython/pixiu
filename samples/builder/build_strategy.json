@@ -191,12 +191,24 @@
           }
         },
         "options": {
-          "enable_trailing_profit": true,
-          "enable_weekend_holding": false,
-          "enable_night_open": true,
-          "enable_night_holding": true,
-          "enable_group_across_days": true,
-          "enable_open_crossing": true
+          "enable_trailing_profit": { "value": true,
+            "script_settings": true
+          },
+          "enable_weekend_holding": { "value": false,
+            "script_settings": true
+          },
+          "enable_night_open": { "value": true,
+            "script_settings": true
+          },
+          "enable_night_holding": { "value": true,
+            "script_settings": true
+          },
+          "enable_group_across_days": { "value": true,
+            "script_settings": true
+          },
+          "enable_open_crossing": { "value": true,
+            "script_settings": true
+          }
         }
       },
       "coding": {

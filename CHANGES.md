@@ -1,5 +1,14 @@
 
 
+### [2024-06-29]
+#### Version:
+#####   Package:
+#####    pixiu: 0.145.*.20240629
+#####
+#### **Descriptions：**
+  1.ea_builder.py:
+    1) parse_options_config: Change format
+
 ### [2024-06-27]
 #### Version:
 #####   Package:

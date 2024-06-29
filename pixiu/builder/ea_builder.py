@@ -78,6 +78,10 @@ class VariableBuilder(ElementBuilder):
     @property
     def value(self):
         return self.config['value']
+        # ret = self.config['value']
+        # if isinstance(ret, dict):
+        #     ret = ret['value']
+        # return ret
 
     @property
     def required(self):
@@ -844,7 +848,13 @@ class EABuilder:
         for opt_name in options_config:
             var = template_variables[opt_name]
             opt_val = options_config[opt_name]
+            opt_script_settings = None
+            if isinstance(opt_val, dict):
+                opt_script_settings = opt_val.get('script_settings', None)
+                opt_val = opt_val['value']
             var.config['value'] = json.dumps(opt_val, quote_keys=True) if var.config['type'] == 'str' else opt_val
+            if opt_script_settings is not None:
+                var.config['script_settings'] = opt_script_settings
 
         return build_data
     # def parse_options_config(self, build_data, options_config):
