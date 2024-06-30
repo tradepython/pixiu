@@ -1,5 +1,14 @@
 
 
+### [2024-06-30]
+#### Version:
+#####   Package:
+#####    pixiu: 0.146.*.20240630
+#####
+#### **Descriptions：**
+  1.module_indicators.json
+    1) Add define
+
 ### [2024-06-29]
 #### Version:
 #####   Package:

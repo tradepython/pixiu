@@ -5,11 +5,23 @@
       "name": "indicator",
       "class": "IndicatorModule",
       "file": "../modules/module_indicators.py",
+      "define": {
+        "SymbolPrice": {},
+        "SymbolData": {
+          "name": "SymbolData",
+          "members": [
+            {"name": "open", "type": "SymbolPrice"},
+            {"name": "close", "type": "SymbolPrice"},
+            {"name": "low", "type": "SymbolPrice"},
+            {"name": "high", "type": "SymbolPrice"},
+          ]
+        },
+      },
       "functions": {
         "ADX": {
           "method": "adx",
           "params": [
-            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "symbol_data", "required": true, "type": "SymbolData"},
             {"name": "period", "required": true, "type": "number"},
             {"name": "shift", "required": true, "type": "number", "default": 1}
           ],
@@ -22,7 +34,7 @@
             {"name": "price_data", "required": true, "type": "price_data"},
             {"name": "period", "required": true, "type": "number"},
             {"name": "matype", "required": true, "type": "number"},
-            {"name": "shift", "required": true, "typ4e": "number", "default": 1}
+            {"name": "shift", "required": true, "type": "number", "default": 1}
           ],
           "return": {"type": "number"},
           "desc": "Calculates the Moving Average indicator and returns its value"
@@ -30,7 +42,7 @@
         "AD": {
           "method": "ad",
           "params": [
-            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "symbol_data", "required": true, "type": "SymbolData"},
             {"name": "shift", "required": true, "type": "number", "default": 1}
           ],
           "return": {"type": "number"},
@@ -39,7 +51,7 @@
         "ATR": {
           "method": "atr",
           "params": [
-            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "symbol_data", "required": true, "type": "SymbolData"},
             {"name": "period", "required": true, "type": "number"},
             {"name": "shift", "required": true, "type": "number", "default": 1}
           ],
@@ -49,7 +61,7 @@
         "BANDS": {
           "method": "bands",
           "params": [
-            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "symbol_data", "required": true, "type": "SymbolData"},
             {"name": "period", "required": true, "type": "number"},
             {"name": "stddev_up", "required": true, "type": "number", "default": 2},
             {"name": "stddev_down", "required": true, "type": "number", "default": 2},
@@ -63,7 +75,7 @@
         "CCI": {
           "method": "cci",
           "params": [
-            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "symbol_data", "required": true, "type": "SymbolData"},
             {"name": "period", "required": true, "type": "number"},
             {"name": "shift", "required": true, "type": "number", "default": 1}
           ],
@@ -74,7 +86,7 @@
         "CHAIKIN": {
           "method": "chaikin",
           "params": [
-            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "symbol_data", "required": true, "type": "SymbolData"},
             {"name": "fast", "required": true, "type": "number"},
             {"name": "slow", "required": true, "type": "number"},
             {"name": "shift", "required": true, "type": "number", "default": 1}
@@ -86,7 +98,7 @@
         "DEMA": {
           "method": "dema",
           "params": [
-            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "symbol_data", "required": true, "type": "SymbolData"},
             {"name": "period", "required": true, "type": "number"},
             {"name": "shift", "required": true, "type": "number", "default": 1}
           ],
@@ -97,7 +109,7 @@
         "MOMENTUM": {
           "method": "momentum",
           "params": [
-            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "symbol_data", "required": true, "type": "SymbolData"},
             {"name": "period", "required": true, "type": "number"},
             {"name": "shift", "required": true, "type": "number", "default": 1}
           ],
@@ -108,7 +120,7 @@
         "MFI": {
           "method": "mfi",
           "params": [
-            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "symbol_data", "required": true, "type": "SymbolData"},
             {"name": "period", "required": true, "type": "number"},
             {"name": "shift", "required": true, "type": "number", "default": 1}
           ],
@@ -119,7 +131,7 @@
         "MACD": {
           "method": "macd",
           "params": [
-            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "symbol_data", "required": true, "type": "SymbolData"},
             {"name": "fast", "required": true, "type": "number"},
             {"name": "slow", "required": true, "type": "number"},
             {"name": "signal", "required": true, "type": "number"},
@@ -132,7 +144,7 @@
         "OBV": {
           "method": "obv",
           "params": [
-            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "symbol_data", "required": true, "type": "SymbolData"},
             {"name": "shift", "required": true, "type": "number", "default": 1}
           ],
 
@@ -142,7 +154,7 @@
         "SAR": {
           "method": "sar",
           "params": [
-            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "symbol_data", "required": true, "type": "SymbolData"},
             {"name": "acc", "required": true, "type": "number"},
             {"name": "max", "required": true, "type": "number"},
             {"name": "shift", "required": true, "type": "number", "default": 1}
@@ -154,7 +166,7 @@
         "RSI": {
           "method": "rsi",
           "params": [
-            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "symbol_data", "required": true, "type": "SymbolData"},
             {"name": "period", "required": true, "type": "number"},
             {"name": "shift", "required": true, "type": "number", "default": 1}
           ],
@@ -165,7 +177,7 @@
         "STDDEV": {
           "method": "stddev",
           "params": [
-            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "symbol_data", "required": true, "type": "SymbolData"},
             {"name": "period", "required": true, "type": "number"},
             {"name": "stddev", "required": true, "type": "number", "default": 1},
             {"name": "shift", "required": true, "type": "number", "default": 1}
@@ -177,7 +189,7 @@
         "STOCH": {
           "method": "stochastic",
           "params": [
-            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "symbol_data", "required": true, "type": "SymbolData"},
             {"name": "fastk", "required": true, "type": "number", "default": 5},
             {"name": "slowk", "required": true, "type": "number", "default": 3},
             {"name": "slowk_matype", "required": true, "type": "number", "default": 0},
@@ -203,7 +215,7 @@
         "WPR": {
           "method": "wpr",
           "params": [
-            {"name": "symbol_data", "required": true, "type": "symbol_data"},
+            {"name": "symbol_data", "required": true, "type": "SymbolData"},
             {"name": "period", "required": true, "type": "number"},
             {"name": "shift", "required": true, "type": "number", "default": 1}
           ],
