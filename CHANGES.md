@@ -1,5 +1,14 @@
 
 
+### [2024-08-29]
+#### Version:
+#####   Package:
+#####    pixiu: 0.147.*.20240829
+#####
+#### **Descriptions：**
+    1.ea_optimizer.py:
+        1) Fix max_tasks type bug
+
 ### [2024-06-30]
 #### Version:
 #####   Package:

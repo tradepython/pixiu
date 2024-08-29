@@ -69,7 +69,7 @@ class VariableBuilder(ElementBuilder):
 
     @property
     def type(self):
-        return self.config.get('type', "string")
+        return self.config.get('type', "str")
 
     @property
     def valid(self):
@@ -133,7 +133,7 @@ class VariableBuilder(ElementBuilder):
         elif value_type == 'float':
             value = float(self.value)
             value_string = f"{value}"
-        elif value_type == 'str':
+        elif value_type in ('str', 'string'):
             value = str(self.value)
             value_string = f"'{value}'"
 

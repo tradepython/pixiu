@@ -104,7 +104,7 @@ class EAOptimizer:
     def calculate_optimization_task_count(self):
         generator = self.optimization_config['optimization']['generator']
         if generator == 'random':
-            max_tasks = self.optimization_config['optimization']['max_tasks']
+            max_tasks = int(self.optimization_config['optimization']['max_tasks'])
             return max_tasks
         elif generator == 'grid':
             variables = self.get_variables()
@@ -141,7 +141,7 @@ class EAOptimizer:
             var_val = variables[var]
             self.variables[var_name] = var_val
             flag_list.append(f"{var_name}-{var_val['start']}-{var_val['stop']}-{var_val['step']}")
-            for v in range(var_val['start'], var_val['stop'], var_val['step']):
+            for v in range(int(var_val['start']), int(var_val['stop']), int(var_val['step'])):
                 n = f"{var_name}_{v}"
                 variables_dict[n] = (var_name, v)
                 vl = var_list_dict.get(var_name, [])
@@ -170,9 +170,10 @@ class EAOptimizer:
         task_vars = None
         generator = self.optimization_config['optimization']['generator']
         if generator == 'random':
-            max_tasks = self.optimization_config['optimization']['max_tasks']
-            keys = random.sample(list(opt_var_config.keys()), max_tasks)
-            task_vars = {k: d[k] for k in keys}
+            max_tasks = int(self.optimization_config['optimization']['max_tasks'])
+            key_list = list(opt_var_config.keys())
+            keys = random.sample(key_list, min(max_tasks, len(key_list)))
+            task_vars = {k: opt_var_config[k] for k in keys}
         elif generator == 'grid':
             task_vars = opt_var_config
 
@@ -180,7 +181,7 @@ class EAOptimizer:
                           symbols=symbols,
                           variables=task_vars,
                           test_config=test_config,
-                          test_log_config=self.optimization_config['test_log_config'],
+                          test_log_config=self.optimization_config.get('test_log_config', ["order", "report"]),
                           time_utc=datetime.utcnow().isoformat(),
                           ts_utc=datetime.utcnow().timestamp())
         return opt_config
