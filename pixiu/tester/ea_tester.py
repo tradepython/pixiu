@@ -66,6 +66,8 @@ class EATester(EABase):
     def __init__(self, params):
         super(EATester, self).__init__(params)
         #
+        self.errid = None
+        self.errmsg = None
         self.default_digits = 2
         self.symbol = params["symbol"]
         self.default_symbol_properties = params.get("symbol_properties", None)
@@ -170,15 +172,22 @@ class EATester(EABase):
         # self.current_api = TesterAPI_V1(tester=self, data_source={}, default_symbol=self.symbol)
         self.current_api = self.get_api()
         self.data = {DataScope.EA_VERSION: {}, DataScope.EA: {}, DataScope.ACCOUNT: {}, DataScope.EA_SETTIGNS: {}}
-        self.set_errid(EID_OK)
+        self.set_error(EID_OK, 'EID_OK')
         #
         self.reset_flags()
 
-    def set_errid(self, errid):
+    def set_error(self, errid, errmsg):
         self.errid = errid
+        self.errmsg = errmsg
 
-    def get_errid(self):
-        return self.errid
+    # def set_errid(self, errid):
+    #     self.errid = errid
+
+    # def get_errid(self):
+    #     return self.errid
+
+    def get_error(self):
+        return self.errid, self.errmsg
 
     def reset_flags(self):
         self.flags = 0
@@ -2052,7 +2061,7 @@ class EATester(EABase):
         update_log_task = None
         exception_message = None
         try:
-            self.set_errid(EID_OK)
+            self.set_error(EID_OK, 'EID_OK')
             test_start_time = datetime.now()
             pixiu_version = pkg_resources.get_distribution('pixiu').version
             self.write_log(f"\n\n == PiXiu({pixiu_version}) Backtesting Start: {test_start_time}, Ticket: {ticket}, Symbol: {self.symbol}, Period: {self.start_time} - {self.end_time}, "
@@ -2064,7 +2073,7 @@ class EATester(EABase):
                 if not valid_script_settings['success']:
                     errmsg = valid_script_settings.get('errmsg', None)
                     exception_message = f"ValidScriptSettings Error: {errmsg}"
-                    self.set_errid(EID_EAT_ERROR)
+                    self.set_error(EID_EAT_ERROR, exception_message)
                     raise Exception(exception_message)
             #
             self.init_data()
@@ -2093,7 +2102,7 @@ class EATester(EABase):
                     if self.tick_max_count is not None and i >= self.tick_max_count:
                         break
                     if self.stop:
-                        self.set_errid(EID_EAT_TEST_STOP)
+                        self.set_error(EID_EAT_TEST_STOP, 'EID_EAT_TEST_STOP')
                         raise PXErrorCode(EID_EAT_TEST_STOP)
                     #
                     self.on_begin_tick()
@@ -2113,10 +2122,10 @@ class EATester(EABase):
                     # #
                     if exit != 0:
                         if exit == 2:
-                            self.set_errid(EID_EAT_NOT_ENOUGH_MONEY)
+                            self.set_error(EID_EAT_NOT_ENOUGH_MONEY, 'EID_EAT_NOT_ENOUGH_MONEY')
                             raise PXErrorCode(EID_EAT_NOT_ENOUGH_MONEY)
                         else:
-                            self.set_errid(EID_EAT_EA_DEAD)
+                            self.set_error(EID_EAT_EA_DEAD, 'EID_EAT_EA_DEAD')
                             raise PXErrorCode(EID_EAT_EA_DEAD)
                     # self.current_tick_index += 1
                     self.on_end_tick()
@@ -2127,8 +2136,9 @@ class EATester(EABase):
                     traceback.print_exc()
                     exception_msg = self.on_execute_exception()
                     errid = EID_EAT_ERROR
-                    if self.get_errid() == EID_OK:
-                        self.set_errid(EID_EAT_ERROR)
+                    last_errid, last_errmsg = self.get_error()
+                    if last_errid == EID_OK:
+                        self.set_error(EID_EAT_ERROR, exception_msg)
                     break
             #
             self.flags |= EATester.FM_END

@@ -1,5 +1,15 @@
 
 
+### [2024-09-24]
+#### Version:
+#####   Package:
+#####    pixiu: 0.148.*.20240924
+#####
+#### **Descriptions：**
+    1.ea_tester.py:
+        1) Change set_errid(errid) to set_error(errid, errmsg) 
+        2) Change get_errid -> errid to get_error -> errid, errmsg 
+
 ### [2024-08-29]
 #### Version:
 #####   Package:
