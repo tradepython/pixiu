@@ -1,5 +1,16 @@
 
 
+### [2024-09-25]
+#### Version:
+#####   Package:
+#####    pixiu: 0.149.*.20240925
+#####
+#### **Descriptions：**
+    1.ea_optimizer.py:
+        1) Add generate_optimization_parsed_code: fix header comments missing error
+        2）Add class ReplaceValue  
+
+
 ### [2024-09-24]
 #### Version:
 #####   Package:

@@ -1,5 +1,6 @@
 
 import ast
+import io
 import random
 import time
 import traceback
@@ -26,6 +27,48 @@ class TaskStatus(int, Enum):
     FINISHED = 200
     ERROR = 300
 
+class ReplaceValue(ast.NodeTransformer):
+    def __init__(self, values_config, result=None):
+        super().__init__()
+        self.values_config = values_config
+        self.result = result
+
+    def visit_Assign(self, node):
+        replace_conditions = (isinstance(node.targets[0], ast.Name) and isinstance(node.targets[0].ctx, ast.Store))
+        if replace_conditions:
+            element_id = node.targets[0].id
+            if element_id in self.values_config:
+                new_val = self.values_config[element_id]
+                if new_val:
+                    replaced = True
+                    # if isinstance(node.value, ast.Constant):
+                    #     # element.value.value = new_val
+                    #     node.value = ast.Constant(value=new_val)
+                    # else:
+                    #     replaced = False
+                    if self.result is not None and replaced:
+                        self.result[element_id] = dict(result=0, )
+                    return ast.Assign(targets=[node.targets[0]], value=ast.Constant(value=new_val, kind=''))
+        return node
+                    # return node
+        # ps = ast.parse(source)
+        # for element in ps.body:
+        #     if isinstance(element, ast.Assign):
+        #         if isinstance(element.targets[0], ast.Name):
+        #             if isinstance(element.targets[0].ctx, ast.Store):
+        #                 element_id = element.targets[0].id
+        #                 if element_id in values_config:
+        #                     new_val = values_config[element_id]
+        #                     if new_val:
+        #                         replaced = True
+        #                         if isinstance(element.value, ast.Constant):
+        #                             # element.value.value = new_val
+        #                             element.value = ast.Constant(value=new_val)
+        #                         else:
+        #                             replaced = False
+        #                         if result is not None and replaced:
+        #                             result[element_id] = dict(result=0, )
+        # return ps
 
 class EAOptimizer:
     """EA Optimizer"""
@@ -209,59 +252,68 @@ class EAOptimizer:
             traceback.print_exc()
         return None
 
-    def generate_optimization_code(self, source, values_config, result=None):
+    def generate_optimization_parsed_code(self, source, values_config, result=None):
         ps = ast.parse(source)
-        for element in ps.body:
-            if isinstance(element, ast.Assign):
-                if isinstance(element.targets[0], ast.Name):
-                    if isinstance(element.targets[0].ctx, ast.Store):
-                        element_id = element.targets[0].id
-                        if element_id in values_config:
-                            new_val = values_config[element_id]
-                            if new_val:
-                                element.value.value = new_val
-                                if result is not None:
-                                    result[element_id] = dict(result=0, )
+        ps = ReplaceValue(values_config, result).visit(ps)
         return ps
+
+    # def generate_optimization_parsed_code(self, source, values_config, result=None):
+    #     ps = ast.parse(source)
+    #     for element in ps.body:
+    #         if isinstance(element, ast.Assign):
+    #             if isinstance(element.targets[0], ast.Name):
+    #                 if isinstance(element.targets[0].ctx, ast.Store):
+    #                     element_id = element.targets[0].id
+    #                     if element_id in values_config:
+    #                         new_val = values_config[element_id]
+    #                         if new_val:
+    #                             replaced = True
+    #                             if isinstance(element.value, ast.Constant):
+    #                                 # element.value.value = new_val
+    #                                 element.value = ast.Constant(value=new_val)
+    #                             else:
+    #                                 replaced = False
+    #                             if result is not None and replaced:
+    #                                 result[element_id] = dict(result=0, )
+    #     return ps
+    #
+    def generate_optimization_code(self, source, values_config, result=None):
+        ps = self.generate_optimization_parsed_code(source, values_config, result)
+        new_code = astunparse.unparse(ps)
+        #
+        header_comments = ''
+        buf = io.StringIO(source)
+        lines = buf.readlines()
+        for l in lines:
+            if l.startswith('#'):
+                header_comments = f"{header_comments}{l}"
+            else:
+                break
+        if header_comments:
+            new_code = f"{header_comments}{new_code}"
+        return new_code
 
     def generate_optimization_code_file(self, file_path, config):
         code = self.get_source_code()
         values_config = config['variables']
-        ps = self.generate_optimization_code(code, values_config)
-        new_code = astunparse.unparse(ps)
+        new_code = self.generate_optimization_code(code, values_config)
         with open(file_path, 'w') as f:
             f.write(new_code)
         code_md5 = hashlib.md5(new_code.encode("utf-8")).hexdigest()
         config['code_md5'] = code_md5
         config['script_path'] = file_path
 
-   # def generate_optimization_code_file(self, file_path, config):
-   #      source = self.get_source_code()
-   #      gloabl_dict = dict()
-   #      local_dict = dict()
-   #      # values_config = dict(ADX=123, ADX_PERIOD=456, NEAR_PERIOD=789, FAR_PERIOD=101112)
-   #      values_config = config['variables']
-   #      ps = ast.parse(source)
-   #      for element in ps.body:
-   #          if isinstance(element, ast.Assign):
-   #              if isinstance(element.targets[0], ast.Name):
-   #                  if isinstance(element.targets[0].ctx, ast.Store):
-   #                      element_id = element.targets[0].id
-   #                      if element_id in values_config:
-   #                          new_val = values_config[element_id]
-   #                          if new_val:
-   #                              element.value.value = new_val #ast.Constant(value=new_val)
-   #      # code = compile(source, file_path, 'exec')
-   #      # exec(code, gloabl_dict, local_dict)
-   #      new_source = astunparse.unparse(ps)
-   #      # code = compile(new_source, file_path, 'exec')
-   #      # exec(code, gloabl_dict, local_dict)
-   #      with open(file_path, 'w') as f:
-   #          f.write(new_source)
-   #      code_md5 = hashlib.md5(new_source.encode("utf-8")).hexdigest()
-   #      config['code_md5'] = code_md5
-   #      config['script_path'] = file_path
-   #
+    # def generate_optimization_code_file(self, file_path, config):
+    #     code = self.get_source_code()
+    #     values_config = config['variables']
+    #     ps = self.generate_optimization_code(code, values_config)
+    #     new_code = astunparse.unparse(ps)
+    #     with open(file_path, 'w') as f:
+    #         f.write(new_code)
+    #     code_md5 = hashlib.md5(new_code.encode("utf-8")).hexdigest()
+    #     config['code_md5'] = code_md5
+    #     config['script_path'] = file_path
+
     def run_tester(self, test_config_path, test_name, script_path, log_path, print_log_type, result_value):
         try:
             pxt = PXTester(test_config_path=test_config_path, test_name=test_name, script_path=script_path,
