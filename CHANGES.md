@@ -1,5 +1,16 @@
 
 
+### [2024-09-26]
+#### Version:
+#####   Package:
+#####    pixiu: 0.150.*.20240926
+#####
+#### **Descriptions：**
+    1.ea_tester.py:
+        1) Add start_time, end_time in report
+    2.ea_builder.py:
+        1) Fix SymbolBuilder.build_code timeframe bug
+
 ### [2024-09-25]
 #### Version:
 #####   Package:

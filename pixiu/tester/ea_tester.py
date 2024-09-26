@@ -312,6 +312,8 @@ class EATester(EABase):
                         'max_consecutive_wins_money': {'value': 0, 'desc': 'Max Consecutive Wins Money'}, #
                         'max_consecutive_losses': {'value': 0, 'desc': 'Max Consecutive Losses', 'precision': 0}, #
                         'max_consecutive_losses_money': {'value': 0, 'desc': 'Max Consecutive Losses Money'}, #
+                        'start_time': {'value': self.start_time, 'desc': 'Start Time'}, #
+                        'end_time': {'value': self.end_time, 'desc': 'Start Time'}, #
         }
         self.temp = {
             'consecutive_wins': 0,

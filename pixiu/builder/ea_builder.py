@@ -199,12 +199,11 @@ class SymbolBuilder(ElementBuilder):
             symbol = 'Symbol()'
         else:
             symbol = None
-
         timeframe = self.get_value({}, self.timeframe)
         # tf = self.get_value({}, self.timeframe)
         # return f"TimeFrame.{tf.upper()}"
         size = self.get_value({}, self.size)
-        code = f"{self.get_variable_name()} = GetSymbolData({symbol}, timeframe={timeframe}, size={size})"
+        code = f"{self.get_variable_name()} = GetSymbolData({symbol}, timeframe='{timeframe}', size={size})"
         return code
 
 
