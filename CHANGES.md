@@ -1,5 +1,15 @@
 
 
+### [2024-10-11]
+#### Version:
+#####   Package:
+#####    pixiu: 0.151.*.20241011
+#####
+#### **Descriptions：**
+    1.ea_builder.py:
+        1) Fix SymbolBuilder.build_code timeframe bug
+
+
 ### [2024-09-26]
 #### Version:
 #####   Package:

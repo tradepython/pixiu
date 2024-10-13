@@ -30,27 +30,34 @@ class ElementBuilder:
 
     def get_value(self, config, value):
         ret = value
+        var_type = 'value'
         if isinstance(value, str):
             va = value.split('.')
             if len(va) > 1:
                 if va[0] in ('@variables', '@var'):
+                    var_type = 'variable'
                     items = va[1:]
                     parameter_builder = self.build_data['variables'][items[0]]
                     ret = parameter_builder.get_variable_name()
                     ret = self.__write_value_items__(ret,  items)
                 elif va[0] in ('@symbols', '@sym'):
+                    var_type = 'symbol'
                     items = va[1:]
                     symbol_builder = self.build_data['symbols'][items[0]]
                     ret = symbol_builder.get_variable_name()
                     ret = self.__write_value_items__(ret,  items)
                 elif va[0] in ('@functions', '@func'):
+                    var_type = 'function'
                     func_builder = self.build_data['functions'][va[1]]
                     var_list = func_builder.get_variables(func_builder.package, func_builder.module, func_builder.name)
                     ret = var_list[0]['name']
                 else:
+                    var_type = 'unknown'
                     raise Exception(f"Unknown path name: {va[0]}")
+            else:
+                var_type = 'value'
 
-        return ret
+        return ret, var_type
 
     def build_code(self, options):
         return None
@@ -192,18 +199,23 @@ class SymbolBuilder(ElementBuilder):
         return f"symbol_{self.index}"
 
     def build_code(self, options):
-        symbol = self.get_value({}, self.symbol)
+        symbol, vt = self.get_value({}, self.symbol)
         if isinstance(symbol, str):
             symbol = f"'{symbol}'"
         elif symbol == 0:
             symbol = 'Symbol()'
         else:
             symbol = None
-        timeframe = self.get_value({}, self.timeframe)
+        timeframe, vt = self.get_value({}, self.timeframe)
+        if vt == 'value':
+            tf_str = f"'{timeframe}'"
+        else:
+            tf_str = f"{timeframe}"
         # tf = self.get_value({}, self.timeframe)
         # return f"TimeFrame.{tf.upper()}"
-        size = self.get_value({}, self.size)
-        code = f"{self.get_variable_name()} = GetSymbolData({symbol}, timeframe='{timeframe}', size={size})"
+        size, vt = self.get_value({}, self.size)
+        # code = f"{self.get_variable_name()} = GetSymbolData({symbol}, timeframe='{timeframe}', size={size})"
+        code = f"{self.get_variable_name()} = GetSymbolData({symbol}, timeframe={tf_str}, size={size})"
         return code
 
 
@@ -270,7 +282,7 @@ class FunctionBuilder(ElementBuilder):
                 val = self.params[key]
             else:
                 val = self.params[idx]
-            param_dict[key] = self.get_value(fc, val)
+            param_dict[key], vt = self.get_value(fc, val)
         options['params'] = param_dict
 
         return func(cls(), options)
@@ -348,7 +360,7 @@ class EntryBuilder(ElementBuilder):
     #     return f"({code})"
     #
     def get_expression_value(self, string):
-        v = self.get_value(None, string)
+        v, vt = self.get_value(None, string)
         return True, v
 
     def add_functions_dict(self, func):
