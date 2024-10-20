@@ -1,5 +1,14 @@
 
 
+### [2024-10-20]
+#### Version:
+#####   Package:
+#####    pixiu: 0.152.*.20241020
+#####
+#### **Descriptions：**
+    1.ea_builder.py:
+        1) Add parse_order_config_tp_sl
+
 ### [2024-10-11]
 #### Version:
 #####   Package:

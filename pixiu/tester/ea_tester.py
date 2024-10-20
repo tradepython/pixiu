@@ -276,6 +276,8 @@ class EATester(EABase):
 
     def init_report_data(self):
         self.report = {
+                        'start_time': {'value': self.start_time, 'desc': 'Start Time', 'type': 'datetime'},  #
+                        'end_time': {'value': self.end_time, 'desc': 'End Time', 'type': 'datetime'},  #
                         'init_balance': {'value': self.account['balance'], 'desc': 'Init Balance'}, #
                         'symbol': {'value': self.symbol, 'desc': 'Symbol', 'type': 'str'}, #
                         'currency': {'value': self.account['currency'], 'desc': 'Currency', 'type': 'str'}, #
@@ -312,8 +314,6 @@ class EATester(EABase):
                         'max_consecutive_wins_money': {'value': 0, 'desc': 'Max Consecutive Wins Money'}, #
                         'max_consecutive_losses': {'value': 0, 'desc': 'Max Consecutive Losses', 'precision': 0}, #
                         'max_consecutive_losses_money': {'value': 0, 'desc': 'Max Consecutive Losses Money'}, #
-                        'start_time': {'value': self.start_time, 'desc': 'Start Time'}, #
-                        'end_time': {'value': self.end_time, 'desc': 'Start Time'}, #
         }
         self.temp = {
             'consecutive_wins': 0,

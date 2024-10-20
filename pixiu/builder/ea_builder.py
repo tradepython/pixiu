@@ -575,6 +575,33 @@ class EntryBuilder(ElementBuilder):
 
         return True, ''
 
+    def parse_order_config_tp_sl(self, tp_sl_config):
+        ret = tp_sl_config
+        if isinstance(ret, dict):
+            typ = ret['type']
+            if typ == 'pips':
+                tp_pips = float(ret['pips'])
+                ret['pips'] = tp_pips
+            elif typ == 'money':
+                money = float(ret['money'])
+                ret['money'] = money
+            elif typ == 'percent':
+                percent = float(ret['percent'])
+                ret['percent'] = percent
+                source = ret['source']
+                source_name = source['name']
+                if source_name == 'atr':
+                    period = int(source['period'])
+                    source['period'] = period
+                    timeframe = source['timeframe']
+                    if 'shift' in source:
+                        shift = int(source['shift'])
+                        source['shift'] = shift
+            elif typ == 'pl-ratio':
+                ratio = float(ret['ratio'])
+                ret['ratio'] = ratio
+        return ret
+
     def parse_order_config(self, config):
         ret = None
         os = config.get('order', None)
@@ -586,43 +613,75 @@ class EntryBuilder(ElementBuilder):
             positions = ret.get('positions', None)
             if isinstance(positions, dict):
                 pos_type = positions['type']
-                if pos_type == 'fixed':
-                    pos_volume = positions['volume']
+                if pos_type == 'volume':
+                    pos_volume = float(positions['volume'])
+                    positions['volume'] = float(pos_volume)
             #
             take_profit = ret.get('take_profit', None)
-            if isinstance(take_profit, dict):
-                tp_type = take_profit['type']
-                if tp_type == 'pips':
-                    tp_pips = take_profit['pips']
-                elif tp_type == 'money':
-                    tp_money = take_profit['money']
-                elif tp_type == 'percent':
-                    tp_percent = take_profit['percent']
-                    tp_percent_source = take_profit['source']
-                    if tp_percent_source == 'atr':
-                        tp_percent_atr_period = take_profit['period']
-                        tp_percent_atr_timeframe = take_profit['timeframe']
-                elif tp_type == 'pl-ratio':
-                    pass
+            take_profit = self.parse_order_config_tp_sl(take_profit)
 
             stop_loss = ret.get('stop_loss', None)
-            if isinstance(stop_loss, dict):
-                sl_type = stop_loss['type']
-                if sl_type == 'pips':
-                    sl_pips = stop_loss['pips']
-                elif sl_type == 'money':
-                    sl_money = stop_loss['money']
-                elif sl_type == 'percent':
-                    sl_percent = stop_loss['percent']
-                    sl_percent_source = stop_loss['source']
-                    if sl_percent_source == 'atr':
-                        sl_percent_atr_period = stop_loss['period']
-                        sl_percent_atr_timeframe = stop_loss['timeframe']
-                elif sl_type == 'pl-ratio':
-                    pass
+            stop_loss = self.parse_order_config_tp_sl(stop_loss)
             #
         return ret
 
+    #
+    # def parse_order_config(self, config):
+    #     ret = None
+    #     os = config.get('order', None)
+    #     if os:
+    #         ret = os.copy()
+    #         profit_loss_ratio = int(ret.get('profit_loss_ratio', 0))
+    #         if profit_loss_ratio > 0:
+    #             ret['profit_loss_ratio'] = profit_loss_ratio
+    #         positions = ret.get('positions', None)
+    #         if isinstance(positions, dict):
+    #             pos_type = positions['type']
+    #             if pos_type == 'volume':
+    #                 pos_volume = float(positions['volume'])
+    #                 positions['volume'] = float(pos_volume)
+    #         #
+    #         take_profit = ret.get('take_profit', None)
+    #         if isinstance(take_profit, dict):
+    #             tp_type = take_profit['type']
+    #             if tp_type == 'pips':
+    #                 tp_pips = float(take_profit['pips'])
+    #                 take_profit['pips'] = tp_pips
+    #             elif tp_type == 'money':
+    #                 tp_money = float(take_profit['money'])
+    #                 take_profit['money'] = tp_money
+    #             elif tp_type == 'percent':
+    #                 tp_percent = float(take_profit['percent'])
+    #                 take_profit['percent'] = tp_percent
+    #                 tp_percent_source = take_profit['source']
+    #                 if tp_percent_source == 'atr':
+    #                     tp_percent_atr_period = int(tp_percent_source['period'])
+    #                     tp_percent_source['period'] = tp_percent_atr_period
+    #                     tp_percent_atr_timeframe = tp_percent_source['timeframe']
+    #                     if 'shift' in tp_percent_source:
+    #                         tp_percent_atr_shift = int(tp_percent_source['shift'])
+    #                         tp_percent_source['shift'] = tp_percent_atr_shift
+    #             elif tp_type == 'pl-ratio':
+    #                 pass
+    #
+    #         stop_loss = ret.get('stop_loss', None)
+    #         if isinstance(stop_loss, dict):
+    #             sl_type = stop_loss['type']
+    #             if sl_type == 'pips':
+    #                 sl_pips = float(stop_loss['pips'])
+    #             elif sl_type == 'money':
+    #                 sl_money = float(stop_loss['money'])
+    #             elif sl_type == 'percent':
+    #                 sl_percent = float(stop_loss['percent'])
+    #                 sl_percent_source = stop_loss['source']
+    #                 if sl_percent_source == 'atr':
+    #                     sl_percent_atr_period = stop_loss['period']
+    #                     sl_percent_atr_timeframe = stop_loss['timeframe']
+    #             elif sl_type == 'pl-ratio':
+    #                 pass
+    #         #
+    #     return ret
+    #
     def get_order_config(self, options):
         default_order_config = self.parse_order_config(self.config)
         #

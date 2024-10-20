@@ -1,7 +1,7 @@
 # env
 import csv
-# import json
-import json5 as json
+import json
+import json5
 import time
 import pytz
 import dateutil
@@ -48,7 +48,7 @@ class PXTester(EATester):
     def read_test_config(self, test_config_path):
         with open(test_config_path) as f:
             s = f.read()
-            return json.loads(s)
+            return json5.loads(s)
 
     def config_path_to_abs_path(self, config_file_path, file_path):
         ret = file_path
@@ -321,7 +321,8 @@ class PXTester(EATester):
                 data = dict(cmd='update_data', name=self.graph_data['name'],
                             symbol=self.graph_data['symbol'], group=self.graph_data['group'],
                                                 data=dict(price=tick))
-                self.tester_graph_server.send_message(json.dumps(data, quote_keys=True))
+                # self.tester_graph_server.send_message(json5.dumps(data, quote_keys=True))
+                self.tester_graph_server.send_message(json.dumps(data))
             self.tick_order_logs = []
         except:
             traceback.print_exc()
@@ -350,9 +351,11 @@ class PXTester(EATester):
             idx += 1
         self.write_log(f"{report_str}", type='report')
         if self.test_result is not None:
-            self.test_result.value = json.dumps(dict(report=self.report), quote_keys=True)
+            # self.test_result.value = json5.dumps(dict(report=self.report), quote_keys=True)
+            self.test_result.value = json.dumps(dict(report=self.report))
         if self.test_graph_data is not None:
-            self.test_graph_data.value = json.dumps(dict(graph_data=self.graph_data), quote_keys=True)
+            # self.test_graph_data.value = json5.dumps(dict(graph_data=self.graph_data), quote_keys=True)
+            self.test_graph_data.value = json.dumps(dict(graph_data=self.graph_data))
 
         return 0
     #
