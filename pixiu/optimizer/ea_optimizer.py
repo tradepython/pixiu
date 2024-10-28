@@ -10,7 +10,8 @@ from multiprocessing.pool import AsyncResult
 from pixiu.pxtester import PXTester
 import astunparse
 import os
-import json5 as json
+# import json5 as json
+import pyjson5 as json
 import itertools
 import hashlib
 from datetime import datetime

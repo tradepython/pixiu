@@ -1,7 +1,7 @@
 # env
 import csv
 import json
-import json5
+import pyjson5 as json5
 import time
 import pytz
 import dateutil

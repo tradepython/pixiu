@@ -1,6 +1,7 @@
 
 import os
-import json5 as json
+# import json5 as json
+import pyjson5 as json
 import traceback
 from jinja2 import Template
 from black import format_str, FileMode
@@ -586,17 +587,19 @@ class EntryBuilder(ElementBuilder):
                 money = float(ret['money'])
                 ret['money'] = money
             elif typ == 'percent':
-                percent = float(ret['percent'])
-                ret['percent'] = percent
+                percent = ret['percent']
+                # ret['percent'] = percent
                 source = ret['source']
-                source_name = source['name']
-                if source_name == 'atr':
-                    period = int(source['period'])
-                    source['period'] = period
-                    timeframe = source['timeframe']
-                    if 'shift' in source:
-                        shift = int(source['shift'])
-                        source['shift'] = shift
+                if isinstance(source, dict):
+                    source_name = source['name']
+                    if source_name == 'atr':
+                        source_params = source['params']
+                        period = int(source_params['period'])
+                        source_params['period'] = period
+                        timeframe = source_params['timeframe']
+                        if 'shift' in source_params:
+                            shift = int(source_params['shift'])
+                            source_params['shift'] = shift
             elif typ == 'pl-ratio':
                 ratio = float(ret['ratio'])
                 ret['ratio'] = ratio

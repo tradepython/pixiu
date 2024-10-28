@@ -6,7 +6,6 @@ from pixiu.builder import EABuilder
 from pixiu.optimizer import EAOptimizer
 from tabulate import tabulate
 from ctypes import c_wchar_p
-import json5
 import json
 import uuid
 import hashlib

@@ -1,5 +1,13 @@
 
 
+### [2024-10-21]
+#### Version:
+#####   Package:
+#####    pixiu: 0.153.*.20241021
+#####
+#### **Descriptions：**
+    1.Replace json5 with pyjson5
+
 ### [2024-10-20]
 #### Version:
 #####   Package:
