@@ -136,32 +136,41 @@ class EATester(EABase):
                 leverage = float(params.get('leverage', 100))
             except:
                 leverage = 100
-            self.account = {'balance': balance,
-                            'equity': equity,
-                            'margin': 0,
-                            'free_margin': balance,
-                            'credit': 0.0,
-                            'profit': 0.0,
-                            'margin_level': 0,
-                            #static
-                            'leverage': leverage,
-                            'currency': params.get("currency", None),
-                            'free_margin_mode': 0,
-                            'stop_out_level': 0,
-                            'stop_out_mode': 0,
-                            'company': 'PIXIU',
-                            'name': 'EATester',
-                            'number': '000',
-                            'server': 'EATester',
-                            'trade_mode': 0,
-                            'limit_orders': 500,
-                            'margin_so_mode': 0,
-                            'trade_allowed': True,
-                            'trade_expert': 1,
-                            'margin_so_call': margin_so_call,
-                            'margin_so_so': margin_so_so,
-                            'commission': 0.0,
-                            }
+            self.account = self.get_init_data('account')
+            self.account['balance'] = balance
+            self.account['equity'] = balance
+            self.account['free_margin'] = balance
+            self.account['leverage'] = leverage
+            self.account['currency'] = params.get("currency", None)
+            self.account['margin_so_call'] = margin_so_call
+            self.account['margin_so_so'] = margin_so_so
+            #
+            # self.account = {'balance': balance,
+            #                 'equity': equity,
+            #                 'margin': 0,
+            #                 'free_margin': balance,
+            #                 'credit': 0.0,
+            #                 'profit': 0.0,
+            #                 'margin_level': 0,
+            #                 #static
+            #                 'leverage': leverage,
+            #                 'currency': params.get("currency", None),
+            #                 'free_margin_mode': 0,
+            #                 'stop_out_level': 0,
+            #                 'stop_out_mode': 0,
+            #                 'company': 'PIXIU',
+            #                 'name': 'EATester',
+            #                 'number': '000',
+            #                 'server': 'EATester',
+            #                 'trade_mode': 0,
+            #                 'limit_orders': 500,
+            #                 'margin_so_mode': 0,
+            #                 'trade_allowed': True,
+            #                 'trade_expert': 1,
+            #                 'margin_so_call': margin_so_call,
+            #                 'margin_so_so': margin_so_so,
+            #                 'commission': 0.0,
+            #                 }
         else:
             default_value = {'equity': self.account['balance'], 'margin': 0, 'free_margin': self.account['balance']}
             for k in default_value:
@@ -175,6 +184,93 @@ class EATester(EABase):
         self.set_error(EID_OK, 'EID_OK')
         #
         self.reset_flags()
+
+    def get_init_data(self, name):
+        ret = None
+        if name == 'account':
+            ret = {'balance': 0,
+                            'equity': 0,
+                            'margin': 0,
+                            'free_margin': 0,
+                            'credit': 0.0,
+                            'profit': 0.0,
+                            'margin_level': 0,
+                            # static
+                            'leverage': 0,
+                            'currency': None,
+                            'free_margin_mode': 0,
+                            'stop_out_level': 0,
+                            'stop_out_mode': 0,
+                            'company': 'PIXIU',
+                            'name': 'EATester',
+                            'number': '000',
+                            'server': 'EATester',
+                            'trade_mode': 0,
+                            'limit_orders': 500,
+                            'margin_so_mode': 0,
+                            'trade_allowed': True,
+                            'trade_expert': 1,
+                            'margin_so_call': 0,
+                            'margin_so_so': 0,
+                            'commission': 0.0,
+                            }
+        elif name == 'report':
+            ret = {
+                'start_time': {'value': self.start_time, 'desc': 'Start Time', 'type': 'datetime'},  #
+                'end_time': {'value': self.end_time, 'desc': 'End Time', 'type': 'datetime'},  #
+                'init_balance': {'value': self.account['balance'], 'desc': 'Init Balance'},  #
+                'symbol': {'value': self.symbol, 'desc': 'Symbol', 'type': 'str'},  #
+                'currency': {'value': self.account['currency'], 'desc': 'Currency', 'type': 'str'},  #
+                'leverage': {'value': self.account['leverage'], 'desc': 'Leverage'},  #
+                'spread_point': {'value': self.spread_point, 'desc': 'Spread Points'},  #
+                'margin_so_call': {'value': self.account['margin_so_call'], 'desc': 'Margin Call Level', 'type': '%'},
+                #
+                'margin_so_so': {'value': self.account['margin_so_so'], 'desc': 'Stop Out Level', 'type': '%'},  #
+                'ticks': {'value': 0, 'desc': 'Ticks', 'precision': 0},  #
+                'balance': {'value': 0, 'desc': 'Balance'},  #
+                'total_net_profit': {'value': 0, 'desc': 'Total Net Profit'},  #
+                'total_net_profit_rate': {'value': 0, 'desc': 'Total Net Profit Rate', 'type': '%'},  #
+                'sharpe_ratio': {'value': 0, 'desc': 'Sharpe Ratio', 'precision': 2},  #
+                'sortino_ratio': {'value': 0, 'desc': 'Sortino Ratio', 'precision': 2},  #
+                'absolute_drawdown': {'value': 0, 'desc': 'Absolute Drawdown'},  #
+                'max_drawdown': {'value': 0, 'desc': 'Max Drawdown'},  #
+                'max_drawdown_rate': {'value': 0, 'desc': 'Max Drawdown Rate', 'type': '%'},  #
+                'min_volume': {'value': None, 'desc': 'Min Volume'},  #
+                'max_volume': {'value': 0, 'desc': 'Max Volume'},  #
+                'total_trades': {'value': 0, 'desc': 'Total Trades', 'precision': 0},  #
+                'profit_trades': {'value': 0, 'desc': 'Profit Trades', 'precision': 0},  #
+                'win_rate': {'value': 0, 'desc': 'Win Rate', 'type': '%'},  #
+                'trade_max_profit': {'value': 0, 'desc': 'Trade Max Profit'},  #
+                'trade_avg_profit': {'value': 0, 'desc': 'Trade Avg Profit'},  #
+                'trade_max_loss': {'value': np.nan, 'desc': 'Trade Max Loss'},  #
+                'trade_avg_loss': {'value': 0, 'desc': 'Trade Avg Loss'},  #
+                'loss_trades': {'value': 0, 'desc': 'Loss Trades', 'precision': 0},  #
+                'gross_profit': {'value': 0, 'desc': 'Gross Profit'},  #
+                'gross_loss': {'value': 0, 'desc': 'Gross Loss'},  #
+                'short_positions': {'value': 0, 'desc': 'Short Positions', 'precision': 0},  #
+                'short_positions_win': {'value': 0, 'desc': 'Short Positions Win', 'precision': 0},  #
+                'long_positions': {'value': 0, 'desc': 'Long Positions', 'precision': 0},  #
+                'long_positions_win': {'value': 0, 'desc': 'Long Positions Win', 'precision': 0},  #
+                'max_consecutive_wins': {'value': 0, 'desc': 'Max Consecutive Wins', 'precision': 0},  #
+                'max_consecutive_wins_money': {'value': 0, 'desc': 'Max Consecutive Wins Money'},  #
+                'max_consecutive_losses': {'value': 0, 'desc': 'Max Consecutive Losses', 'precision': 0},  #
+                'max_consecutive_losses_money': {'value': 0, 'desc': 'Max Consecutive Losses Money'},  #
+            }
+        elif name == 'temp':
+            ret = {
+                'consecutive_wins': 0,
+                'consecutive_wins_money': 0,
+                'consecutive_losses': 0,
+                'consecutive_losses_money': 0,
+                'max_volume': 0,
+                'max_drawdown': 0,
+                'max_drawdown_rate': 0,
+                'account_max_equity': self.account['equity'],
+                'account_min_equity': self.account['equity'],
+                'account_min_balance': self.account['balance'],
+            }
+
+        return ret
 
     def set_error(self, errid, errmsg):
         self.errid = errid
@@ -275,58 +371,62 @@ class EATester(EABase):
         return EID_OK
 
     def init_report_data(self):
-        self.report = {
-                        'start_time': {'value': self.start_time, 'desc': 'Start Time', 'type': 'datetime'},  #
-                        'end_time': {'value': self.end_time, 'desc': 'End Time', 'type': 'datetime'},  #
-                        'init_balance': {'value': self.account['balance'], 'desc': 'Init Balance'}, #
-                        'symbol': {'value': self.symbol, 'desc': 'Symbol', 'type': 'str'}, #
-                        'currency': {'value': self.account['currency'], 'desc': 'Currency', 'type': 'str'}, #
-                        'leverage': {'value': self.account['leverage'], 'desc': 'Leverage'}, #
-                        'spread_point': {'value': self.spread_point, 'desc': 'Spread Points'}, #
-                        'margin_so_call': {'value': self.account['margin_so_call'], 'desc': 'Margin Call Level', 'type': '%'},  #
-                        'margin_so_so': {'value': self.account['margin_so_so'], 'desc': 'Stop Out Level', 'type': '%'},  #
-                        'ticks': {'value': 0, 'desc': 'Ticks', 'precision': 0}, #
-                        'balance': {'value': 0, 'desc': 'Balance'}, #
-                        'total_net_profit': {'value': 0, 'desc': 'Total Net Profit'}, #
-                        'total_net_profit_rate': {'value': 0, 'desc': 'Total Net Profit Rate', 'type': '%'}, #
-                        'sharpe_ratio': {'value': 0, 'desc': 'Sharpe Ratio', 'precision': 2}, #
-                        'sortino_ratio': {'value': 0, 'desc': 'Sortino Ratio', 'precision': 2}, #
-                        'absolute_drawdown': {'value': 0, 'desc': 'Absolute Drawdown'}, #
-                        'max_drawdown': {'value': 0, 'desc': 'Max Drawdown'}, #
-                        'max_drawdown_rate': {'value': 0, 'desc': 'Max Drawdown Rate', 'type': '%'}, #
-                        'min_volume': {'value': None, 'desc': 'Min Volume'},  #
-                        'max_volume': {'value': 0, 'desc': 'Max Volume'},  #
-                        'total_trades': {'value': 0, 'desc': 'Total Trades', 'precision': 0},#
-                        'profit_trades': {'value': 0, 'desc': 'Profit Trades', 'precision': 0},#
-                        'win_rate': {'value': 0, 'desc': 'Win Rate', 'type': '%'},  #
-                        'trade_max_profit': {'value': 0, 'desc': 'Trade Max Profit'}, #
-                        'trade_avg_profit': {'value': 0, 'desc': 'Trade Avg Profit'}, #
-                        'trade_max_loss': {'value': np.nan, 'desc': 'Trade Max Loss'}, #
-                        'trade_avg_loss': {'value': 0, 'desc': 'Trade Avg Loss'}, #
-                        'loss_trades': {'value': 0, 'desc': 'Loss Trades', 'precision': 0}, #
-                        'gross_profit': {'value': 0, 'desc': 'Gross Profit'}, #
-                        'gross_loss': {'value': 0, 'desc': 'Gross Loss'}, #
-                        'short_positions': {'value': 0, 'desc': 'Short Positions', 'precision': 0}, #
-                        'short_positions_win': {'value': 0, 'desc': 'Short Positions Win', 'precision': 0}, #
-                        'long_positions': {'value': 0, 'desc': 'Long Positions', 'precision': 0}, #
-                        'long_positions_win': {'value': 0, 'desc': 'Long Positions Win', 'precision': 0}, #
-                        'max_consecutive_wins': {'value': 0, 'desc': 'Max Consecutive Wins', 'precision': 0}, #
-                        'max_consecutive_wins_money': {'value': 0, 'desc': 'Max Consecutive Wins Money'}, #
-                        'max_consecutive_losses': {'value': 0, 'desc': 'Max Consecutive Losses', 'precision': 0}, #
-                        'max_consecutive_losses_money': {'value': 0, 'desc': 'Max Consecutive Losses Money'}, #
-        }
-        self.temp = {
-            'consecutive_wins': 0,
-            'consecutive_wins_money': 0,
-            'consecutive_losses': 0,
-            'consecutive_losses_money': 0,
-            'max_volume': 0,
-            'max_drawdown': 0,
-            'max_drawdown_rate': 0,
-            'account_max_equity': self.account['equity'],
-            'account_min_equity': self.account['equity'],
-            'account_min_balance': self.account['balance'],
-        }
+        self.report = self.get_init_data('account')
+        self.temp = self.get_init_data('temp')
+
+    # def init_report_data(self):
+    #     self.report = {
+    #                     'start_time': {'value': self.start_time, 'desc': 'Start Time', 'type': 'datetime'},  #
+    #                     'end_time': {'value': self.end_time, 'desc': 'End Time', 'type': 'datetime'},  #
+    #                     'init_balance': {'value': self.account['balance'], 'desc': 'Init Balance'}, #
+    #                     'symbol': {'value': self.symbol, 'desc': 'Symbol', 'type': 'str'}, #
+    #                     'currency': {'value': self.account['currency'], 'desc': 'Currency', 'type': 'str'}, #
+    #                     'leverage': {'value': self.account['leverage'], 'desc': 'Leverage'}, #
+    #                     'spread_point': {'value': self.spread_point, 'desc': 'Spread Points'}, #
+    #                     'margin_so_call': {'value': self.account['margin_so_call'], 'desc': 'Margin Call Level', 'type': '%'},  #
+    #                     'margin_so_so': {'value': self.account['margin_so_so'], 'desc': 'Stop Out Level', 'type': '%'},  #
+    #                     'ticks': {'value': 0, 'desc': 'Ticks', 'precision': 0}, #
+    #                     'balance': {'value': 0, 'desc': 'Balance'}, #
+    #                     'total_net_profit': {'value': 0, 'desc': 'Total Net Profit'}, #
+    #                     'total_net_profit_rate': {'value': 0, 'desc': 'Total Net Profit Rate', 'type': '%'}, #
+    #                     'sharpe_ratio': {'value': 0, 'desc': 'Sharpe Ratio', 'precision': 2}, #
+    #                     'sortino_ratio': {'value': 0, 'desc': 'Sortino Ratio', 'precision': 2}, #
+    #                     'absolute_drawdown': {'value': 0, 'desc': 'Absolute Drawdown'}, #
+    #                     'max_drawdown': {'value': 0, 'desc': 'Max Drawdown'}, #
+    #                     'max_drawdown_rate': {'value': 0, 'desc': 'Max Drawdown Rate', 'type': '%'}, #
+    #                     'min_volume': {'value': None, 'desc': 'Min Volume'},  #
+    #                     'max_volume': {'value': 0, 'desc': 'Max Volume'},  #
+    #                     'total_trades': {'value': 0, 'desc': 'Total Trades', 'precision': 0},#
+    #                     'profit_trades': {'value': 0, 'desc': 'Profit Trades', 'precision': 0},#
+    #                     'win_rate': {'value': 0, 'desc': 'Win Rate', 'type': '%'},  #
+    #                     'trade_max_profit': {'value': 0, 'desc': 'Trade Max Profit'}, #
+    #                     'trade_avg_profit': {'value': 0, 'desc': 'Trade Avg Profit'}, #
+    #                     'trade_max_loss': {'value': np.nan, 'desc': 'Trade Max Loss'}, #
+    #                     'trade_avg_loss': {'value': 0, 'desc': 'Trade Avg Loss'}, #
+    #                     'loss_trades': {'value': 0, 'desc': 'Loss Trades', 'precision': 0}, #
+    #                     'gross_profit': {'value': 0, 'desc': 'Gross Profit'}, #
+    #                     'gross_loss': {'value': 0, 'desc': 'Gross Loss'}, #
+    #                     'short_positions': {'value': 0, 'desc': 'Short Positions', 'precision': 0}, #
+    #                     'short_positions_win': {'value': 0, 'desc': 'Short Positions Win', 'precision': 0}, #
+    #                     'long_positions': {'value': 0, 'desc': 'Long Positions', 'precision': 0}, #
+    #                     'long_positions_win': {'value': 0, 'desc': 'Long Positions Win', 'precision': 0}, #
+    #                     'max_consecutive_wins': {'value': 0, 'desc': 'Max Consecutive Wins', 'precision': 0}, #
+    #                     'max_consecutive_wins_money': {'value': 0, 'desc': 'Max Consecutive Wins Money'}, #
+    #                     'max_consecutive_losses': {'value': 0, 'desc': 'Max Consecutive Losses', 'precision': 0}, #
+    #                     'max_consecutive_losses_money': {'value': 0, 'desc': 'Max Consecutive Losses Money'}, #
+    #     }
+    #     self.temp = {
+    #         'consecutive_wins': 0,
+    #         'consecutive_wins_money': 0,
+    #         'consecutive_losses': 0,
+    #         'consecutive_losses_money': 0,
+    #         'max_volume': 0,
+    #         'max_drawdown': 0,
+    #         'max_drawdown_rate': 0,
+    #         'account_max_equity': self.account['equity'],
+    #         'account_min_equity': self.account['equity'],
+    #         'account_min_balance': self.account['balance'],
+    #     }
 
     def get_print_factory(self, _getattr_=None):
         """print factory"""
@@ -2055,7 +2155,6 @@ class EATester(EABase):
             tb_next = tb_next.tb_next
         return exception
 
-
     def execute_(self, ticket):
         """"""
         exception_msg = None
@@ -2066,8 +2165,9 @@ class EATester(EABase):
             self.set_error(EID_OK, 'EID_OK')
             test_start_time = datetime.now()
             pixiu_version = pkg_resources.get_distribution('pixiu').version
-            self.write_log(f"\n\n == PiXiu({pixiu_version}) Backtesting Start: {test_start_time}, Ticket: {ticket}, Symbol: {self.symbol}, Period: {self.start_time} - {self.end_time}, "
-                           f"Timeframe: {self.tick_timeframe}, Mode: {self.tick_mode} == \n\n")
+            self.write_log(
+                f"\n\n == PiXiu({pixiu_version}) Backtesting Start: {test_start_time}, Ticket: {ticket}, Symbol: {self.symbol}, Period: {self.start_time} - {self.end_time}, "
+                f"Timeframe: {self.tick_timeframe}, Mode: {self.tick_mode} == \n\n")
             self.write_log(f"\n Script Settings:  {self.script_settings} \n\n")
             #
             valid_script_settings = self.script_metadata.get('valid_script_settings', None)
@@ -2082,7 +2182,7 @@ class EATester(EABase):
             self.update_log_task_running = True
             self.on_pre_load_ticks()
 
-            expiration = 900 #900s
+            expiration = 900  # 900s
             self.on_load_ticks()
 
             count = self.tick_info.size
@@ -2155,7 +2255,8 @@ class EATester(EABase):
 
             # self.write_log(f"\n\n == Execute PiXiu backtesting end: {datetime.now()}, ticket: {ticket} == \n\n")
             test_end_time = datetime.now()
-            self.write_log(f"\n\n == PiXiu Backtesting End: {test_end_time}, Total Time: {(test_end_time-test_start_time).total_seconds()} sec, Ticket: {ticket} == \n\n")
+            self.write_log(
+                f"\n\n == PiXiu Backtesting End: {test_end_time}, Total Time: {(test_end_time - test_start_time).total_seconds()} sec, Ticket: {ticket} == \n\n")
             status = {}
             if exception_msg is not None:
                 status["exception"] = exception_msg

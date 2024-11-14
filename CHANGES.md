@@ -1,5 +1,24 @@
 
 
+### [2024-11-12]
+#### Version:
+#####   Package:
+#####    pixiu: 0.155.*.20241112
+#####
+#### **Descriptions：**
+    1.ea_base.py
+        1) Modified init_script_env: add temp_ti
+
+
+### [2024-11-09]
+#### Version:
+#####   Package:
+#####    pixiu: 0.154.*.20241109
+#####
+#### **Descriptions：**
+    1.ea_tester.py
+        1) Add get_init_data
+
 ### [2024-10-21]
 #### Version:
 #####   Package:

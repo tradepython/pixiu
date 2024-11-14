@@ -49,6 +49,7 @@ class EABase():
         self.df_columns = ('t', 's', 'o', 'h', 'l', 'c', 'v', 'a', 'b')
         self.ea_log_callback = params.get('ea_log_callback', None)
         self.add_ea_settings = None
+        self.tick_info = None
         #
 
     def get_print_factory(self, _getattr_=None):
@@ -258,6 +259,7 @@ class EABase():
             #
             self.current_tick_index = 0
             # self.tick_info = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0]],
+            temp_ti = self.tick_info
             self.tick_info = np.zeros((1,),
                      dtype=[('s', object), ('t', float), ('o', float), ('h', float), ('c', float),
                         ('l', float), ('v', float), ('a', float), ('b', float), ])
@@ -276,6 +278,7 @@ class EABase():
             except:
                 # traceback.print_exc()
                 pass
+            self.tick_info = temp_ti
             # exec PX_InitScriptSettings
             script_settings = {}
             try:
