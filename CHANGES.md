@@ -1,5 +1,25 @@
 
 
+### [2024-11-25]
+#### Version:
+#####   Package:
+#####    pixiu: 0.157.*.20241125
+#####
+#### **Descriptions：**
+    1.errors.py
+        1) Add EID_EAT_LOAD_LIBS
+    2.ea_base.py:
+        1) Add copy_globals
+
+### [2024-11-21]
+#### Version:
+#####   Package:
+#####    pixiu: 0.156.*.20241112
+#####
+#### **Descriptions：**
+    1.ea_tester.py
+        1) Fix init_report_data error
+
 ### [2024-11-12]
 #### Version:
 #####   Package:

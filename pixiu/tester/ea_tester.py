@@ -371,7 +371,7 @@ class EATester(EABase):
         return EID_OK
 
     def init_report_data(self):
-        self.report = self.get_init_data('account')
+        self.report = self.get_init_data('report')
         self.temp = self.get_init_data('temp')
 
     # def init_report_data(self):

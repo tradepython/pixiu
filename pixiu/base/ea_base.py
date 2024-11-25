@@ -43,7 +43,7 @@ class EABase():
         self.script_settings = None
         self.script_libs = []
         self.last_exec_time = 0
-        self.safe_globals = safe_globals.copy()
+        self.safe_globals = self.copy_globals()
         self.global_values = params.get('global_values', {})
         self.loc = {}
         self.df_columns = ('t', 's', 'o', 'h', 'l', 'c', 'v', 'a', 'b')
@@ -51,6 +51,9 @@ class EABase():
         self.add_ea_settings = None
         self.tick_info = None
         #
+
+    def copy_globals(self, globals=None):
+        return safe_globals.copy()
 
     def get_print_factory(self, _getattr_=None):
         """"""
@@ -60,7 +63,7 @@ class EABase():
 
     # parseScript(scriptText){
     #   //testerForm.script
-    #   let ret = {}
+    #   let ret = {
     #   if(!scriptText)
     #     return ret
     #   let arrayOfLines = scriptText.match(/[^\r\n]+/g)
