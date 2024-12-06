@@ -86,43 +86,42 @@ class EATTester(EATester):
 
     def init_data(self):
         super(EATTester, self).init_data()
-        self.safe_globals['t_check'] = self.t_check
+        self.context.safe_globals['t_check'] = self.t_check
 
 
     def on_load_ticks(self, *args, **kwargs):
-        self.tick_info = self.get_data_info(symbol=self.symbol, timeframe=self.tick_timeframe,
-                                            start_time=self.start_time,
-                                            end_time=self.end_time)
+        self.context.tick_info = self.get_data_info(symbol=self.context.symbol, timeframe=self.context.tick_timeframe,
+                                            start_time=self.context.start_time,
+                                            end_time=self.context.end_time)
         return 0
 
     def __update_execuate_log__(self, ticket, count=20, force=False):
-        if force or time.time() - self.update_log_time > 2:  # 1s
+        if force or time.time() - self.context.update_log_time > 2:  # 1s
             if count is not None:
-                eidx = self.last_update_print_log_index + count
+                eidx = self.context.last_update_print_log_index + count
             else:
                 eidx = None
-            logs = self.print_logs[self.last_update_print_log_index:eidx]
+            logs = self.context.print_logs[self.context.last_update_print_log_index:eidx]
             for l in logs:
                 print(l)
-            self.last_update_print_log_index += len(logs)
-
+            self.context.last_update_print_log_index += len(logs)
 
             #
             self.update_log_time = time.time()
 
     def on_end_tick(self, *args, **kwargs):
-        self.__update_execuate_log__(self.ticket, count=20, force=False)
+        self.__update_execuate_log__(self.context.ticket, count=20, force=False)
         return 0
 
     def on_end_execute(self, *args, **kwargs):
-        self.__update_execuate_log__(self.ticket, None, force=True)
+        self.__update_execuate_log__(self.context.ticket, None, force=True)
         return 0
 
     def GetSymbolData(self, symbol=None, timeframe=None):
         if symbol is None:
-            symbol = self.symbol
+            symbol = self.context.symbol
         if timeframe is None:
-            timeframe = self.tick_timeframe
+            timeframe = self.context.tick_timeframe
         return self.get_data_info(symbol, timeframe)
 
     def __convert_db_price_data__(self, dbo_data, t_unit, t_count, desc):
@@ -145,7 +144,7 @@ class EATTester(EATester):
         return raw_data, data
 
     def symbol_datagetitem_index(self, data_index_ts, timeframe, timeframe_seconds, shift):
-        t = int(self.tick_info[self.current_tick_index]['t']/ timeframe_seconds)*timeframe_seconds
+        t = int(self.context.tick_info[self.context.tick_current_index]['t']/ timeframe_seconds)*timeframe_seconds
         cidx = np.where(data_index_ts == t)[0][0]
         idx = cidx - shift
         return idx
@@ -156,28 +155,26 @@ class EATTester(EATester):
             return fail_value
         return data[idx]
 
-
     def get_data_info(self, symbol, timeframe=TimeFrame.M1,  start_time=None, end_time=None, last_count=None):
         """"""
         data = None
         if symbol is None:
-            symbol = self.symbol
-        symbol_tf = self.symbol_data.get(symbol, None)
+            symbol = self.context.symbol
+        symbol_tf = self.context.symbol_data.get(symbol, None)
         if symbol_tf:
             data = symbol_tf.get(timeframe, None)
         else:
-            self.symbol_data[symbol] = {}
+            self.context.symbol_data[symbol] = {}
         if data is None:
 
-            st = dateutil.parser.parse(self.start_time)
-            et = dateutil.parser.parse(self.end_time)
+            st = dateutil.parser.parse(self.context.start_time)
+            et = dateutil.parser.parse(self.context.end_time)
             ary = new_a[(new_a['t'] >= st.timestamp()) & (new_a['t'] < et.timestamp())]
             #
             data = pandas_to_tf_data(ary, timeframe)
-            self.symbol_data[symbol][timeframe] = data
+            self.context.symbol_data[symbol][timeframe] = data
 
-
-        return self.symbol_data[symbol][timeframe]
+        return self.context.symbol_data[symbol][timeframe]
 
     def t_check(self, name, value, *args, **kwargs):
         if name == "Close":
@@ -225,7 +222,7 @@ class PiXiuTests(TestCase):
         self.eat_params = dict(symbol=self.symbol,
              start_time="2021-03-15",
              end_time="2021-04-16",
-             tick_max_count=100,
+             tick_max_index=100,
              balance=self.balance,
              leverage=100,
              currency="USD",
@@ -521,7 +518,7 @@ class PiXiuTests(TestCase):
         self.init_values()
 
         #tick > 1day
-        self.eat_params['tick_max_count'] = 1500
+        self.eat_params['tick_max_index'] = 1500
         self.eat_params['script_path'] = os.path.abspath("scripts/v1/ts_symbol_data.py")
         self.eat_params['global_values'].update(dict(valid_shift=0, valid_symbol=self.symbol,
                                                      valid_values=self.values, valid_account=self.account,

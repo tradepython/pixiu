@@ -1,5 +1,30 @@
 
 
+### [2024-12-06]
+#### Version:
+#####   Package:
+#####    pixiu: 0.159.*.20241206
+#####
+#### **Descriptions：**
+    1.ea_base.py:
+        1) Add context
+    2.ea_tester.py:
+        1) Rename:
+            tick_test_start_index -> tick_start_index
+            current_tick_index -> tick_current_index
+            tick_max_count -> tick_max_index
+    3.ea_tester_context.py:
+        1) Init
+
+### [2024-12-02]
+#### Version:
+#####   Package:
+#####    pixiu: 0.158.*.20241202
+#####
+#### **Descriptions：**
+    1.ea_tester.py:
+        1) get_init_data: add orders
+
 ### [2024-11-25]
 #### Version:
 #####   Package:

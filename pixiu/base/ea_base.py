@@ -14,43 +14,49 @@ log = logging.getLogger(__name__)
 
 from ..base.api_base import (API_V1_Base)
 
-# class InitApi(API_V1_Base):
-#     def __init__(self, controller):
-#         super(InitApi, self).__init__(data_source=None, default_symbol=None)
-#         self.controller = controller
-#
-#     def _print_(self, *args, **kwargs):
-#         """"""
-#         return self.controller.get_print_factory(*args, **kwargs)
-#
-#     def AddChart(self, name, **kwargs):
-#         return self.controller.add_chart(name, **kwargs)
-#
-#     def AddParam(self, name, **kwargs):
-#         return self.controller.add_param(name, **kwargs)
 
 #---------------------------------------------------------------------------------------------------------------------
 # EABase Classes
 #---------------------------------------------------------------------------------------------------------------------
-class EABase():
+class EABase:
     """"""
-    def __init__(self, params):
-        self.language = 'en'
-        self.symbol = None
-        self.byte_code = None
-        self.script = None
-        self.script_path = None
-        self.script_settings = None
-        self.script_libs = []
-        self.last_exec_time = 0
-        self.safe_globals = self.copy_globals()
+    def __init__(self, context, params):
+        # self.language = 'en'
+        # self.symbol = None
+        # self.byte_code = None
+        # self.script = None
+        # self.script_path = None
+        # self.script_settings = None
+        # self.script_libs = []
+        # self.last_exec_time = 0
         self.global_values = params.get('global_values', {})
-        self.loc = {}
+        # self.loc = {}
         self.df_columns = ('t', 's', 'o', 'h', 'l', 'c', 'v', 'a', 'b')
-        self.ea_log_callback = params.get('ea_log_callback', None)
-        self.add_ea_settings = None
-        self.tick_info = None
+        # self.ea_log_callback = params.get('ea_log_callback', None)
+        # self.add_ea_settings = None
+        # self.context.tick_info = None
         #
+        self.context = context
+
+    @property
+    def symbol(self):
+        return self.context.symbol
+
+    @property
+    def tick_timeframe(self):
+        return self.context.tick_timeframe
+
+    @property
+    def ticket(self):
+        return self.context.ticket
+
+    # @property
+    # def start_time(self):
+    #     return self.context.start_time
+    #
+    # @property
+    # def end_time(self):
+    #     return self.context.end_time
 
     def copy_globals(self, globals=None):
         return safe_globals.copy()
@@ -133,10 +139,10 @@ class EABase():
 
     def add_chart(self, name, **kwargs):
         try:
-            if self.add_ea_settings is None:
+            if self.context.add_ea_settings is None:
                 return False
             if 'chart' in kwargs:
-                self.add_ea_settings['charts'][name] = kwargs['chart']
+                self.context.add_ea_settings['charts'][name] = kwargs['chart']
         except:
             traceback.print_exc()
             return False
@@ -144,7 +150,7 @@ class EABase():
 
     def add_param(self, name, **kwargs):
         try:
-            if self.add_ea_settings is None:
+            if self.context.add_ea_settings is None:
                 return False
             if 'param' in kwargs:
                 # self.add_ea_settings['params'][name] = kwargs['param']
@@ -169,83 +175,12 @@ class EABase():
                 param['config']['required'] = kwargs.get('required', False)
                 # AddParam("debug", value=True, type="bool", required=True)
                 # AddParam("notify", param={"value": False, "config": {"type": "bool", "required": True}})
-            self.add_ea_settings['params'][name] = param
+            self.context.add_ea_settings['params'][name] = param
 
         except:
             traceback.print_exc()
             return False
         return True
-
-    #
-    # def get_script_init_settings(self, script_text):
-    #     ret = {}
-    #     try:
-    #         if not script_text or not isinstance(script_text, str):
-    #             return ret
-    #         sg = safe_globals.copy()
-    #         # sg['AddChart'] = EABase({}).add_chart
-    #         # sg['AddParam'] = EABase({}).add_param
-    #         # sg['_print_'] = EABase({}).fake
-    #         # sg['assertTrue'] = EABase({}).fake
-    #         # sg['assertEqual'] = EABase({}).fake
-    #         # sg['RunMode'] = EABase({}).fake
-    #         # sg['RunModeValue'] = EABase({}).fake
-    #         # sg['TimeFrame'] = EABase({}).fake
-    #         loc = {}
-    #         # self.import_module('pixiu.api.errors', self.safe_globals)
-    #         api = self.get_api()
-    #         api.set_fun(sg)
-    #         for k in self.global_values:
-    #             sg[k] = self.global_values[k]
-    #         #
-    #         self.current_tick_index = 0
-    #         # self.tick_info = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0]],
-    #         self.tick_info = np.zeros((1,),
-    #                  dtype=[('s', object), ('t', float), ('o', float), ('h', float), ('c', float),
-    #                     ('l', float), ('v', float), ('a', float), ('b', float), ])
-    #         self.account_info = None
-    #         self.add_ea_settings = dict(charts={}, params={})
-    #
-    #         #
-    #         # for k in sg:
-    #         #     sg[k] = self.global_values[k]
-    #
-    #         # keywords = ['author', 'copyright', 'name', 'version', 'label', 'script_settings', 'lib', 'library']
-    #         lib_bc = EABase.compile(script_text, 'init_script')
-    #         # ret = eval(lib_bc, "InitConfig()")
-    #         try:
-    #             exec(lib_bc, sg)
-    #         except:
-    #             # traceback.print_exc()
-    #             pass
-    #         # exec PX_InitScriptSettings
-    #         script_settings = {}
-    #         try:
-    #             settings = eval("PX_InitScriptSettings()", sg)
-    #             if isinstance(settings, dict):
-    #                 script_settings = settings.copy()
-    #         except:
-    #             traceback.print_exc()
-    #
-    #         #copy add ea settings
-    #         for cn in self.add_ea_settings['charts']:
-    #             script_settings['charts'][cn] = self.add_ea_settings['charts'][cn].copy()
-    #         for pn in self.add_ea_settings['params']:
-    #             script_settings['params'][pn] = self.add_ea_settings['params'][pn].copy()
-    #         # ret2 = eval("EA_InitScriptSettings", sg)()
-    #         try:
-    #             valid_ret = eval(f"PX_ValidScriptSettings", sg)(script_settings)
-    #             if valid_ret is not None:
-    #                 if not valid_ret['success']:
-    #                     print(f"PX_ValidScriptSettings: errmsg={valid_ret.get('errmsg', None)}")
-    #                     return None
-    #         except:
-    #             # traceback.print_exc()
-    #             pass
-    #         ret['script_settings'] = script_settings
-    #     except:
-    #         traceback.print_exc()
-    #     return ret
 
     def init_script_env(self, script_text):
         ret = {}
@@ -260,14 +195,14 @@ class EABase():
             for k in self.global_values:
                 sg[k] = self.global_values[k]
             #
-            self.current_tick_index = 0
-            # self.tick_info = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0]],
-            temp_ti = self.tick_info
-            self.tick_info = np.zeros((1,),
+            self.context.tick_current_index = 0
+            # self.context.tick_info = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0]],
+            temp_ti = self.context.tick_info
+            self.context.tick_info = np.zeros((1,),
                      dtype=[('s', object), ('t', float), ('o', float), ('h', float), ('c', float),
                         ('l', float), ('v', float), ('a', float), ('b', float), ])
-            self.account_info = None
-            self.add_ea_settings = dict(charts={}, params={})
+            self.context.account_info = None
+            self.context.add_ea_settings = dict(charts={}, params={})
 
             #
             # for k in sg:
@@ -281,7 +216,7 @@ class EABase():
             except:
                 # traceback.print_exc()
                 pass
-            self.tick_info = temp_ti
+            self.context.tick_info = temp_ti
             # exec PX_InitScriptSettings
             script_settings = {}
             try:
@@ -292,10 +227,10 @@ class EABase():
                 traceback.print_exc()
 
             #copy add ea settings
-            for cn in self.add_ea_settings['charts']:
-                script_settings['charts'][cn] = self.add_ea_settings['charts'][cn].copy()
-            for pn in self.add_ea_settings['params']:
-                script_settings['params'][pn] = self.add_ea_settings['params'][pn].copy()
+            for cn in self.context.add_ea_settings['charts']:
+                script_settings['charts'][cn] = self.context.add_ea_settings['charts'][cn].copy()
+            for pn in self.context.add_ea_settings['params']:
+                script_settings['params'][pn] = self.context.add_ea_settings['params'][pn].copy()
             ret['script_settings'] = script_settings
             ret['globals'] = sg
             ret['locals'] = loc
@@ -347,8 +282,8 @@ class EABase():
 
     def get_param(self, name, default=None):
         try:
-            if self.script_settings and isinstance(self.script_settings, dict):
-                params = self.script_settings.get("params", {})
+            if self.context.script_settings and isinstance(self.context.script_settings, dict):
+                params = self.context.script_settings.get("params", {})
                 if name in params.keys():
                     params_value = params[name]
                     if params_value is None or not isinstance(params_value, dict):
@@ -380,34 +315,19 @@ class EABase():
         return compile_restricted(script, filename, 'exec', policy=EARestrictingNodeTransformer)
 
     def do_tick(self,):
-        if not self.byte_code:
+        if not self.context.byte_code:
             #load libs
-            for lib in self.script_libs:
+            for lib in self.context.script_libs:
                 lib_bc = EABase.compile(lib['code'], lib['path'])
-                exec(lib_bc, self.safe_globals)
+                exec(lib_bc, self.context.safe_globals)
             #
-            if self.script_path is None:
-                self.byte_code = EABase.compile(self.script)
+            if self.context.script_path is None:
+                self.context.byte_code = EABase.compile(self.context.script)
             else:
                 # self.byte_code = EABase.compile(open(self.script_path).read(), self.script_path)
-                self.byte_code = EABase.compile(self.script, self.script_path)
+                self.context.byte_code = EABase.compile(self.context.script, self.context.script_path)
 
-        self.order_log = []
+        self.context.order_log = []
         stime = time.time()
-        exec(self.byte_code, self.safe_globals)
-        self.last_exec_time = time.time() - stime
-    #
-    # def do_tick(self,):
-    #     if not self.byte_code:
-    #         if self.script_path is None:
-    #             self.byte_code = EABase.compile(self.script)
-    #         else:
-    #             # self.byte_code = EABase.compile(open(self.script_path).read(), self.script_path)
-    #             self.byte_code = EABase.compile(self.script, self.script_path)
-    #
-    #     self.order_log = []
-    #     stime = time.time()
-    #     exec(self.byte_code, self.safe_globals)
-    #     self.last_exec_time = time.time() - stime
-    #     #
-
+        exec(self.context.byte_code, self.context.safe_globals)
+        self.context.last_exec_time = time.time() - stime
