@@ -1,5 +1,14 @@
 
 
+### [2024-12-10]
+#### Version:
+#####   Package:
+#####    pixiu: 0.160.*.20241210
+#####
+#### **Descriptions：**
+    1.ea_base.py:
+        1) Modifiied init_script_env: temp context
+
 ### [2024-12-06]
 #### Version:
 #####   Package:

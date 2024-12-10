@@ -20,13 +20,13 @@ class EATesterContext:
             errmsg='',
             flags=0,
             ticket=None,
-            language='en',
-            symbol=params["symbol"],
+            # language='en',
+            symbol=params.get('symbol', None),
             byte_code=None,
             script=None,
             script_path=params.get("script_path", None),
             script_settings=None,
-            script_libs=params.get("script_libs", []),
+            script_libs=params.get("script_libs", None),
             last_exec_time=0,
             safe_globals=None, #copy_globals(),
             # global_values=params.get('global_values', {}),
@@ -38,8 +38,9 @@ class EATesterContext:
             # errid=None,
             # errmsg=None,
             # flags=0,
-            default_digits=2,
+            default_digits=params.get("default_digits", 2),
             # symbol=params["symbol"],
+            persistent_data=None,
             symbol_properties={},
             default_symbol_properties=params.get("symbol_properties", None),
             spread_point=params.get("spread_point", None),
@@ -48,9 +49,9 @@ class EATesterContext:
             tick_timeframe=params.get("tick_timeframe", TimeFrame.M1),
             tick_max_index=params.get('tick_max_index', None),
             tick_start_index=params.get('tick_start_index', 0),
-            start_time=params["start_time"],
-            end_time=params["end_time"],
-            # language=params.get("language", 'en'),
+            start_time=params.get('start_time', None),
+            end_time=params.get('end_time', None),
+            language=params.get("language", 'en'),
             # script_path=params.get("script_path", None),
             # script_libs=params.get("script_libs", None),
             log_path=params.get("log_path", None),
@@ -85,7 +86,7 @@ class EATesterContext:
             self.ctx['log_file'] = open(self.log_path, mode='wt')
 
         if self.script_path is None:
-            self.ctx['script'] = params["script"]
+            self.ctx['script'] = params.get("script", None)
         else:
             self.ctx['script'] = open(self.script_path).read()
         #
@@ -357,6 +358,14 @@ class EATesterContext:
         self.ctx['tick_info'] = value
 
     @property
+    def persistent_data(self):
+        return self.ctx['persistent_data']
+
+    @persistent_data.setter
+    def persistent_data(self, value):
+        self.ctx['persistent_data'] = value
+
+    @property
     def symbol_data(self):
         return self.ctx['symbol_data']
 
@@ -411,6 +420,14 @@ class EATesterContext:
     @last_update_charts_data_index.setter
     def last_update_charts_data_index(self, value):
         self.ctx['last_update_charts_data_index'] = value
+
+    @property
+    def charts_data(self):
+        return self.ctx['charts_data']
+
+    @charts_data.setter
+    def charts_data(self, value):
+        self.ctx['charts_data'] = value
 
     @property
     def order_logs(self):

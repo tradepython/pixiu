@@ -15,6 +15,13 @@ log = logging.getLogger(__name__)
 from ..base.api_base import (API_V1_Base)
 
 
+class EABaseContext:
+
+    def __init__(self):
+        self.symbol = None
+        self.script_settings = None
+
+
 #---------------------------------------------------------------------------------------------------------------------
 # EABase Classes
 #---------------------------------------------------------------------------------------------------------------------
@@ -49,6 +56,42 @@ class EABase:
     @property
     def ticket(self):
         return self.context.ticket
+
+    @property
+    def start_time(self):
+        return self.context.start_time
+
+    @property
+    def end_time(self):
+        return self.context.end_time
+
+    @property
+    def default_symbol_properties(self):
+        return self.context.default_symbol_properties
+
+    @property
+    def symbol_properties(self):
+        return self.context.symbol_properties
+
+    @symbol_properties.setter
+    def symbol_properties(self, value):
+        self.context.symbol_properties = value
+
+    @property
+    def symbol_data(self):
+        return self.context.symbol_data
+
+    @symbol_data.setter
+    def symbol_data(self, value):
+        self.context.symbol_data = value
+
+    @property
+    def tick_info(self):
+        return self.context.tick_info
+
+    @tick_info.setter
+    def tick_info(self, value):
+        self.context.tick_info = value
 
     # @property
     # def start_time(self):
@@ -184,9 +227,11 @@ class EABase:
 
     def init_script_env(self, script_text):
         ret = {}
+        org_context = self.context
         try:
             if not script_text or not isinstance(script_text, str):
                 return None
+            self.context = EABaseContext()
             sg = safe_globals.copy()
             loc = {}
             # self.import_module('pixiu.api.errors', self.safe_globals)
@@ -197,7 +242,7 @@ class EABase:
             #
             self.context.tick_current_index = 0
             # self.context.tick_info = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0]],
-            temp_ti = self.context.tick_info
+            # temp_ti = self.context.tick_info
             self.context.tick_info = np.zeros((1,),
                      dtype=[('s', object), ('t', float), ('o', float), ('h', float), ('c', float),
                         ('l', float), ('v', float), ('a', float), ('b', float), ])
@@ -216,8 +261,7 @@ class EABase:
             except:
                 # traceback.print_exc()
                 pass
-            self.context.tick_info = temp_ti
-            # exec PX_InitScriptSettings
+            # self.context.tick_info = temp_ti
             script_settings = {}
             try:
                 settings = eval("PX_InitScriptSettings()", sg)
@@ -236,7 +280,65 @@ class EABase:
             ret['locals'] = loc
         except:
             traceback.print_exc()
+        self.context = org_context
         return ret
+
+
+    # def init_script_env(self, script_text):
+    #     ret = {}
+    #     try:
+    #         if not script_text or not isinstance(script_text, str):
+    #             return None
+    #         sg = safe_globals.copy()
+    #         loc = {}
+    #         # self.import_module('pixiu.api.errors', self.safe_globals)
+    #         api = self.get_api()
+    #         api.set_fun(sg)
+    #         for k in self.global_values:
+    #             sg[k] = self.global_values[k]
+    #         #
+    #         self.context.tick_current_index = 0
+    #         # self.context.tick_info = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0]],
+    #         temp_ti = self.context.tick_info
+    #         self.context.tick_info = np.zeros((1,),
+    #                  dtype=[('s', object), ('t', float), ('o', float), ('h', float), ('c', float),
+    #                     ('l', float), ('v', float), ('a', float), ('b', float), ])
+    #         self.context.account_info = None
+    #         self.context.add_ea_settings = dict(charts={}, params={})
+    #
+    #         #
+    #         # for k in sg:
+    #         #     sg[k] = self.global_values[k]
+    #
+    #         # keywords = ['author', 'copyright', 'name', 'version', 'label', 'script_settings', 'lib', 'library']
+    #         lib_bc = EABase.compile(script_text, 'init_script')
+    #         # ret = eval(lib_bc, "InitConfig()")
+    #         try:
+    #             exec(lib_bc, sg)
+    #         except:
+    #             # traceback.print_exc()
+    #             pass
+    #         self.context.tick_info = temp_ti
+    #         # exec PX_InitScriptSettings
+    #         script_settings = {}
+    #         try:
+    #             settings = eval("PX_InitScriptSettings()", sg)
+    #             if isinstance(settings, dict):
+    #                 script_settings = settings.copy()
+    #         except:
+    #             traceback.print_exc()
+    #
+    #         #copy add ea settings
+    #         for cn in self.context.add_ea_settings['charts']:
+    #             script_settings['charts'][cn] = self.context.add_ea_settings['charts'][cn].copy()
+    #         for pn in self.context.add_ea_settings['params']:
+    #             script_settings['params'][pn] = self.context.add_ea_settings['params'][pn].copy()
+    #         ret['script_settings'] = script_settings
+    #         ret['globals'] = sg
+    #         ret['locals'] = loc
+    #     except:
+    #         traceback.print_exc()
+    #     return ret
 
     def valid_script_settings(self, script_settings, script_env):
         try:

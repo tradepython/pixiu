@@ -127,7 +127,7 @@ class EATester(EABase):
         # self.byte_code = None
         # self.context.orders = None
         # self.context.order_logs = []
-        # self.charts_data = []
+        # self.context.charts_data = []
         # self.context.account_logs = []
         # self.context.return_logs = []
         # self.context.balance_dead_line = 0.0
@@ -155,7 +155,7 @@ class EATester(EABase):
         # self.current_api = TesterAPI_V1(tester=self, data_source={}, default_symbol=self.context.symbol)
         self.current_api = self.get_api()
         # self.data = {DataScope.EA_VERSION: {}, DataScope.EA: {}, DataScope.ACCOUNT: {}, DataScope.EA_SETTIGNS: {}}
-        self.context.data = self.get_init_data('data', None)
+        self.context.persistent_data = self.get_init_data('persistent_data', None)
         self.context.set_error(EID_OK, 'EID_OK')
         #
         self.context.reset_flags()
@@ -244,7 +244,7 @@ class EATester(EABase):
                 'account_min_equity': values['equity'],
                 'account_min_balance': values['balance'],
             }
-        elif name == 'data':
+        elif name == 'persistent_data':
             ret = {DataScope.EA_VERSION: {}, DataScope.EA: {}, DataScope.ACCOUNT: {}, DataScope.EA_SETTIGNS: {}}
         elif name == 'orders':
             ret = {'opened': {}, 'closed': {}, 'pending': {},
@@ -269,6 +269,8 @@ class EATester(EABase):
                         }
         elif name == 'cid_data':
             ret = {100: OrderCommand.BUY, 200: OrderCommand.SELL}
+        else:
+            raise
         return ret
 
     # def set_error(self, errid, errmsg):
@@ -342,13 +344,13 @@ class EATester(EABase):
         return default
 
     def delete_data(self, name, scope):
-        self.context.data[scope].pop(name)
+        self.context.persistent_data[scope].pop(name)
         return 0
 
     def load_data(self, name, scope, format='json'):
         if format != 'json':
             return None
-        data = self.context.data[scope].get(name, None)
+        data = self.context.persistent_data[scope].get(name, None)
         if data is None:
             return None
         return json.loads(data)
@@ -360,7 +362,7 @@ class EATester(EABase):
             data = json.dumps(data)
             if len(data) > MAX_DATA_LENGTH:
                 return EID_EAT_INVALID_DATA_LENGTH
-        self.context.data[scope][name] = data
+        self.context.persistent_data[scope][name] = data
         return EID_OK
 
     def init_report_data(self):
