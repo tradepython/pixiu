@@ -276,35 +276,35 @@ class PXTester(EATester):
         return 0
 
     def __update_execuate_log__(self, ticket, count=20, force=False):
-        if force or time.time() - self.update_log_time > 2:  # 1s
+        if force or time.time() - self.context.update_log_time > 2:  # 1s
             if count is not None:
-                eidx = self.last_update_print_log_index + count
+                eidx = self.context.last_update_print_log_index + count
             else:
                 eidx = None
-            logs = self.print_logs[self.last_update_print_log_index:eidx]
+            logs = self.context.print_logs[self.context.last_update_print_log_index:eidx]
             # OEOEHuiEATester.add_logs(self.ticket, 'print', logs)
             for l in logs:
                 self.write_log(l, type='ea')
-            self.last_update_print_log_index += len(logs)
+            self.context.last_update_print_log_index += len(logs)
             # #
             #
-            self.update_log_time = time.time()
+            self.context.update_log_time = time.time()
     #
     # def __update_execuate_log__(self, ticket, count=20, force=False):
-    #     if force or time.time() - self.update_log_time > 2:  # 1s
+    #     if force or time.time() - self.context.update_log_time > 2:  # 1s
     #         if count is not None:
-    #             eidx = self.last_update_print_log_index + count
+    #             eidx = self.context.last_update_print_log_index + count
     #         else:
     #             eidx = None
-    #         logs = self.print_logs[self.last_update_print_log_index:eidx]
+    #         logs = self.context.print_logs[self.context.last_update_print_log_index:eidx]
     #         # OEOEHuiEATester.add_logs(self.ticket, 'print', logs)
     #         for l in logs:
     #             self.write_log(l, type='ea')
-    #         self.last_update_print_log_index += len(logs)
+    #         self.context.last_update_print_log_index += len(logs)
     #         # #
     #
     #         #
-    #         self.update_log_time = time.time()
+    #         self.context.update_log_time = time.time()
 
 
     def on_end_tick(self, *args, **kwargs):
@@ -312,9 +312,9 @@ class PXTester(EATester):
             self.__update_execuate_log__(self.ticket, count=20, force=False)
             tick = dict(t=self.Time().timestamp(), o=self.Open(), c=self.Close(),
                                                                     h=self.High(), l=self.Low(), v=self.Volume(),
-                                                                    equity=self.account['equity'],
-                                                                    balance=self.account['balance'],
-                                                                    margin=self.account['margin'],
+                                                                    equity=self.context.account['equity'],
+                                                                    balance=self.context.account['balance'],
+                                                                    margin=self.context.account['margin'],
                                                                     orders=self.tick_order_logs)
             self.graph_data['ticks'].append(tick)
             if self.tester_graph_server is not None:
@@ -332,8 +332,8 @@ class PXTester(EATester):
         self.__update_execuate_log__(self.ticket, None, force=True)
         report_str = "\n-- Result --\n"
         idx = 1
-        for key in self.report:
-            item = self.report[key]
+        for key in self.context.report:
+            item = self.context.report[key]
             #
             precision = item.get('precision', 2)
             item_type = item.get('type', 'value')
@@ -351,8 +351,8 @@ class PXTester(EATester):
             idx += 1
         self.write_log(f"{report_str}", type='report')
         if self.test_result is not None:
-            # self.test_result.value = json5.dumps(dict(report=self.report), quote_keys=True)
-            self.test_result.value = json.dumps(dict(report=self.report))
+            # self.test_result.value = json5.dumps(dict(report=self.context.report), quote_keys=True)
+            self.test_result.value = json.dumps(dict(report=self.context.report))
         if self.test_graph_data is not None:
             # self.test_graph_data.value = json5.dumps(dict(graph_data=self.graph_data), quote_keys=True)
             self.test_graph_data.value = json.dumps(dict(graph_data=self.graph_data))
@@ -363,8 +363,8 @@ class PXTester(EATester):
     #     self.__update_execuate_log__(self.ticket, None, force=True)
     #     report_str = "\n-- Result --\n"
     #     idx = 1
-    #     for key in self.report:
-    #         item = self.report[key]
+    #     for key in self.context.report:
+    #         item = self.context.report[key]
     #         precision = item.get('precision', 2)
     #         item_type = item.get('type', 'value')
     #         if item_type == 'value':
@@ -415,14 +415,14 @@ class PXTester(EATester):
         return raw_data, data
 
     def symbol_datagetitem_index(self, data_index_ts, timeframe, timeframe_seconds, shift):
-        t = int(self.tick_info[self.tick_current_index]['t']/ timeframe_seconds)*timeframe_seconds
+        t = int(self.tick_info[self.context.tick_current_index]['t']/ timeframe_seconds)*timeframe_seconds
         cidx = np.where(data_index_ts == t)[0][0]
         idx = cidx - shift
         return idx
 
     def symbol_datagetitem_callback(self, data, data_index_ts, timeframe, timeframe_seconds, shift, fail_value):
         idx = self.symbol_datagetitem_index(data_index_ts, timeframe, timeframe_seconds, shift)
-        # idx = self.tick_current_index - shift
+        # idx = self.context.tick_current_index - shift
         if idx < 0:
             return fail_value
         return data[idx]

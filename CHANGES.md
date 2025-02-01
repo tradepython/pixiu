@@ -1,5 +1,26 @@
 
 
+### [2025-02-01]
+#### Version:
+#####   Package:
+#####    pixiu: 0.162.*.20250201
+#####
+#### **Descriptions：**
+    1.ea_optimizer.py:
+        1) parse_config: Add var_precision, var_type
+
+### [2025-01-23]
+#### Version:
+#####   Package:
+#####    pixiu: 0.161.*.20250123
+#####
+#### **Descriptions：**
+    1.pxtester.py:
+      1) Fix errors:         
+        self.update_log_time = time.time()
+        self.last_update_print_log_index = 0
+        self.print_logs
+
 ### [2024-12-10]
 #### Version:
 #####   Package:
