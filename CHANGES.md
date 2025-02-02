@@ -1,5 +1,15 @@
 
 
+### [2025-02-02]
+#### Version:
+#####   Package:
+#####    pixiu: 0.163.*.20250202
+#####
+#### **Descriptions：**
+    1.ea_tester.py:
+        1) __update_report__: Remove calculate_return_ratio
+        2) Add update_return_ratio
+
 ### [2025-02-01]
 #### Version:
 #####   Package:

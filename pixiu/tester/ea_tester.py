@@ -1332,11 +1332,108 @@ class EATester(EABase):
             self.context.report['total_net_profit_rate']['value'] = self.context.report['total_net_profit']['value'] / self.context.report['init_balance']['value']
         self.context.report['balance']['value'] = self.context.account['balance']
         #
-        ratio = self.calculate_return_ratio()
-        self.context.report['sharpe_ratio']['value'] = ratio['sharpe_ratio']
-        self.context.report['sortino_ratio']['value'] = ratio['sortino_ratio']
+        # ratio = self.calculate_return_ratio()
+        # self.context.report['sharpe_ratio']['value'] = ratio['sharpe_ratio']
+        # self.context.report['sortino_ratio']['value'] = ratio['sortino_ratio']
 
         return ret
+
+    # def __update_report__(self, is_long, profit, trades=1):
+    #     ret = False
+    #     if profit == 0:
+    #         return ret
+    #     profit = round(profit, self.context.default_digits)
+    #     if profit > 0:
+    #         self.context.report['profit_trades']['value'] += trades
+    #         self.context.report['gross_profit']['value'] = self.context.report['gross_profit']['value'] + profit
+    #         self.context.report['trade_avg_profit']['value'] = self.context.report['gross_profit']['value'] / \
+    #                                                    self.context.report['profit_trades']['value']
+    #
+    #         if self.context.report['trade_max_profit']['value'] < profit:
+    #             self.context.report['trade_max_profit']['value'] = profit
+    #             # self.context.flags['trade_max_profit_updated'] = True
+    #             self.context.flags |= EATester.FM_TRADE_MAX_PROFIT_UPDATED
+    #
+    #         if is_long:
+    #             self.context.report['long_positions_win']['value'] += trades
+    #         else:
+    #             self.context.report['short_positions_win']['value'] += trades
+    #
+    #         self.context.temp['consecutive_wins'] += trades
+    #         self.context.temp['consecutive_wins_money'] = self.context.temp['consecutive_wins_money'] + profit
+    #         self.context.temp['consecutive_losses'] = 0
+    #         self.context.temp['consecutive_losses_money'] = 0
+    #         #self.context.account['currency']
+    #     else:
+    #         self.context.report['loss_trades']['value'] += trades
+    #         self.context.report['gross_loss']['value'] = self.context.report['gross_loss']['value'] + profit
+    #         self.context.report['trade_avg_loss']['value'] = self.context.report['gross_loss']['value'] / self.context.report['loss_trades'][
+    #             'value']
+    #
+    #         if np.isnan(self.context.report['trade_max_loss']['value']) or self.context.report['trade_max_loss']['value'] > profit:
+    #             self.context.report['trade_max_loss']['value'] = profit
+    #             # self.context.flags['trade_max_loss_updated'] = True
+    #             self.context.flags |= EATester.FM_TRADE_MAX_LOSS_UPDATED
+    #
+    #         self.context.temp['consecutive_losses'] += trades
+    #         self.context.temp['consecutive_losses_money'] = self.context.temp['consecutive_losses_money'] + profit
+    #         self.context.temp['consecutive_wins'] = 0
+    #         self.context.temp['consecutive_wins_money'] = 0
+    #         #
+    #     #
+    #     #max dd
+    #     if self.context.temp['account_max_equity'] < self.context.account['equity']:
+    #         # #calculate maxdd: https://www.investopedia.com/terms/m/maximum-drawdown-mdd.asp
+    #         ret = self.__update_report_max_dd__()
+    #         #
+    #         self.context.temp['account_max_equity'] = self.context.account['equity']
+    #         self.context.temp['account_min_equity'] = self.context.account['equity']
+    #     else:
+    #         if self.context.temp['account_min_equity'] > self.context.account['equity']:
+    #             ret = self.__update_report_max_dd__()
+    #             self.context.temp['account_min_equity'] = self.context.account['equity']
+    #     #
+    #
+    #     #
+    #     if self.context.temp['account_min_balance'] > self.context.account['balance']:
+    #         self.context.temp['account_min_balance'] = self.context.account['balance']
+    #         self.context.report['absolute_drawdown']['value'] = self.context.temp['account_min_balance'] - self.context.report['init_balance']['value']
+    #
+    #     #
+    #     # self.context.report['max_drawdown']['value'] = self.context.temp['account_max_equity'] - self.context.temp['account_min_equity']
+    #     # if self.context.temp['account_max_equity'] > 0:
+    #     #     self.context.report['max_drawdown_rate']['value'] = self.context.report['max_drawdown']['value'] / self.context.temp['account_max_equity']
+    #     # else:
+    #     #     self.context.report['max_drawdown_rate']['value'] = 0
+    #     if self.context.report['max_consecutive_wins']['value'] < self.context.temp['consecutive_wins']:
+    #         self.context.report['max_consecutive_wins']['value'] = self.context.temp['consecutive_wins']
+    #         # self.context.flags['max_consecutive_wins_updated'] = True
+    #         self.context.flags |= EATester.FM_MAX_CONSECUTIVE_WINS_UPDATED
+    #
+    #     if self.context.report['max_consecutive_wins_money']['value'] < self.context.temp['consecutive_wins_money']:
+    #         self.context.report['max_consecutive_wins_money']['value'] = self.context.temp['consecutive_wins_money']
+    #     if self.context.report['max_consecutive_losses']['value'] < self.context.temp['consecutive_losses']:
+    #         self.context.report['max_consecutive_losses']['value'] = self.context.temp['consecutive_losses']
+    #         # self.context.flags['max_consecutive_losses_updated'] = True
+    #         self.context.flags |= EATester.FM_MAX_CONSECUTIVE_LOSSES_UPDATED
+    #
+    #     if self.context.report['max_consecutive_losses_money']['value'] > self.context.temp['consecutive_losses_money']:
+    #         self.context.report['max_consecutive_losses_money']['value'] = self.context.temp['consecutive_losses_money']
+    #     self.context.report['total_net_profit']['value'] = self.context.report['gross_profit']['value'] - abs(
+    #         self.context.report['gross_loss']['value'])
+    #     #
+    #     if self.context.report['total_trades']['value'] > 0:
+    #         self.context.report['win_rate']['value'] = self.context.report['profit_trades']['value'] / self.context.report['total_trades']['value']
+    #     #Total net profit rate
+    #     if self.context.report['init_balance']['value'] > 0:
+    #         self.context.report['total_net_profit_rate']['value'] = self.context.report['total_net_profit']['value'] / self.context.report['init_balance']['value']
+    #     self.context.report['balance']['value'] = self.context.account['balance']
+    #     #
+    #     ratio = self.calculate_return_ratio()
+    #     self.context.report['sharpe_ratio']['value'] = ratio['sharpe_ratio']
+    #     self.context.report['sortino_ratio']['value'] = ratio['sortino_ratio']
+    #
+    #     return ret
 
 
     def __calculate_pip_with_quote_currency__(self, price):
@@ -1570,6 +1667,11 @@ class EATester(EABase):
             ret[n[0]] = ratio
         return ret
 
+    def update_return_ratio(self,):
+        ratio = self.calculate_return_ratio()
+        self.context.report['sharpe_ratio']['value'] = ratio['sharpe_ratio']
+        self.context.report['sortino_ratio']['value'] = ratio['sortino_ratio']
+
     def __update_account_log(self, ticket):
         ''''''
         price = self.Close()
@@ -1770,6 +1872,8 @@ class EATester(EABase):
                     self.context.tick_current_index = count - 1
                 self.close_all_orders(self.Close(), comment="stop")
                 self.__update_account_log(ticket)
+                # update return
+                self.update_return_ratio()
             except:
                 traceback.print_exc()
             self.on_end_execute()
