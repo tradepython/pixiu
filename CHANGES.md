@@ -1,5 +1,14 @@
 
 
+### [2025-02-03]
+#### Version:
+#####   Package:
+#####    pixiu: 0.164.*.20250203
+#####
+#### **Descriptions：**
+    1.ea_tester.py:
+        1) Replace json with pyjson5
+
 ### [2025-02-02]
 #### Version:
 #####   Package:

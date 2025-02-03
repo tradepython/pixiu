@@ -1,7 +1,8 @@
 
 import os
 # import json5 as json
-import pyjson5 as json
+import json
+import pyjson5 as json5
 import traceback
 from jinja2 import Template
 from black import format_str, FileMode
@@ -925,7 +926,8 @@ class EABuilder:
             if isinstance(opt_val, dict):
                 opt_script_settings = opt_val.get('script_settings', None)
                 opt_val = opt_val['value']
-            var.config['value'] = json.dumps(opt_val, quote_keys=True) if var.config['type'] == 'str' else opt_val
+            # var.config['value'] = json.dumps(opt_val, quote_keys=True) if var.config['type'] == 'str' else opt_val
+            var.config['value'] = json.dumps(opt_val) if var.config['type'] == 'str' else opt_val
             if opt_script_settings is not None:
                 var.config['script_settings'] = opt_script_settings
 
@@ -1005,7 +1007,8 @@ class EABuilder:
                 elif oc_item == 'script_settings':
                     continue
                 #
-                config = dict(type=oc_item_type, value=json.dumps(oc_val, quote_keys=True),
+                # config = dict(type=oc_item_type, value=json.dumps(oc_val, quote_keys=True),
+                config = dict(type=oc_item_type, value=json.dumps(oc_val),
                               desc=oc_item_desc, required=True, script_settings=script_settings
                               )
                 system_variables[key] = VariableBuilder(self, key, config, index, build_data)
@@ -1211,7 +1214,7 @@ class EABuilder:
         template_config = builder_config.get('template_config', {})
         config_dir = os.path.dirname(config_path)
         with open(config_path) as f:
-            strategy_list = json.loads(f.read())
+            strategy_list = json5.loads(f.read())
             for conf_dict in strategy_list:
                 for conf_type in conf_dict:
                     conf_name = None

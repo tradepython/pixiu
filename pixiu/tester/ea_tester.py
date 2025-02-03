@@ -1,7 +1,7 @@
 
 import sys
 import math
-import json
+import pyjson5 as json5
 import threading
 import importlib
 import pkg_resources
@@ -111,14 +111,14 @@ class EATester(EABase):
         #
         self.context.script_metadata = self.parse_script(self.context.script)
         if self.context.script_libs is None:
-            self.context.script_libs = self.load_libs(json.loads(self.context.script_metadata.get('lib', self.context.script_metadata.get('library', '[]'))))
+            self.context.script_libs = self.load_libs(json5.loads(self.context.script_metadata.get('lib', self.context.script_metadata.get('library', '[]'))))
         #
         self.context.script_settings = None
         try:
             # ss = params.get("script_settings", self.context.script_metadata.get('script_settings', None))
             ss = self.context.script_metadata.get('script_settings', params.get("script_settings", None))
             if isinstance(ss, str):
-                self.context.script_settings = json.loads(ss)
+                self.context.script_settings = json5.loads(ss)
             else:
                 self.context.script_settings = ss
         except:
@@ -353,13 +353,13 @@ class EATester(EABase):
         data = self.context.persistent_data[scope].get(name, None)
         if data is None:
             return None
-        return json.loads(data)
+        return json5.loads(data)
 
     def save_data(self, name, data, scope, format='json'):
         if format != 'json':
             return EID_EAT_INVALID_DATA_FORMAT
         if data is not None:
-            data = json.dumps(data)
+            data = json5.dumps(data)
             if len(data) > MAX_DATA_LENGTH:
                 return EID_EAT_INVALID_DATA_LENGTH
         self.context.persistent_data[scope][name] = data

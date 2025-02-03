@@ -12,7 +12,8 @@ from pixiu.pxtester import PXTester
 import astunparse
 import os
 # import json5 as json
-import pyjson5 as json
+import json
+import pyjson5 as json5
 import itertools
 import hashlib
 from datetime import datetime
@@ -143,7 +144,7 @@ class EAOptimizer:
     def load_config_file(self):
         with open(self.config_file_path) as f:
             config_string = f.read()
-            config = json.loads(config_string)
+            config = json5.loads(config_string)
             self.optimization_config = config[0]['optimization_config']
 
     def calculate_optimization_task_count(self):
@@ -341,7 +342,7 @@ class EAOptimizer:
         try:
             # file_path = self.make_opt_config_file_path(file_name, opt_config_path)
             with open(file_path, 'r') as f:
-                config = json.loads(f.read())
+                config = json5.loads(f.read())
             return config
         except:
             traceback.print_exc()
@@ -552,7 +553,7 @@ class EAOptimizer:
             if isinstance(result, AsyncResult):
                 if result.ready():
                     test_report = ri['test_report']
-                    report = json.loads(test_report.value)['report']
+                    report = json5.loads(test_report.value)['report']
                     remove_list.append(task_ticket)
                     # create result file
                     file_name = f"{task_uid}-result"
