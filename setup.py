@@ -9,21 +9,21 @@ with open(os.path.join(here, 'CHANGES.md')) as f:
     CHANGES = f.read()
 
 requires = [
-    'python-dateutil',
-    'RestrictedPython',
-    'numpy',
-    'pandas',
-    'pandas_ta',
-    'TA-Lib',
-    'pymongo',
-    'tabulate',
-    'hashids',
-    'pytz',
-    'dash',
-    'plotly',
+    'python-dateutil==2.7.3',
+    'RestrictedPython==8.0',
+    'numpy==1.22.4',
+    'pandas==1.2.4',
+    # 'pandas_ta',
+    'TA-Lib==0.4.19',
+    'pymongo==3.11.1', #bson
+    'tabulate==0.8.9',
+    'hashids==1.2.0',
+    'pytz==2021.1',
+    'dash==2.1.0',
+    'plotly==5.6.0',
     'pyjson5',
-    'jinja2',
-    'black'
+    'jinja2==3.0.3',
+    'black==24.3.0'
 ]
 
 tests_require = [
