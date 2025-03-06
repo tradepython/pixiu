@@ -1,5 +1,15 @@
 
 
+### [2025-03-05]
+#### Version:
+#####   Package:
+#####    pixiu: 0.166.*.20250305
+#####
+#### **Descriptions：**
+    1.ea_optimizer.py:
+        1) Add calculate_optimization_max_task_count
+
+
 ### [2025-03-04]
 #### Version:
 #####   Package:
