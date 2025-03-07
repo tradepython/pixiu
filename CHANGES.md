@@ -1,5 +1,14 @@
 
 
+### [2025-03-07]
+#### Version:
+#####   Package:
+#####    pixiu: 0.167.*.20250307
+#####
+#### **Descriptions：**
+    1.ea_optimizer.py:
+        1) Add random_choose_variable
+
 ### [2025-03-05]
 #### Version:
 #####   Package:
