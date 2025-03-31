@@ -1,5 +1,14 @@
 
 
+### [2025-03-31]
+#### Version:
+#####   Package:
+#####    pixiu: 0.168.*.20250331
+#####
+#### **Descriptions：**
+    1. symbol.py:
+        1) Replace np.NaN with np.nan
+
 ### [2025-03-07]
 #### Version:
 #####   Package:

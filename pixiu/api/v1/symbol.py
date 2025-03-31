@@ -84,7 +84,7 @@ class SymbolIndicator(object):
         return self.__getitem_callback__(self.data, self.__ts_index__,
                                        self.__timeframe__,
                                        self.__timeframe_seconds__,
-                                       key, fail_value=np.NaN)
+                                       key, fail_value=np.nan)
 
 
 class SymbolPrice(object):
@@ -113,7 +113,7 @@ class SymbolPrice(object):
         ret = self.__getitem_callback__(self.__price__, self.__symbol_data__.ts_index,
                                        self.__symbol_data__.timeframe,
                                        self.__symbol_data__.timeframe_seconds,
-                                       key, fail_value=np.NaN)
+                                       key, fail_value=np.nan)
         return ret
 
     def __add__(self, other):
