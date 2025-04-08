@@ -1,5 +1,19 @@
 
 
+### [2025-04-08]
+#### Version:
+#####   Package:
+#####    pixiu: 0.169.*.20250408
+#####
+#### **Descriptions：**
+    1.ea_optimizer.py:
+        1) Add MAX_VARIABLES
+        2) valid_config: Add percent type
+        3) parse_config: Add percent type
+        4) calculate_optimization_max_task_count: Add percent type
+    2.test_pixiu.py:
+        1) Add test_ea_optimizer_config
+
 ### [2025-03-31]
 #### Version:
 #####   Package:

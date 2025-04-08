@@ -10,11 +10,14 @@ import sys
 from unittest import (TestCase, TestLoader, TestSuite, TextTestRunner, skip, skipIf)
 from pixiu.api.v1 import (TimeFrame, SymbolData)
 from pixiu.tester import (EATester, )
+from pixiu.optimizer import (EAOptimizer, )
 import numpy as np
 import time
 import talib
 import pandas as pd
 import dateutil
+import pyjson5 as json5
+
 
 debug_some_tests = False
 # debug_some_tests = True
@@ -607,7 +610,6 @@ class PiXiuTests(TestCase):
         eatt.execute("123456", sync=True)
         self.assertEqual(self.test_result, "OK")
 
-
     @skipIf(debug_some_tests, "debug some tests")
     def test_ea_tester_order_sellstop(self):
         """Test EA Tester"""
@@ -629,7 +631,40 @@ class PiXiuTests(TestCase):
         eatt.execute("123456", sync=True)
         self.assertEqual(self.test_result, "OK")
 
-
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_optimizer_config(self):
+        """Test EA Optimizer config format"""
+        config_file_path = "./optimizer/optim_config_01.json"
+        optimizer_params = dict(optimization_config=json5.loads(open(config_file_path).read()),
+                                config_file_path=config_file_path)
+        ea_optimizer = EAOptimizer(optimizer_params)
+        ret, errmsg = ea_optimizer.valid_config()
+        self.assertEqual(ret, True, errmsg)
+        opt_config = ea_optimizer.parse_config()
+        self.assertIsNotNone(opt_config)
+        # Checking the generated values
+        var_info = optimizer_params['optimization_config']['optimization']['variables']
+        variables = opt_config['variables']
+        for key in variables:
+            var = variables[key]
+            for var_name in var_info:
+                generated_value = var[var_name]
+                var_val = var_info[var_name]
+                var_name = var_val.get('name', var_name)
+                var_type = var_val['type']
+                var_precision = 0
+                if var_type == 'float':
+                    var_precision = var_val.get('precision', 5)
+                    self.assertTrue(abs(float(var_val['stop'])) > abs(generated_value) >= abs(float(var_val['start'])), f"{var_name} value ({generated_value}) should be between {float(var_val['start'])} and {float(var_val['stop'])}")
+                elif var_type == 'int':
+                    self.assertTrue(abs(int(var_val['stop'])) > abs(generated_value) >= abs(int(var_val['start'])), f"{var_name} value ({generated_value}) should be between {int(var_val['start'])} and {int(var_val['stop'])}")
+                elif var_type in ('%', 'percent'):
+                    var_precision = var_val.get('precision', 5)
+                    gv = ea_optimizer.parse_percent(generated_value)
+                    start_value = ea_optimizer.parse_percent(var_val['start'])
+                    stop_value = ea_optimizer.parse_percent(var_val['stop'])
+                    step_value = ea_optimizer.parse_percent(var_val['step'])
+                    self.assertTrue(abs(stop_value) > abs(gv) >= abs(start_value), f"{var_name} value ({generated_value}) should be between {var_val['start']} and {var_val['step']}")
 
 
 # --------------------------------------------------------------------

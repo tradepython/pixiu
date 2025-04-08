@@ -81,12 +81,15 @@ class EAOptimizer:
         super(object, self).__init__()
         self.config_file_path = params.get('config_file_path', None)
         self.output_path = params.get('output_path', None)
-        self.optimization_config = None
+        self.optimization_config = params.get('optimization_config', None)
         self.symbols = []
         self.variables = {}
         self.name = None
         self.stop_optimize = False
         self.opt_tasks_info_dict = {'tasks': {}, 'reports': {}}
+        self.MAX_VARIABLES = 50
+        self.MAX_VARIABLE_STEPS = 1000
+        self.MAX_TASK_COUNT = 0
         self.report_item_template = {
             "balance": {},
             "total_net_profit": {},
@@ -138,7 +141,10 @@ class EAOptimizer:
     def config_path_to_abs_path(self, file_path):
         ret = file_path
         if not os.path.isabs(file_path):
-            d = os.path.dirname(self.config_file_path)
+            if self.config_file_path:
+                d = os.path.dirname(self.config_file_path)
+            else:
+                d = '.'
             ret = os.path.abspath(os.path.join(d, file_path))
         return ret
 
@@ -162,6 +168,11 @@ class EAOptimizer:
                 tc = math.ceil((float(var_val['stop']) - float(var_val['start'])) / float(var_val['step']))
             elif var_type == 'int':
                 tc = math.ceil((int(var_val['stop']) - int(var_val['start'])) / int(var_val['step']))
+            elif var_type in ('%', 'percent'):
+                start_value =  self.parse_percent(var_val['start'])
+                stop_value =  self.parse_percent(var_val['stop'])
+                step_value =  self.parse_percent(var_val['step'])
+                tc = math.ceil((float(stop_value) - float(start_value)) / float(step_value))
             else:
                 return None
             task_count *= tc
@@ -208,6 +219,16 @@ class EAOptimizer:
         key = self.generate_variable_md5(val)
         return key, val
 
+    def generate_variable_value(self, var_type, val):
+        ret = val
+        if var_type == 'float':
+            pass
+        elif var_type == 'int':
+            pass
+        elif var_type in ('%', 'percent'):
+            ret = f"{val}%"
+        return ret
+
     def parse_config(self):
         if not self.optimization_config:
             return None
@@ -222,9 +243,10 @@ class EAOptimizer:
         variables_dict = {}
         var_list_dict = {}
         flag_list = []
+        self.variables = {}
         for var in variables:
-            var_name = variables[var].get('name', None)
-            var_name = var if var_name is None else var_name
+            var_name = variables[var].get('name', var)
+            # var_name = var if var_name is None else var_name
             var_val = variables[var]
             self.variables[var_name] = var_val
             flag_list.append(f"{var_name}-{var_val['start']}-{var_val['stop']}-{var_val['step']}")
@@ -235,12 +257,19 @@ class EAOptimizer:
                 v_range = np.arange(float(var_val['start']), float(var_val['stop']), float(var_val['step']))
             elif var_type == 'int':
                 v_range = range(int(var_val['start']), int(var_val['stop']), int(var_val['step']))
+            elif var_type in ('%', 'percent'):
+                var_precision = var_val.get('precision', 5)
+                start_value = self.parse_percent(var_val['start'])
+                stop_value = self.parse_percent(var_val['stop'])
+                step_value = self.parse_percent(var_val['step'])
+                v_range = np.arange(float(start_value), float(stop_value), float(step_value))
             else:
                 return None
             for v in v_range:
                 if var_precision > 0:
                     v = round(v, var_precision)
                 n = f"{var_name}_{v}"
+                v = self.generate_variable_value(var_type, v)
                 variables_dict[n] = (var_name, v)
                 vl = var_list_dict.get(var_name, [])
                 vl.append(n)
@@ -395,9 +424,87 @@ class EAOptimizer:
    #                        ts_utc=datetime.utcnow().timestamp())
    #      return opt_config
 
+    def parse_percent(self, x, failed_value=None):
+        try:
+            if isinstance(x, str) and len(x) > 1:
+                s = x.strip(' ')
+                if s[- 1:] == '%':
+                    return float(x.rstrip('%'))
+        except:
+            traceback.print_exc()
+        return failed_value
 
     def valid_config(self):
-        return True
+        optimization_config = self.optimization_config
+        if not optimization_config['name']:
+            return False, 'name'
+        max_tasks = optimization_config['optimization'].get('max_tasks', None)
+        generator = optimization_config['optimization']['generator']
+        if generator not in ('random', 'grid'):
+            return False, 'generator'
+        #check
+        variables = optimization_config['optimization']['variables']
+        if len(variables) == 0:
+            return False, 'The variables is empty'
+        if len(variables) > self.MAX_VARIABLES:
+            return False, f"Maximum number ({self.MAX_VARIABLES}) of variables exceeded. "
+        for var in variables:
+            var_name = variables[var].get('name', None)
+            var_name = var if var_name is None else var_name
+            if not var_name:
+                return False, 'The variable name cannot be empty.'
+            var_val = variables[var]
+            var_type = var_val['type']
+            step_count = 0
+            var_precision = 0
+            try:
+                if var_type == 'float':
+                    var_precision = var_val.get('precision', 5)
+                    step_count = math.ceil((float(var_val['stop']) - float(var_val['start'])) / float(var_val['step']))
+                elif var_type == 'int':
+                    step_count = math.ceil((int(var_val['stop']) - int(var_val['start'])) / int(var_val['step']))
+                elif var_type in ('%', 'percent'):
+                    start_value =  self.parse_percent(var_val['start'])
+                    if start_value is None:
+                        return False, f"The variable {var_name} ‘start’ is invalid (expect a percentage)."
+                    stop_value =  self.parse_percent(var_val['stop'])
+                    if stop_value is None:
+                        return False, f"The variable {var_name} ‘stop’ is invalid (expect a percentage)."
+                    step_value =  self.parse_percent(var_val['step'])
+                    if step_value is None:
+                        return False, f"The variable {var_name} ‘step’ is invalid (expect a percentage)."
+                    step_count = math.ceil((float(stop_value) - float(start_value)) / float(step_value))
+                else:
+                    return False, f"The variable {var_name} type is invalid."
+            except Exception as e:
+                traceback.print_exc()
+                return False, f"The variable {var_name} optimised quantity must be between 1 and {self.MAX_VARIABLE_STEPS}."
+            if step_count<=0 or step_count > self.MAX_VARIABLE_STEPS:
+                return False, f"The variable {var_name} optimised quantity must be between 1 and {self.MAX_VARIABLE_STEPS}."
+        #
+        if generator == 'random':
+            if max_tasks is None or max_tasks >= self.MAX_TASK_COUNT > 0 or max_tasks <= 0:
+                return False, f"max_tasks must be between 1 and {self.MAX_TASK_COUNT}. "
+        else:
+            max_optimization_task_count = self.calculate_optimization_max_task_count()
+            if max_optimization_task_count >= self.MAX_TASK_COUNT or max_optimization_task_count <= 0:
+                return False, f"The current optimizable quantity ({max_optimization_task_count}) must be between 1 and {self.MAX_TASK_COUNT}, please adjust the variables."
+
+        code = self.get_source_code()
+
+        result = {}
+        self.generate_optimization_code(code, optimization_config['optimization']['variables'], result)
+        # if len(result) == 0: #or len(result) != optimization_config['optimization']['variables']:
+        #     return False, 'variables'
+        errmsg = ""
+        for k in optimization_config['optimization']['variables']:
+            if k not in result:
+                m = f"The optimisation variable '{k}' not found in code."
+                errmsg = f"{errmsg}\n{m}" if errmsg else m
+        if errmsg:
+            return False, errmsg
+
+        return True, ''
 
     def make_opt_config_file_path(self, file_name, opt_config_path):
         file_path = os.path.abspath(os.path.join(opt_config_path, f"{file_name}.json"))
@@ -423,26 +530,6 @@ class EAOptimizer:
         ps = ReplaceValue(values_config, result).visit(ps)
         return ps
 
-    # def generate_optimization_parsed_code(self, source, values_config, result=None):
-    #     ps = ast.parse(source)
-    #     for element in ps.body:
-    #         if isinstance(element, ast.Assign):
-    #             if isinstance(element.targets[0], ast.Name):
-    #                 if isinstance(element.targets[0].ctx, ast.Store):
-    #                     element_id = element.targets[0].id
-    #                     if element_id in values_config:
-    #                         new_val = values_config[element_id]
-    #                         if new_val:
-    #                             replaced = True
-    #                             if isinstance(element.value, ast.Constant):
-    #                                 # element.value.value = new_val
-    #                                 element.value = ast.Constant(value=new_val)
-    #                             else:
-    #                                 replaced = False
-    #                             if result is not None and replaced:
-    #                                 result[element_id] = dict(result=0, )
-    #     return ps
-    #
     def generate_optimization_code(self, source, values_config, result=None):
         ps = self.generate_optimization_parsed_code(source, values_config, result)
         new_code = astunparse.unparse(ps)
