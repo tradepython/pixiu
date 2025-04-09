@@ -9,7 +9,8 @@ import hashlib
 import traceback
 import numpy as np
 import pandas as pd
-from datetime import timedelta, datetime
+from datetime import (timedelta, datetime)
+from pixiu.api import utc_from_timestamp
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from pathlib import Path
@@ -99,15 +100,18 @@ class PXTester(EATester):
             self.eat_params['print_log_type'] = print_log_type
         #
         if "start_time" not in self.eat_params.keys():
-            self.eat_params['start_time'] = str(datetime.utcfromtimestamp(self.new_a[0]['t']))
+            # self.eat_params['start_time'] = str(datetime.utcfromtimestamp(self.new_a[0]['t']))
+            self.eat_params['start_time'] = str(utc_from_timestamp(self.new_a[0]['t']))
         if "end_time" not in self.eat_params.keys():
-            self.eat_params['end_time'] = str(datetime.utcfromtimestamp(self.new_a[-1]['t']))
+            # self.eat_params['end_time'] = str(datetime.utcfromtimestamp(self.new_a[-1]['t']))
+            self.eat_params['end_time'] = str(utc_from_timestamp(self.new_a[-1]['t']))
         #
         test_period = self.eat_params.get('test_period', 0)
         if test_period > 0:
             date_dict = {}
             for index in reversed(range(self.new_a.size)):
-                date_str = str(datetime.utcfromtimestamp(self.new_a[index]['t']).date())
+                # date_str = str(datetime.utcfromtimestamp(self.new_a[index]['t']).date())
+                date_str = str(utc_from_timestamp(self.new_a[index]['t']).date())
                 if date_str not in date_dict:
                     if len(date_dict) < test_period:
                         date_dict[date_str] = index

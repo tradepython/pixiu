@@ -1,4 +1,5 @@
-from datetime import datetime
+from ..utils import utc_from_timestamp
+
 
 class Account(object):
     '''Account class'''
@@ -137,8 +138,9 @@ class AccountDataTime(object):
                                        key)
         if ts is None:
             return None
-        # return datetime.fromtimestamp(ts)
-        return datetime.utcfromtimestamp(ts)
+        # return datetime.utcfromtimestamp(ts)
+        return utc_from_timestamp(ts)
+
 
 class AccountData(object):
     def __init__(self, data, timeframe, getitem_callback):

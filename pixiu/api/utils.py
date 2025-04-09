@@ -3,7 +3,7 @@ from bson import json_util
 import uuid
 import hashlib
 from hashids import Hashids
-from datetime import datetime, date
+from datetime import datetime, date, UTC
 from dateutil.parser import parse
 from pixiu.api.defines import OrderCommand
 # ----------------------------------------------------------------------------------------------------------------------
@@ -105,3 +105,6 @@ def uuid_str(short=True):
     if short:
         key = hashids.encode(int(key, 16))
     return key
+
+def utc_from_timestamp(timestamp):
+    return datetime.fromtimestamp(timestamp, UTC).replace(tzinfo=None)

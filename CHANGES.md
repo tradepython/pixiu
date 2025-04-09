@@ -1,5 +1,28 @@
 
 
+### [2025-04-09]
+#### Version:
+#####   Package:
+#####    pixiu: 0.170.*.20250409
+#####
+#### **Descriptions：**
+    1.ea_optimizer.py:
+        1) parse_config: Add argument params
+        2) valid_config: Add argument params
+        3) generate_optimization_code_file: Add argument params
+    2.pxtester.py:
+        1) Replace utcfromtimestamp with utc_from_timestamp
+    3.account.py:
+        1) Replace utcfromtimestamp with utc_from_timestamp
+    4.order.py:
+        1) Replace utcfromtimestamp with utc_from_timestamp
+    5.symbol.py:
+        1) Replace utcfromtimestamp with utc_from_timestamp
+    6.ea_tester.py:
+        1) Replace utcfromtimestamp with utc_from_timestamp
+    7.test_pixiu.py:
+        1) Replace utcfromtimestamp with utc_from_timestamp
+
 ### [2025-04-08]
 #### Version:
 #####   Package:

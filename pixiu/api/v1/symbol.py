@@ -1,8 +1,8 @@
-from datetime import datetime
+
 
 import numpy as np
 import pandas
-from pixiu.api.utils import (parse_timeframe, calculate_minute_intervals, timeframe_to_seconds)
+from pixiu.api.utils import (parse_timeframe, calculate_minute_intervals, timeframe_to_seconds, utc_from_timestamp)
 
 
 class Symbol(object):
@@ -183,9 +183,8 @@ class SymbolTime(object):
                                        key, fail_value=None)
         if ts is None:
             return None
-        # return datetime.fromtimestamp(ts)
-
-        return datetime.utcfromtimestamp(ts)
+        # return datetime.utcfromtimestamp(ts)
+        return utc_from_timestamp(ts)
 
 class SymbolData(object):
     def __init__(self, data, timeframe, getitem_callback, getitem_index):

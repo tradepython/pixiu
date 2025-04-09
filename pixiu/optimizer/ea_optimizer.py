@@ -121,7 +121,7 @@ class EAOptimizer:
             "max_consecutive_losses_money": {},
             }
 
-    def get_source_code(self):
+    def get_source_code(self, params=None):
         source = self.config_path_to_abs_path(self.optimization_config['source'])
         code = open(source).read()
         return code
@@ -229,12 +229,12 @@ class EAOptimizer:
             ret = f"{val}%"
         return ret
 
-    def parse_config(self):
+    def parse_config(self, params=None):
         if not self.optimization_config:
             return None
         self.name = self.optimization_config['name']
         # self.source = self.config_path_to_abs_path(self.optimization_config['source'])
-        code = self.get_source_code()
+        code = self.get_source_code(params=params)
         # source_md5 = hashlib.md5(open(self.source, 'rb').read()).hexdigest()
         source_md5 = hashlib.md5(code.encode('utf-8')).hexdigest()
         #
@@ -328,101 +328,101 @@ class EAOptimizer:
                           ts_utc=datetime.utcnow().timestamp())
         return opt_config
 
-   # def parse_config(self):
-   #      if not self.optimization_config:
-   #          return None
-   #      self.name = self.optimization_config['name']
-   #      # self.source = self.config_path_to_abs_path(self.optimization_config['source'])
-   #      code = self.get_source_code()
-   #      # source_md5 = hashlib.md5(open(self.source, 'rb').read()).hexdigest()
-   #      source_md5 = hashlib.md5(code.encode('utf-8')).hexdigest()
-   #      #
-   #      symbols = self.get_symbols()
-   #      variables = self.get_variables()
-   #      variables_dict = {}
-   #      var_list_dict = {}
-   #      flag_list = []
-   #      for var in variables:
-   #          var_name = variables[var].get('name', None)
-   #          var_name = var if var_name is None else var_name
-   #          var_val = variables[var]
-   #          self.variables[var_name] = var_val
-   #          flag_list.append(f"{var_name}-{var_val['start']}-{var_val['stop']}-{var_val['step']}")
-   #          var_type = var_val['type']
-   #          var_precision = 0
-   #          if var_type == 'float':
-   #              var_precision = var_val.get('precision', 5)
-   #              v_range = np.arange(float(var_val['start']), float(var_val['stop']), float(var_val['step']))
-   #          elif var_type == 'int':
-   #              v_range = range(int(var_val['start']), int(var_val['stop']), int(var_val['step']))
-   #          else:
-   #              return None
-   #          for v in v_range:
-   #              if var_precision > 0:
-   #                  v = round(v, var_precision)
-   #              n = f"{var_name}_{v}"
-   #              variables_dict[n] = (var_name, v)
-   #              vl = var_list_dict.get(var_name, [])
-   #              vl.append(n)
-   #              var_list_dict[var_name] = vl
-   #      #
-   #      var_list = []
-   #      for key in var_list_dict:
-   #          var_list.append(var_list_dict[key])
-   #
-   #      prd_list = list(itertools.product(*var_list))
-   #      # opt_var_config = {}
-   #      #
-   #      # for prd in prd_list:
-   #      #     val = {}
-   #      #     for p in prd:
-   #      #         v = variables_dict[p]
-   #      #         val[v[0]] = v[1]
-   #      #     key = self.generate_variable_md5(val)
-   #      #     opt_var_config[key] = val
-   #      #
-   #      flag_list.sort()
-   #      flag = source_md5 + '-' + '-'.join(flag_list)
-   #      flag_uid = hashlib.md5(flag.encode("utf-8")).hexdigest()
-   #      test_config = self.get_test_config()
-   #      #
-   #      task_vars = None
-   #      generator = self.optimization_config['optimization']['generator']
-   #      if generator == 'random':
-   #          max_tasks = int(self.optimization_config['optimization']['max_tasks'])
-   #          # key_list = list(opt_var_config.keys())
-   #          # max_optimization_tasks = self.calculate_optimization_max_task_count()
-   #          # index_list = random.sample(range(0, min(max_tasks, max_optimization_tasks)), max_tasks)
-   #          index_list = random.sample(range(0, len(prd_list)), max_tasks)
-   #          # task_vars = {k: opt_var_config[k] for k in keys}
-   #          task_vars = {}
-   #          for index in index_list:
-   #              val = {}
-   #              prd = prd_list[index]
-   #              for p in prd:
-   #                  v = variables_dict[p]
-   #                  val[v[0]] = v[1]
-   #              key = self.generate_variable_md5(val)
-   #              task_vars[key] = val
-   #      elif generator == 'grid':
-   #          # task_vars = opt_var_config
-   #          task_vars = {}
-   #          for prd in prd_list:
-   #              val = {}
-   #              for p in prd:
-   #                  v = variables_dict[p]
-   #                  val[v[0]] = v[1]
-   #              key = self.generate_variable_md5(val)
-   #              task_vars[key] = val
-   #
-   #      opt_config = dict(type="optimization_config", config_uid=flag_uid,
-   #                        symbols=symbols,
-   #                        variables=task_vars,
-   #                        test_config=test_config,
-   #                        test_log_config=self.optimization_config.get('test_log_config', ["order", "report"]),
-   #                        time_utc=datetime.utcnow().isoformat(),
-   #                        ts_utc=datetime.utcnow().timestamp())
-   #      return opt_config
+    # def parse_config(self):
+    #     if not self.optimization_config:
+    #         return None
+    #     self.name = self.optimization_config['name']
+    #     # self.source = self.config_path_to_abs_path(self.optimization_config['source'])
+    #     code = self.get_source_code()
+    #     # source_md5 = hashlib.md5(open(self.source, 'rb').read()).hexdigest()
+    #     source_md5 = hashlib.md5(code.encode('utf-8')).hexdigest()
+    #     #
+    #     symbols = self.get_symbols()
+    #     variables = self.get_variables()
+    #     variables_dict = {}
+    #     var_list_dict = {}
+    #     flag_list = []
+    #     for var in variables:
+    #         var_name = variables[var].get('name', None)
+    #         var_name = var if var_name is None else var_name
+    #         var_val = variables[var]
+    #         self.variables[var_name] = var_val
+    #         flag_list.append(f"{var_name}-{var_val['start']}-{var_val['stop']}-{var_val['step']}")
+    #         var_type = var_val['type']
+    #         var_precision = 0
+    #         if var_type == 'float':
+    #             var_precision = var_val.get('precision', 5)
+    #             v_range = np.arange(float(var_val['start']), float(var_val['stop']), float(var_val['step']))
+    #         elif var_type == 'int':
+    #             v_range = range(int(var_val['start']), int(var_val['stop']), int(var_val['step']))
+    #         else:
+    #             return None
+    #         for v in v_range:
+    #             if var_precision > 0:
+    #                 v = round(v, var_precision)
+    #             n = f"{var_name}_{v}"
+    #             variables_dict[n] = (var_name, v)
+    #             vl = var_list_dict.get(var_name, [])
+    #             vl.append(n)
+    #             var_list_dict[var_name] = vl
+    #     #
+    #     var_list = []
+    #     for key in var_list_dict:
+    #         var_list.append(var_list_dict[key])
+    #
+    #     prd_list = list(itertools.product(*var_list))
+    #     # opt_var_config = {}
+    #     #
+    #     # for prd in prd_list:
+    #     #     val = {}
+    #     #     for p in prd:
+    #     #         v = variables_dict[p]
+    #     #         val[v[0]] = v[1]
+    #     #     key = self.generate_variable_md5(val)
+    #     #     opt_var_config[key] = val
+    #     #
+    #     flag_list.sort()
+    #     flag = source_md5 + '-' + '-'.join(flag_list)
+    #     flag_uid = hashlib.md5(flag.encode("utf-8")).hexdigest()
+    #     test_config = self.get_test_config()
+    #     #
+    #     task_vars = None
+    #     generator = self.optimization_config['optimization']['generator']
+    #     if generator == 'random':
+    #         max_tasks = int(self.optimization_config['optimization']['max_tasks'])
+    #         # key_list = list(opt_var_config.keys())
+    #         # max_optimization_tasks = self.calculate_optimization_max_task_count()
+    #         # index_list = random.sample(range(0, min(max_tasks, max_optimization_tasks)), max_tasks)
+    #         index_list = random.sample(range(0, len(prd_list)), max_tasks)
+    #         # task_vars = {k: opt_var_config[k] for k in keys}
+    #         task_vars = {}
+    #         for index in index_list:
+    #             val = {}
+    #             prd = prd_list[index]
+    #             for p in prd:
+    #                 v = variables_dict[p]
+    #                 val[v[0]] = v[1]
+    #             key = self.generate_variable_md5(val)
+    #             task_vars[key] = val
+    #     elif generator == 'grid':
+    #         # task_vars = opt_var_config
+    #         task_vars = {}
+    #         for prd in prd_list:
+    #             val = {}
+    #             for p in prd:
+    #                 v = variables_dict[p]
+    #                 val[v[0]] = v[1]
+    #             key = self.generate_variable_md5(val)
+    #             task_vars[key] = val
+    #
+    #     opt_config = dict(type="optimization_config", config_uid=flag_uid,
+    #                       symbols=symbols,
+    #                       variables=task_vars,
+    #                       test_config=test_config,
+    #                       test_log_config=self.optimization_config.get('test_log_config', ["order", "report"]),
+    #                       time_utc=datetime.utcnow().isoformat(),
+    #                       ts_utc=datetime.utcnow().timestamp())
+    #     return opt_config
 
     def parse_percent(self, x, failed_value=None):
         try:
@@ -434,7 +434,7 @@ class EAOptimizer:
             traceback.print_exc()
         return failed_value
 
-    def valid_config(self):
+    def valid_config(self, params=None):
         optimization_config = self.optimization_config
         if not optimization_config['name']:
             return False, 'name'
@@ -466,13 +466,13 @@ class EAOptimizer:
                 elif var_type in ('%', 'percent'):
                     start_value =  self.parse_percent(var_val['start'])
                     if start_value is None:
-                        return False, f"The variable {var_name} ‘start’ is invalid (expect a percentage)."
+                        return False, f"The variable {var_name} ‘start’ is invalid (expect a percentage, e.g. 0.1%, -0.1%)."
                     stop_value =  self.parse_percent(var_val['stop'])
                     if stop_value is None:
-                        return False, f"The variable {var_name} ‘stop’ is invalid (expect a percentage)."
+                        return False, f"The variable {var_name} ‘stop’ is invalid (expect a percentage, e.g. 0.1%, -0.1%)."
                     step_value =  self.parse_percent(var_val['step'])
                     if step_value is None:
-                        return False, f"The variable {var_name} ‘step’ is invalid (expect a percentage)."
+                        return False, f"The variable {var_name} ‘step’ is invalid (expect a percentage, e.g. 0.1%, -0.1%)."
                     step_count = math.ceil((float(stop_value) - float(start_value)) / float(step_value))
                 else:
                     return False, f"The variable {var_name} type is invalid."
@@ -490,7 +490,7 @@ class EAOptimizer:
             if max_optimization_task_count >= self.MAX_TASK_COUNT or max_optimization_task_count <= 0:
                 return False, f"The current optimizable quantity ({max_optimization_task_count}) must be between 1 and {self.MAX_TASK_COUNT}, please adjust the variables."
 
-        code = self.get_source_code()
+        code = self.get_source_code(params=params)
 
         result = {}
         self.generate_optimization_code(code, optimization_config['optimization']['variables'], result)
@@ -546,8 +546,8 @@ class EAOptimizer:
             new_code = f"{header_comments}{new_code}"
         return new_code
 
-    def generate_optimization_code_file(self, file_path, config):
-        code = self.get_source_code()
+    def generate_optimization_code_file(self, file_path, config, params=None):
+        code = self.get_source_code(params=params)
         values_config = config['variables']
         new_code = self.generate_optimization_code(code, values_config)
         with open(file_path, 'w') as f:
