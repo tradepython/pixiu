@@ -6,6 +6,8 @@ from pytz import timezone
 import random
 import numpy as np
 import pandas as pd
+import scipy
+import talib
 import time
 from RestrictedPython.Guards import (guarded_unpack_sequence, )
 from RestrictedPython.Eval import (default_guarded_getiter, )
@@ -94,6 +96,8 @@ class API_V1_Base(API_V1):
         env_dict["time"] = time
         env_dict["pandas"] = pd
         env_dict["numpy"] = np
+        env_dict["talib"] = talib
+        env_dict["scipy"] = scipy
         env_dict["uuid"] = uuid
         env_dict["hashlib"] = hashlib
         env_dict["UID"] = uuid_str

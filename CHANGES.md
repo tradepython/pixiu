@@ -1,5 +1,14 @@
 
 
+### [2025-06-04]
+#### Version:
+#####   Package:
+#####    pixiu: 0.171.*.20250604
+#####
+#### **Descriptions：**
+    1.api_base.py:
+        1) Add talib, scipy support
+
 ### [2025-04-09]
 #### Version:
 #####   Package:
