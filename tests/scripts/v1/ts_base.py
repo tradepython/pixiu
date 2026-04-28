@@ -124,7 +124,7 @@ assertEqual(symbol.currency_margin, valid_symbols[Symbol()]['currency_margin'])
 
 
 #Data
-for scope in (DataScope.EA, DataScope.EA_VERSION, DataScope.ACCOUNT, DataScope.EA_SETTIGNS):
+for scope in (DataScope.EA, DataScope.EA_VERSION, DataScope.ACCOUNT, DataScope.EA_SETTINGS):
     name = hashlib.md5(str(uuid.uuid4()).encode("utf-8")).hexdigest()
     for i in range(3):
         data = dict(value=UID())

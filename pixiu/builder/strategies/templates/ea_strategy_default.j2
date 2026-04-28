@@ -647,7 +647,7 @@ class {{ strategy['class_name'] }}:
             stats['sorted_orders'] = stats['sorted_orders'][max_orders*-1:]
 
     def load_settings_data(self, name, default=None, timeout=0):
-        data = LoadData(scope=DataScope.EA_SETTIGNS, name=name)
+        data = LoadData(scope=DataScope.EA_SETTINGS, name=name)
         if data is None:
             return default
         value = data['value']
@@ -662,11 +662,11 @@ class {{ strategy['class_name'] }}:
     def save_settings_data(self, name, data, timeout=0):
         current_time = Time()
         data = dict(time_ts=current_time.timestamp(), timeout=timeout, value=data)
-        ret = SaveData(scope=DataScope.EA_SETTIGNS, name=name, data=data)
+        ret = SaveData(scope=DataScope.EA_SETTINGS, name=name, data=data)
         return data
 
     def delete_settings_data(self, name):
-        return DeleteData(scope=DataScope.EA_SETTIGNS, name=name)
+        return DeleteData(scope=DataScope.EA_SETTINGS, name=name)
 
     def load_group_data(self, name, default=None):
         cache_name = f"_group_data_{Symbol()}"
@@ -1118,7 +1118,7 @@ class {{ strategy['class_name'] }}:
             trade_data_dict = self.load_group_data('trade_data', {})
             temp_data['trade_data_records'] = trade_data_dict
             self.save_group_logs(group_info)
-        DeleteData(scope=DataScope.EA_SETTIGNS, name=cache_name)
+        DeleteData(scope=DataScope.EA_SETTINGS, name=cache_name)
         self.clean_group_data()
 
     def get_order_commands(self, opened_order_dict, group_info):
@@ -1225,7 +1225,7 @@ class {{ strategy['class_name'] }}:
         current_time = Time()
         opened_order_list = GetOpenedOrderUIDs(scope=DataScope.EA_VERSION)
         new_group = False
-        data = LoadData(scope=DataScope.EA_SETTIGNS, name=cache_name)
+        data = LoadData(scope=DataScope.EA_SETTINGS, name=cache_name)
         if data is not None:
             group_info = data['value']
             expire_s = float(data.get('expire_s', cache_expire_s))
@@ -1301,7 +1301,7 @@ class {{ strategy['class_name'] }}:
     def save_group_info(self, group_info, symbol=Symbol()):
         cache_name = f"open_info_{symbol}"
         data = dict(time_ts=Time().timestamp(), value=group_info)
-        ret = SaveData(scope=DataScope.EA_SETTIGNS, name=cache_name, data=data)
+        ret = SaveData(scope=DataScope.EA_SETTINGS, name=cache_name, data=data)
         return ret
 
     def calculate_next_trade_data(self, group_info):
@@ -1726,27 +1726,27 @@ class EAStrategyRunner:
         return 0
 
     def load_status_data(self, status, default=None):
-        data = LoadData(scope=DataScope.EA_SETTIGNS, name=self.runner_status_cache_name)
+        data = LoadData(scope=DataScope.EA_SETTINGS, name=self.runner_status_cache_name)
         if data is None:
             data = {}
         return data.get(status, default)
 
     def save_status_data(self, status, value):
-        data = LoadData(scope=DataScope.EA_SETTIGNS, name=self.runner_status_cache_name)
+        data = LoadData(scope=DataScope.EA_SETTINGS, name=self.runner_status_cache_name)
         if data is None:
             data = {}
         current_time = Time()
         data[status] = dict(time_ts=current_time.timestamp(), value=value)
-        return SaveData(scope=DataScope.EA_SETTIGNS, name=self.runner_status_cache_name, data=data)
+        return SaveData(scope=DataScope.EA_SETTINGS, name=self.runner_status_cache_name, data=data)
 
     def delete_status_data(self, status):
-        data = LoadData(scope=DataScope.EA_SETTIGNS, name=self.runner_status_cache_name)
+        data = LoadData(scope=DataScope.EA_SETTINGS, name=self.runner_status_cache_name)
         if data is None:
             return False
         if status not in data:
             return False
         data.pop(status, None)
-        return SaveData(scope=DataScope.EA_SETTIGNS, name=self.runner_status_cache_name, data=data)
+        return SaveData(scope=DataScope.EA_SETTINGS, name=self.runner_status_cache_name, data=data)
 
 # --------------
 # main

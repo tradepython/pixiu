@@ -4,7 +4,6 @@ import math
 import pyjson5 as json5
 import threading
 import importlib
-import pkg_resources
 import dateutil
 from datetime import datetime, timezone
 import numpy as np
@@ -20,6 +19,7 @@ from pixiu.api.v1 import (DataScope, )
 import traceback
 import logging
 from .scenario import ScenarioEngine, resolve_order_command
+from pixiu import __version__ as pixiu_version
 log = logging.getLogger(__name__)
 
 
@@ -157,8 +157,8 @@ class EATester(EABase):
         #
         # self.current_api = TesterAPI_V1(tester=self, data_source={}, default_symbol=self.context.symbol)
         self.current_api = self.get_api()
-        # self.data = {DataScope.EA_VERSION: {}, DataScope.EA: {}, DataScope.ACCOUNT: {}, DataScope.EA_SETTIGNS: {}}
-        self.context.persistent_data = self.get_init_data('persistent_data', None)
+        # self.data = {DataScope.EA_VERSION: {}, DataScope.EA: {}, DataScope.ACCOUNT: {}, DataScope.EA_SETTINGS: {}}
+        self.context.persistent_data = self.get_init_data('persistent_data', self.context.persistent_data)
         self.context.set_error(EID_OK, 'EID_OK')
         #
         self.context.reset_flags()
@@ -248,7 +248,16 @@ class EATester(EABase):
                 'account_min_balance': values['balance'],
             }
         elif name == 'persistent_data':
-            ret = {DataScope.EA_VERSION: {}, DataScope.EA: {}, DataScope.ACCOUNT: {}, DataScope.EA_SETTIGNS: {}}
+            ret = values if isinstance(values, dict) else {}
+            for scope in (
+                DataScope.EA_VERSION,
+                DataScope.EA,
+                DataScope.ACCOUNT,
+                DataScope.EA_SETTINGS,
+                DataScope.ACCOUNT_EA,
+            ):
+                if scope not in ret or not isinstance(ret[scope], dict):
+                    ret[scope] = {}
         elif name == 'orders':
             ret = {'opened': {}, 'closed': {}, 'pending': {},
                        'counter': 0, 'opened_counter': 0, 'pending_counter': 0,
@@ -346,14 +355,49 @@ class EATester(EABase):
             traceback.print_exc()
         return default
 
+    def _get_account_ea_bucket(self, create=False):
+        scope_data = self.context.persistent_data.get(DataScope.ACCOUNT_EA, None)
+        if scope_data is None:
+            if not create:
+                return None
+            self.context.persistent_data[DataScope.ACCOUNT_EA] = {}
+            scope_data = self.context.persistent_data[DataScope.ACCOUNT_EA]
+
+        account = self.context.account or {}
+        server = account.get('server', '') or ''
+        number = account.get('number', '') or ''
+        account_key = f"{server}:{number}"
+
+        metadata = self.context.script_metadata or {}
+        ea_key = metadata.get('name', metadata.get('label', self.context.script_path))
+        if ea_key is None:
+            ea_key = '__default_ea__'
+
+        scoped_key = f"{account_key}|{ea_key}"
+        if create:
+            if scoped_key not in scope_data:
+                scope_data[scoped_key] = {}
+            return scope_data[scoped_key]
+        return scope_data.get(scoped_key, None)
+
     def delete_data(self, name, scope):
-        self.context.persistent_data[scope].pop(name)
+        scope_data = self.context.persistent_data[scope]
+        if scope == DataScope.ACCOUNT_EA:
+            bucket = self._get_account_ea_bucket(create=False)
+            if bucket is not None:
+                bucket.pop(name, None)
+        else:
+            scope_data.pop(name)
         return 0
 
     def load_data(self, name, scope, format='json'):
         if format != 'json':
             return None
-        data = self.context.persistent_data[scope].get(name, None)
+        if scope == DataScope.ACCOUNT_EA:
+            bucket = self._get_account_ea_bucket(create=False)
+            data = bucket.get(name, None) if bucket is not None else None
+        else:
+            data = self.context.persistent_data[scope].get(name, None)
         if data is None:
             return None
         return json5.loads(data)
@@ -365,7 +409,11 @@ class EATester(EABase):
             data = json5.dumps(data)
             if len(data) > MAX_DATA_LENGTH:
                 return EID_EAT_INVALID_DATA_LENGTH
-        self.context.persistent_data[scope][name] = data
+        if scope == DataScope.ACCOUNT_EA:
+            bucket = self._get_account_ea_bucket(create=True)
+            bucket[name] = data
+        else:
+            self.context.persistent_data[scope][name] = data
         return EID_OK
 
     def init_report_data(self):
@@ -1837,7 +1885,6 @@ class EATester(EABase):
         try:
             self.context.set_error(EID_OK, 'EID_OK')
             test_start_time = datetime.now()
-            pixiu_version = pkg_resources.get_distribution('pixiu').version
             self.write_log(
                 f"\n\n == PiXiu({pixiu_version}) Backtesting Start: {test_start_time}, Ticket: {ticket}, Symbol: {self.context.symbol}, Period: {self.context.start_time} - {self.context.end_time}, "
                 f"Timeframe: {self.context.tick_timeframe}, Mode: {self.context.tick_mode} == \n\n")
@@ -1960,7 +2007,6 @@ class EATester(EABase):
         """"""
         try:
             test_start_time = datetime.now()
-            pixiu_version = pkg_resources.get_distribution('pixiu').version
             self.write_log(
                 f"\n\n == PiXiu({pixiu_version}) Backtesting Start: {test_start_time}, Ticket: {ticket}, Symbol: {self.context.symbol}, Period: {self.context.start_time} - {self.context.end_time}, "
                 f"Timeframe: {self.context.tick_timeframe}, Mode: {self.context.tick_mode} == \n\n")

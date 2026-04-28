@@ -5,7 +5,6 @@ import random
 import math
 import time
 import traceback
-import pkg_resources
 import numpy as np
 from multiprocessing import (Pool, Process, Manager, Queue, Value)
 from multiprocessing.pool import AsyncResult
@@ -21,6 +20,7 @@ from datetime import datetime
 from ctypes import c_wchar_p
 from enum import Enum
 from tabulate import tabulate
+from pixiu import __version__ as pixiu_version
 
 file_dir = os.path.dirname(__file__)
 
@@ -969,7 +969,6 @@ class EAOptimizer:
             return
         #
         opt_start_time = datetime.now()
-        pixiu_version = pkg_resources.get_distribution('pixiu').version
         print(f"\n\n == PiXiu({pixiu_version}) Optimization Start: {opt_start_time} \n\n")
         opt_config_path = self.make_config_path(opt_config, self.output_path)
         os.makedirs(opt_config_path, exist_ok=True)
@@ -1020,4 +1019,3 @@ class EAOptimizer:
         print(f"\n\n == PiXiu Backtesting End: {opt_end_time}, Total Time: {(opt_end_time - opt_start_time).total_seconds()} sec, {self.config_file_path} == \n\n")
 
         self.show_stats()
-

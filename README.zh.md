@@ -863,7 +863,7 @@ WaitCommand(self, uid, timeout=120)
 
              Parameters:
                      name : The data name
-                     scope : The data scope (current EA settings, EA version, EA, Account)
+                     scope : The data scope (current EA settings `EA_SETTINGS`, current account + current EA `ACCOUNT_EA`, EA version, EA, Account)
              Returns:
                      The errorid.
 
@@ -872,7 +872,7 @@ WaitCommand(self, uid, timeout=120)
 
              Parameters:
                      name : The data name
-                     scope : The data scope (current EA settings, EA version, EA, Account)
+                     scope : The data scope (current EA settings `EA_SETTINGS`, current account + current EA `ACCOUNT_EA`, EA version, EA, Account)
                      format: Only support JSON.
              Returns:
                      data.
@@ -882,7 +882,7 @@ WaitCommand(self, uid, timeout=120)
 
              Parameters:
                      name : The data name
-                     scope : The data scope (current EA settings, EA version, EA, Account)
+                     scope : The data scope (current EA settings `EA_SETTINGS`, current account + current EA `ACCOUNT_EA`, EA version, EA, Account)
                      format: Only support JSON.
              Returns:
                      The errorid.

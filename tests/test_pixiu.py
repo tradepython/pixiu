@@ -10,7 +10,7 @@ import sys
 from unittest import (TestCase, TestLoader, TestSuite, TextTestRunner, skip, skipIf)
 
 from pixiu.api import utc_from_timestamp
-from pixiu.api.v1 import (TimeFrame, SymbolData)
+from pixiu.api.v1 import (TimeFrame, SymbolData, DataScope)
 from pixiu.tester import (EATester, )
 from pixiu.optimizer import (EAOptimizer, )
 import numpy as np
@@ -459,6 +459,42 @@ class PiXiuTests(TestCase):
         eatt = EATTester(self, self.eat_params)
         eatt.execute("123456", sync=True)
         self.assertEqual(self.test_result, "OK")
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_account_ea_scope(self):
+        shared_persistent_data = {}
+
+        def build_tester(script_name, account_number):
+            params = dict(self.eat_params)
+            params['global_values'] = dict(self.eat_params['global_values'])
+            params['script'] = "\n".join([
+                f"###[name]={script_name}",
+                "def PX_InitScriptSettings():",
+                "    return {'charts': {}, 'params': {}}",
+                "def PX_ValidScriptSettings(script_settings=None):",
+                "    return {'success': True, 'errmsg': ''}",
+            ])
+            params['script_path'] = None
+            params['persistent_data'] = shared_persistent_data
+            params['account'] = dict(self.account, number=account_number)
+            return EATTester(self, params)
+
+        writer = build_tester("account-ea-a", "001")
+        same_account_same_ea = build_tester("account-ea-a", "001")
+        different_account = build_tester("account-ea-a", "002")
+        different_ea = build_tester("account-ea-b", "001")
+
+        payload = {"value": "writer-data"}
+        self.assertEqual(writer.save_data("shared-key", payload, DataScope.ACCOUNT_EA), 0)
+        self.assertEqual(same_account_same_ea.load_data("shared-key", DataScope.ACCOUNT_EA), payload)
+        self.assertIsNone(different_account.load_data("shared-key", DataScope.ACCOUNT_EA))
+        self.assertIsNone(different_ea.load_data("shared-key", DataScope.ACCOUNT_EA))
+
+        self.assertEqual(different_account.save_data("shared-key", {"value": "account-b"}, DataScope.ACCOUNT_EA), 0)
+        self.assertEqual(different_ea.save_data("shared-key", {"value": "ea-b"}, DataScope.ACCOUNT_EA), 0)
+        self.assertEqual(writer.load_data("shared-key", DataScope.ACCOUNT_EA), payload)
+        self.assertEqual(different_account.load_data("shared-key", DataScope.ACCOUNT_EA), {"value": "account-b"})
+        self.assertEqual(different_ea.load_data("shared-key", DataScope.ACCOUNT_EA), {"value": "ea-b"})
 
 
     def get_timeframe_value_by_time(self, timeframe, v_time, item_name):

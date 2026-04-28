@@ -31,8 +31,8 @@ class DataScope():
     EA = 0
     EA_VERSION = 200
     ACCOUNT = 300
-    EA_SETTIGNS = 400
     EA_SETTINGS = 400
+    ACCOUNT_EA = 500
 
 
 ErrorID = NewType('ErrorID', int)

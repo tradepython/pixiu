@@ -40,7 +40,7 @@ class EATesterContext:
             # flags=0,
             default_digits=params.get("default_digits", 2),
             # symbol=params["symbol"],
-            persistent_data=None,
+            persistent_data=params.get("persistent_data", None),
             symbol_properties={},
             default_symbol_properties=params.get("symbol_properties", None),
             spread_point=params.get("spread_point", None),
@@ -132,7 +132,7 @@ class EATesterContext:
         #         if k not in self.account:
         #             self.account[k] = default_value[k]
         # self.current_api = self.get_api()
-        # self.data = {DataScope.EA_VERSION: {}, DataScope.EA: {}, DataScope.ACCOUNT: {}, DataScope.EA_SETTIGNS: {}}
+        # self.data = {DataScope.EA_VERSION: {}, DataScope.EA: {}, DataScope.ACCOUNT: {}, DataScope.EA_SETTINGS: {}}
         # self.data = self.get_init_data('data', None)
         self.set_error(EID_OK, 'EID_OK')
         #
@@ -560,5 +560,4 @@ class EATesterContext:
     # @log_path.setter
     # def log_path(self, value):
     #     self.ctx['log_path'] = value
-
 

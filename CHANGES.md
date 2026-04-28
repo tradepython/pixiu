@@ -1,5 +1,27 @@
 
 
+### [2026-04-28]
+#### Version:
+#####   Package:
+#####    pixiu: 0.173.*.20260428
+#####
+#### **Descriptions：**
+    1.api.py:
+        1) Add DataScope.ACCOUNT_EA for current account + current EA scope
+        2) Replace EA_SETTIGNS usage with EA_SETTINGS
+    2.ea_tester.py:
+        1) Add ACCOUNT_EA persistent data scope support
+    3.ea_tester_context.py:
+        1) Support injected persistent_data for shared tester state
+    4.test_pixiu.py:
+        1) Add test_ea_tester_account_ea_scope
+    5.__init__.py:
+        1) Add __version__ via importlib.metadata
+    6.ea_tester.py:
+        1) Replace pkg_resources version lookup with pixiu.__version__
+    7.ea_optimizer.py:
+        1) Replace pkg_resources version lookup with pixiu.__version__
+
 ### [2026-04-24]
 #### Version:
 #####   Package:
