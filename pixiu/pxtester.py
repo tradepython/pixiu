@@ -20,6 +20,7 @@ import os
 from pixiu.api import (TimeFrame, )
 from pixiu.tester import (EATester, EATesterGraphServer)
 
+np.set_printoptions(legacy="1.25")
 
 class PXTester(EATester):
     def __init__(self, test_config_path, test_name, script_path, log_path=None, print_log_type=None, test_result=None,

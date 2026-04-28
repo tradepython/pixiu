@@ -1,5 +1,35 @@
 
 
+### [2026-04-24]
+#### Version:
+#####   Package:
+#####    pixiu: 0.172.*.20260424
+#####
+#### **Descriptions：**
+    1.scenario.py:
+        1) Add ScenarioEngine
+        2) Add initial_state support
+        3) Add events support
+        4) Add mutate_tick support
+        5) Add override_spread support
+        6) Add place_order support
+        7) Add close_order support
+        8) Add cancel_order support
+    2.ea_tester.py:
+        1) Add scenario_engine
+        2) Add seed_order
+        3) execute_: Add scenario initial_state support
+        4) execute_: Add pre_tick, post_order_processing, post_tick hooks
+    3.__init__.py:
+        1) Export scenario
+    4.test_pixiu.py:
+        1) Add test_ea_tester_scenario_initial_state
+        2) Add test_ea_tester_scenario_mutate_tick
+        3) Add test_ea_tester_scenario_place_order
+        4) Add test_ea_tester_scenario_cancel_order
+    5.ts_scenario.py:
+        1) Add scenario tests
+
 ### [2025-06-04]
 #### Version:
 #####   Package:
@@ -1702,4 +1732,3 @@
 #####
 #### **Descriptions：**
     1. Add test_ea_tester_func_indicators
-

@@ -5,7 +5,8 @@ import pyjson5 as json5
 import threading
 import importlib
 import pkg_resources
-from datetime import datetime
+import dateutil
+from datetime import datetime, timezone
 import numpy as np
 from RestrictedPython import (compile_restricted, safe_globals, utility_builtins,)
 from ..base.ea_base import (EABase, )
@@ -18,6 +19,7 @@ from pixiu.api import (TimeFrame, OrderCommand, order_is_long, order_is_short, o
 from pixiu.api.v1 import (DataScope, )
 import traceback
 import logging
+from .scenario import ScenarioEngine, resolve_order_command
 log = logging.getLogger(__name__)
 
 
@@ -68,6 +70,7 @@ class EATester(EABase):
         super(EATester, self).__init__(EATesterContext(params), params)
         self.context.safe_globals = self.copy_globals()
         self.print_collection = None
+        self.scenario_engine = ScenarioEngine(params.get("scenario", None))
         #
         # self.errid = None
         # self.errmsg = None
@@ -1511,10 +1514,58 @@ class EATester(EABase):
         self.context.stop = False
         #
         self.init_report_data()
+        self.scenario_engine.reset(self)
 
     def get_symbol_properties(self, symbol):
         ''''''
         return self.context.symbol_properties.get(symbol, self.context.default_symbol_properties[symbol])
+
+    def seed_order(self, order_spec, affect_report=False, affect_logs=False, current_time=None):
+        order_spec = order_spec.copy()
+        symbol = order_spec.get("symbol", self.context.symbol)
+        cmd = resolve_order_command(order_spec)
+        price = float(order_spec.get("open_price", order_spec.get("price", self.Close())))
+        stop_loss = float(order_spec.get("stop_loss", 0) or 0)
+        take_profit = float(order_spec.get("take_profit", 0) or 0)
+        volume = round(float(order_spec.get("volume", 0)), self.context.volume_precision)
+        if volume <= 0:
+            raise ValueError(f"invalid scenario order volume: {volume}")
+        open_time = order_spec.get("open_time", current_time if current_time is not None else self.current_time())
+        if isinstance(open_time, datetime):
+            open_time = open_time.timestamp()
+        elif isinstance(open_time, str):
+            open_time = dateutil.parser.parse(open_time, ignoretz=True).replace(tzinfo=timezone.utc).timestamp()
+        order_dict = dict(ticket=str(order_spec.get("ticket", self.__new_ticket__())),
+                          symbol=symbol, cmd=cmd, open_price=price,
+                          volume=volume, stop_loss=stop_loss, take_profit=take_profit, margin=0,
+                          comment=order_spec.get("comment"), magic_number=order_spec.get("magic_number"),
+                          open_time=open_time, commission=float(order_spec.get("commission", 0.0)),
+                          close_time=None, close_price=np.nan, profit=float(order_spec.get("profit", 0.0)),
+                          tags=order_spec.get("tags"), dirty=False,
+                          from_uid=order_spec.get("from_uid"), to_uid=order_spec.get("to_uid"))
+        status = str(order_spec.get("status", "opened")).lower()
+        if order_is_market(cmd) and status != "pending":
+            errid, order_uid = self.__add_market_order__(order_dict)
+        else:
+            errid, order_uid = self.__add_pending_order__(order_dict)
+        if errid != EID_OK:
+            raise PXErrorCode(errid)
+        if not affect_report and order_is_market(cmd):
+            self.context.report['total_trades']['value'] -= 1
+            if order_is_long(cmd):
+                self.context.report['long_positions']['value'] -= 1
+            else:
+                self.context.report['short_positions']['value'] -= 1
+        if affect_logs:
+            self.add_order_log(dict(uid=order_uid, ticket=order_dict['ticket'],
+                                    time=str(utc_from_timestamp(order_dict['open_time'])),
+                                    type=cmd, volume=volume,
+                                    price=round(price, self.context.price_digits),
+                                    stop_loss=round(stop_loss, self.context.price_digits),
+                                    take_profit=round(take_profit, self.context.price_digits),
+                                    comment=order_dict['comment'], tags=order_dict['tags'],
+                                    balance=None, profit=None))
+        return order_uid
 
     def calculate_margin_level(self):
         if self.context.account['margin'] == 0:
@@ -1809,6 +1860,7 @@ class EATester(EABase):
 
             count = self.context.tick_info.size
             self.context.tick_current_index = self.context.tick_start_index
+            self.scenario_engine.apply_initial_state(self)
 
             self.write_log(f"Tick Count: {count}, Tick Max Count: {self.context.tick_max_index}")
             status = dict(current=self.context.tick_current_index, max=count, errid=0)
@@ -1830,6 +1882,7 @@ class EATester(EABase):
                         raise PXErrorCode(EID_EAT_TEST_STOP)
                     #
                     self.on_begin_tick()
+                    self.scenario_engine.before_tick(self)
                     self.set_account(self.context.account, expiration=expiration)
                     # #
                     ask = self.Ask()
@@ -1839,9 +1892,11 @@ class EATester(EABase):
                     last_c_price = self.Close(1)
                     c_price = self.Close()
                     exit = self.__process_order__(c_price, last_c_price, ask, last_ask, bid, last_bid)
+                    self.scenario_engine.after_order_processing(self)
                     #
                     if exit == 0:
                         self.do_tick()
+                    self.scenario_engine.after_tick(self)
                     self.__update_account_log(ticket)
                     # #
                     if exit != 0:
@@ -1955,4 +2010,3 @@ class EATester(EABase):
             # status["errid"] = 0
             # status["stop"] = 1
             # self.on_execute_status(ticket, status)
-

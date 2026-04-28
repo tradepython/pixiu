@@ -634,6 +634,217 @@ class PiXiuTests(TestCase):
         self.assertEqual(self.test_result, "OK")
 
     @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_scenario_initial_state(self):
+        """Test EA Tester scenario initial state"""
+        self.eat_params['tick_max_index'] = 2
+        self.eat_params['script_path'] = os.path.abspath("scripts/v1/ts_scenario.py")
+        self.eat_params['scenario'] = {
+            'initial_state': {
+                'account_overrides': {
+                    'balance': 8000.0,
+                    'equity': 8000.0,
+                    'free_margin': 8000.0,
+                },
+                'orders': [
+                    {
+                        'ticket': 7001,
+                        'kind': 'market',
+                        'side': 'buy',
+                        'volume': 0.2,
+                        'open_price': float(new_a[0]['a']),
+                        'comment': 'seed long',
+                        'count_in_report': False,
+                    },
+                    {
+                        'ticket': 7002,
+                        'kind': 'pending',
+                        'side': 'sell_stop',
+                        'volume': 0.1,
+                        'open_price': round(float(new_a[0]['b']) - 20 * self.symbol_properties[self.symbol]['point'], 5),
+                        'comment': 'seed pending',
+                    }
+                ]
+            }
+        }
+        self.eat_params['global_values'].update(dict(
+            scenario_case='initial_state',
+            valid_initial_time=utc_from_timestamp(new_a[0]['t']),
+            valid_initial_balance=8000.0,
+            valid_initial_equity=8000.0,
+            valid_initial_free_margin=8000.0,
+            valid_opened_ticket=7001,
+            valid_pending_ticket=7002,
+            valid_opened_volume=0.2,
+            valid_opened_comment='seed long',
+        ))
+        eatt = EATTester(self, self.eat_params)
+        eatt.execute("123456", sync=True)
+        self.assertEqual(self.test_result, "OK")
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_scenario_initial_state_open_time_string(self):
+        """Test EA Tester scenario initial state open_time string"""
+        self.eat_params['tick_max_index'] = 2
+        self.eat_params['script_path'] = os.path.abspath("scripts/v1/ts_scenario.py")
+        open_time = utc_from_timestamp(new_a[0]['t']).isoformat()
+        self.eat_params['scenario'] = {
+            'initial_state': {
+                'orders': [
+                    {
+                        'ticket': 7003,
+                        'kind': 'market',
+                        'side': 'buy',
+                        'volume': 0.2,
+                        'open_price': float(new_a[0]['a']),
+                        'open_time': open_time,
+                        'comment': 'seed open_time',
+                        'count_in_report': False,
+                    }
+                ]
+            }
+        }
+        self.eat_params['global_values'].update(dict(
+            scenario_case='initial_state_open_time',
+            valid_initial_time=utc_from_timestamp(new_a[0]['t']),
+            valid_opened_ticket=7003,
+            valid_open_time=utc_from_timestamp(new_a[0]['t']),
+        ))
+        eatt = EATTester(self, self.eat_params)
+        eatt.execute("123456", sync=True)
+        self.assertEqual(self.test_result, "OK")
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_scenario_mutate_tick(self):
+        """Test EA Tester scenario mutate tick and spread"""
+        event_index = 2
+        event_time = utc_from_timestamp(new_a[event_index]['t'])
+        event_bid = 0.91195
+        event_close = 0.91200
+        event_low = 0.91000
+        event_high = 0.92400
+        spread_point = 80
+        point = self.symbol_properties[self.symbol]['point']
+        event_ask = event_bid + spread_point * point
+        self.eat_params['tick_max_index'] = 5
+        self.eat_params['script_path'] = os.path.abspath("scripts/v1/ts_scenario.py")
+        self.eat_params['scenario'] = {
+            'events': [
+                {
+                    'id': 'flash_crash',
+                    'phase': 'pre_tick',
+                    'at_tick': event_index,
+                    'action': 'mutate_tick',
+                    'params': {
+                        'bid': event_bid,
+                        'close': event_close,
+                        'low': event_low,
+                        'high': event_high,
+                    }
+                },
+                {
+                    'id': 'wide_spread',
+                    'phase': 'pre_tick',
+                    'at_tick': event_index,
+                    'action': 'override_spread',
+                    'params': {
+                        'spread_point': spread_point,
+                    }
+                }
+            ]
+        }
+        self.eat_params['global_values'].update(dict(
+            scenario_case='mutate_tick',
+            valid_event_time=event_time,
+            valid_event_bid=event_bid,
+            valid_event_ask=event_ask,
+            valid_event_close=event_close,
+            valid_event_low=event_low,
+            valid_event_high=event_high,
+        ))
+        eatt = EATTester(self, self.eat_params)
+        eatt.execute("123456", sync=True)
+        self.assertEqual(self.test_result, "OK")
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_scenario_place_order(self):
+        """Test EA Tester scenario place order event"""
+        place_index = 1
+        place_time = utc_from_timestamp(new_a[place_index]['t'])
+        self.eat_params['tick_max_index'] = 3
+        self.eat_params['script_path'] = os.path.abspath("scripts/v1/ts_scenario.py")
+        self.eat_params['scenario'] = {
+            'events': [
+                {
+                    'id': 'manual_hedge',
+                    'phase': 'post_order_processing',
+                    'at_tick': place_index,
+                    'action': 'place_order',
+                    'params': {
+                        'ticket': 7011,
+                        'kind': 'market',
+                        'side': 'sell',
+                        'volume': 0.1,
+                        'comment': 'scenario hedge',
+                        'count_in_report': False,
+                        'write_log': False,
+                    }
+                }
+            ]
+        }
+        self.eat_params['global_values'].update(dict(
+            scenario_case='place_order',
+            valid_place_time=place_time,
+            valid_place_ticket=7011,
+            valid_place_comment='scenario hedge',
+            valid_place_volume=0.1,
+        ))
+        eatt = EATTester(self, self.eat_params)
+        eatt.execute("123456", sync=True)
+        self.assertEqual(self.test_result, "OK")
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_scenario_cancel_order(self):
+        """Test EA Tester scenario cancel pending order"""
+        cancel_index = 1
+        cancel_time = utc_from_timestamp(new_a[cancel_index]['t'])
+        self.eat_params['tick_max_index'] = 3
+        self.eat_params['script_path'] = os.path.abspath("scripts/v1/ts_scenario.py")
+        self.eat_params['scenario'] = {
+            'initial_state': {
+                'orders': [
+                    {
+                        'ticket': 7021,
+                        'kind': 'pending',
+                        'side': 'buy_limit',
+                        'volume': 0.1,
+                        'open_price': round(float(new_a[0]['a']) - 20 * self.symbol_properties[self.symbol]['point'], 5),
+                        'comment': 'cancel me',
+                    }
+                ]
+            },
+            'events': [
+                {
+                    'id': 'cancel_pending',
+                    'phase': 'pre_tick',
+                    'at_tick': cancel_index,
+                    'action': 'cancel_order',
+                    'params': {
+                        'ticket': 7021,
+                        'comment': 'scenario cancel',
+                    }
+                }
+            ]
+        }
+        self.eat_params['global_values'].update(dict(
+            scenario_case='cancel_order',
+            valid_cancel_time=cancel_time,
+            valid_cancel_ticket=7021,
+        ))
+        eatt = EATTester(self, self.eat_params)
+        eatt.execute("123456", sync=True)
+        self.assertEqual(self.test_result, "OK")
+
+    @skipIf(debug_some_tests, "debug some tests")
     def test_ea_optimizer_config(self):
         """Test EA Optimizer config format"""
         config_file_path = "./optimizer/optim_config_01.json"
@@ -707,5 +918,3 @@ if __name__ == '__main__':
         sys.exit(0)
     else:
         sys.exit(1)
-
-
