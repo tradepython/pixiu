@@ -1024,6 +1024,58 @@ class EATester(EABase):
         self.add_order_log(order_log)
         return EID_OK, dict(order_uid=order_uid, command_uid=None, sync=True)
 
+    def update_order_tags(self, order_uid, tags=None, patch=None, merge=True, remove_keys=None,
+                          expected_tag_ver=None):
+        """Update order tags without changing price, SL/TP, volume, or status."""
+        order_dict = self.get_order(order_uid=order_uid)
+        if order_dict is None:
+            return EID_EAT_INVALID_ORDER_TICKET, dict(order_uid=order_uid, command_uid=None, sync=True)
+        if tags is not None and not isinstance(tags, dict):
+            return EID_EAT_ERROR, dict(order_uid=order_uid, command_uid=None, sync=True)
+        if patch is not None and not isinstance(patch, dict):
+            return EID_EAT_ERROR, dict(order_uid=order_uid, command_uid=None, sync=True)
+        if remove_keys is not None and not isinstance(remove_keys, (list, tuple, set)):
+            return EID_EAT_ERROR, dict(order_uid=order_uid, command_uid=None, sync=True)
+        if tags is None and patch is None and not remove_keys:
+            return EID_EAT_ERROR, dict(order_uid=order_uid, command_uid=None, sync=True)
+
+        old_tags = order_dict.get('tags', {}) or {}
+        if not isinstance(old_tags, dict):
+            old_tags = {}
+        if expected_tag_ver is not None and old_tags.get('tag_ver', None) != expected_tag_ver:
+            return EID_EAT_ERROR, dict(order_uid=order_uid, tags=old_tags, command_uid=None, sync=True)
+
+        if merge:
+            new_tags = old_tags.copy()
+            if tags is not None:
+                new_tags.update(tags)
+            if patch is not None:
+                new_tags.update(patch)
+        else:
+            source_tags = tags if tags is not None else patch
+            new_tags = source_tags.copy() if isinstance(source_tags, dict) else {}
+        for key in remove_keys or []:
+            new_tags.pop(key, None)
+
+        order_dict['tags'] = new_tags
+        order_dict['dirty'] = False
+        self.__modify_order__(order_dict)
+        self.add_order_log(dict(uid=order_uid, ticket=order_dict['ticket'],
+                                time=str(utc_from_timestamp(self.current_time())),
+                                type="UPDATE_TAGS",
+                                volume=order_dict['volume'],
+                                price=round(self.Close(), self.context.price_digits),
+                                stop_loss=round(order_dict['stop_loss'], self.context.price_digits),
+                                take_profit=round(order_dict['take_profit'], self.context.price_digits),
+                                profit=round(order_dict['profit'], self.context.default_digits),
+                                balance=round(self.context.account["balance"] + order_dict['profit'],
+                                              self.context.default_digits),
+                                comment=order_dict['comment'], tags=new_tags))
+        return EID_OK, dict(order_uid=order_uid, tags=new_tags, command_uid=None, sync=True)
+
+    def set_order_tags(self, order_uid, tags):
+        return self.update_order_tags(order_uid, tags=tags, merge=False)
+
     def __order_close_price__(self, order_dict):
         if order_is_market(order_dict['cmd']):
             return self.Bid() if order_is_long(order_dict['cmd']) else self.Ask()

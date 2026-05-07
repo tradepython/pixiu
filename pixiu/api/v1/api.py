@@ -68,7 +68,7 @@ class APIStub(abc.ABC):
     @abc.abstractmethod
     def Buy(self, volume: float, type=OrderType.MARKET, price=None, stop_loss=None, take_profit=None,
             magic_number=None, symbol=None, slippage=None, arrow_color=None, expiration=None,
-            tags=None) -> (ErrorID, OrderResult):
+            tags=None) -> 'tuple[ErrorID, OrderResult]':
         '''
         Open a long order.
 
@@ -93,7 +93,7 @@ class APIStub(abc.ABC):
     @abc.abstractmethod
     def Sell(self, volume: float, type=OrderType.MARKET, price=None, stop_loss=None, take_profit=None,
              magic_number=None, symbol=None, slippage=None, arrow_color=None, expiration=None,
-             tags=None) -> (ErrorID, OrderResult):
+             tags=None) -> 'tuple[ErrorID, OrderResult]':
         '''
         Open a short order.
 
@@ -117,7 +117,7 @@ class APIStub(abc.ABC):
 
     @abc.abstractmethod
     def ModifyOrder(self, uid, price=None, stop_loss=None, take_profit=None,
-                     arrow_color=None, expiration=None, tags=None) -> (ErrorID, OrderResult):
+                     arrow_color=None, expiration=None, tags=None) -> 'tuple[ErrorID, OrderResult]':
         '''
         Modify a order.
 
@@ -136,8 +136,23 @@ class APIStub(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
+    def UpdateOrderTags(self, uid, tags=None, patch=None, merge=True, remove_keys=None,
+                        expected_tag_ver=None) -> 'tuple[ErrorID, dict]':
+        '''
+        Update order tags without modifying trading fields.
+        '''
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def SetOrderTags(self, uid, tags) -> 'tuple[ErrorID, dict]':
+        '''
+        Replace order tags without modifying trading fields.
+        '''
+        raise NotImplementedError
+
+    @abc.abstractmethod
     # def CloseOrder(self, uid, price, volume: float, slippage=None, arrow_color=None) -> (ErrorID, OrderResult):
-    def CloseOrder(self, uid, volume=None, price=None, slippage=None, arrow_color=None, tags=None) -> (ErrorID, OrderResult):
+    def CloseOrder(self, uid, volume=None, price=None, slippage=None, arrow_color=None, tags=None) -> 'tuple[ErrorID, OrderResult]':
         '''
         Close a order.
 
@@ -155,7 +170,7 @@ class APIStub(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def CloseMultiOrders(self, orders) -> (ErrorID, OrderResult):
+    def CloseMultiOrders(self, orders) -> 'tuple[ErrorID, OrderResult]':
         '''
         Close a order.
 
@@ -327,7 +342,7 @@ class APIStub(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def GetOrder(self, order_uid: OrderUID):
+    def GetOrder(self, order_uid: 'OrderUID'):
         '''
         Returns the order object.
 
@@ -837,7 +852,7 @@ class APIStub(abc.ABC):
 
     #
     @abc.abstractmethod
-    def WaitCommand(self, uid, timeout=120) -> (ErrorID, CommandResult):
+    def WaitCommand(self, uid, timeout=120) -> 'tuple[ErrorID, CommandResult]':
         '''
         Waiting for a asynchronous command execution。
 
@@ -884,7 +899,7 @@ class APIStub(abc.ABC):
 
 
     @abc.abstractmethod
-    def DeleteData(self, name, scope: int = DataScope.EA) -> ErrorID:
+    def DeleteData(self, name, scope: int = DataScope.EA) -> 'ErrorID':
         '''
         Delete data
 
@@ -911,7 +926,7 @@ class APIStub(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def SaveData(self, name, data, scope: int = DataScope.EA, format='json') -> ErrorID:
+    def SaveData(self, name, data, scope: int = DataScope.EA, format='json') -> 'ErrorID':
         '''
         Save data
 
@@ -925,7 +940,7 @@ class APIStub(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def Notify(self, message) -> ErrorID:
+    def Notify(self, message) -> 'ErrorID':
         '''
         Send a notification
 

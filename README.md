@@ -326,7 +326,7 @@ Bid(self, shift=0, symbol=None) -> float
            Returns:
                    Bid price.
 
-Buy(self, volume: float, type=0, price=None, stop_loss=None, take_profit=None, magic_number=None, symbol=None, slippage=None, arrow_color=None, expiration=None, tags=None) -> (<function NewType.<locals>.new_type at 0x7fe120629dc0>, <function NewType.<locals>.new_type at 0x7fe122ed0940>)
+Buy(self, volume: float, type=0, price=None, stop_loss=None, take_profit=None, magic_number=None, symbol=None, slippage=None, arrow_color=None, expiration=None, tags=None) -> tuple[ErrorID, OrderResult]
    Open a long order.
 
            Parameters:
@@ -347,7 +347,7 @@ Buy(self, volume: float, type=0, price=None, stop_loss=None, take_profit=None, m
                    OrderResult: The order result.
 
 
-Sell(self, volume: float, type=0, price=None, stop_loss=None, take_profit=None, magic_number=None, symbol=None, slippage=None, arrow_color=None, expiration=None, tags=None) -> (<function NewType.<locals>.new_type at 0x7fe120629dc0>, <function NewType.<locals>.new_type at 0x7fe122ed0940>)
+Sell(self, volume: float, type=0, price=None, stop_loss=None, take_profit=None, magic_number=None, symbol=None, slippage=None, arrow_color=None, expiration=None, tags=None) -> tuple[ErrorID, OrderResult]
    Open a short order.
 
            Parameters:
@@ -368,7 +368,7 @@ Sell(self, volume: float, type=0, price=None, stop_loss=None, take_profit=None, 
                    OrderResult: The order result.
 
 
-ModifyOrder(self, uid, price=None, stop_loss=None, take_profit=None, arrow_color=None, expiration=None, tags=None) -> (<function NewType.<locals>.new_type at 0x7fe120629dc0>, <function NewType.<locals>.new_type at 0x7fe122ed0940>)
+ModifyOrder(self, uid, price=None, stop_loss=None, take_profit=None, arrow_color=None, expiration=None, tags=None) -> tuple[ErrorID, OrderResult]
    Modify a order.
 
            Parameters:
@@ -383,7 +383,49 @@ ModifyOrder(self, uid, price=None, stop_loss=None, take_profit=None, arrow_color
                    ErrorID: If 0 success.
                    OrderResult: The order result.
 
-CloseOrder(self, uid, price, volume: float, slippage=None, arrow_color=None, tags=None) -> (<function NewType.<locals>.new_type at 0x7fe120629dc0>, <function NewType.<locals>.new_type at 0x7fe122ed0940>)
+UpdateOrderTags(self, uid, tags=None, patch=None, merge=True, remove_keys=None, expected_tag_ver=None) -> tuple[ErrorID, dict]
+   Update only the tags of an existing order.
+
+           This API is intended for strategy metadata, such as the manager that
+           created or currently owns an order. It does not send a broker modify
+           command and does not change trading fields such as volume, open price,
+           stop loss, take profit, or order status.
+
+           Parameters:
+                   uid : The order UID.
+                   tags (dict): Tags to write. When merge is True, these values
+                           are merged into existing tags. When merge is False,
+                           they replace existing tags.
+                   patch (dict): Tags to merge into existing tags. Useful when
+                           the caller wants to express a partial update.
+                   merge (bool): If True, merge tags/patch into current tags.
+                           If False, replace current tags with tags, or patch
+                           when tags is None.
+                   remove_keys (list): Tag keys to remove after merge/replace.
+                   expected_tag_ver: Optional optimistic-lock version. If it is
+                           provided and current tags.tag_ver does not match, the
+                           update fails.
+
+           Returns:
+                   ErrorID: If 0 success.
+                   dict: {'order_uid': uid, 'tags': updated_tags, 'sync': True}
+
+SetOrderTags(self, uid, tags) -> tuple[ErrorID, dict]
+   Replace all tags of an existing order.
+
+           This is a convenience wrapper for UpdateOrderTags(uid, tags=tags,
+           merge=False). It only updates order tags and keeps all trading fields
+           unchanged.
+
+           Parameters:
+                   uid : The order UID.
+                   tags (dict): The complete tag dictionary to store.
+
+           Returns:
+                   ErrorID: If 0 success.
+                   dict: {'order_uid': uid, 'tags': updated_tags, 'sync': True}
+
+CloseOrder(self, uid, price, volume: float, slippage=None, arrow_color=None, tags=None) -> tuple[ErrorID, OrderResult]
    Close a order.
 
            Parameters:
@@ -467,7 +509,7 @@ GetPendingOrderUIDs(self, symbol: str = None, scope: int = DataScope.EA)
            Returns:
                    The uid list.
 
-GetOrder(self, order_uid: <function NewType.<locals>.new_type at 0x7fe122ed0940>)
+GetOrder(self, order_uid: OrderUID)
    Returns the order object.
 
            Parameters:

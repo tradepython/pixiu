@@ -66,6 +66,14 @@ class TesterAPI_V1(API_V1_Base):
         return self.tester.modify_order(uid, price, stop_loss, take_profit,
                               comment=comment, arrow_color=arrow_color, expiration=expiration, tags=tags)
 
+    def UpdateOrderTags(self, uid, tags=None, patch=None, merge=True, remove_keys=None, expected_tag_ver=None):
+        return self.tester.update_order_tags(uid, tags=tags, patch=patch, merge=merge,
+                                             remove_keys=remove_keys,
+                                             expected_tag_ver=expected_tag_ver)
+
+    def SetOrderTags(self, uid, tags):
+        return self.tester.set_order_tags(uid, tags)
+
     #
     def CloseOrder(self, uid, volume: float=None, price=None,  slippage=None, arrow_color=None, tags=None):
         return self.tester.close_order(uid, volume, price, slippage=slippage,
@@ -467,4 +475,3 @@ class TesterAPI_V1(API_V1_Base):
         '''
         # real = ADX(high, low, close, timeperiod=14)
         return self.__get_indicator__(f"wpr:{timeperiod}", shift, IndicatiorID.WPR, symbol_data, timeperiod)
-

@@ -1,4 +1,22 @@
 
+### [2026-05-06]
+#### Version:
+#####   Package:
+#####    pixiu: 0.174.*.20260506
+#####
+#### **Descriptions：**
+    1.api.py:
+        1) Add UpdateOrderTags API declaration
+        2) Add SetOrderTags API declaration
+    2.tester_api_v1.py:
+        1) Add tester API forwarding for UpdateOrderTags and SetOrderTags
+    3.ea_tester.py:
+        1) Add in-memory order tags update support
+        2) Support merge, replace, remove_keys and expected_tag_ver checks
+        3) Keep order trading fields unchanged when only tags are updated
+    4.ts_order_market.py:
+        1) Add API tests for UpdateOrderTags and SetOrderTags
+
 
 ### [2026-04-28]
 #### Version:

@@ -306,7 +306,7 @@ Bid(self, shift=0, symbol=None) -> float
            Returns:
                    Bid price.
 
-Buy(self, volume: float, type=0, price=None, stop_loss=None, take_profit=None, magic_number=None, symbol=None, slippage=None, arrow_color=None, expiration=None, tags=None) -> (<function NewType.<locals>.new_type at 0x7fe120629dc0>, <function NewType.<locals>.new_type at 0x7fe122ed0940>)
+Buy(self, volume: float, type=0, price=None, stop_loss=None, take_profit=None, magic_number=None, symbol=None, slippage=None, arrow_color=None, expiration=None, tags=None) -> tuple[ErrorID, OrderResult]
    Open a long order.
 
            Parameters:
@@ -327,7 +327,7 @@ Buy(self, volume: float, type=0, price=None, stop_loss=None, take_profit=None, m
                    OrderResult: The order result.
 
 
-Sell(self, volume: float, type=0, price=None, stop_loss=None, take_profit=None, magic_number=None, symbol=None, slippage=None, arrow_color=None, expiration=None, tags=None) -> (<function NewType.<locals>.new_type at 0x7fe120629dc0>, <function NewType.<locals>.new_type at 0x7fe122ed0940>)
+Sell(self, volume: float, type=0, price=None, stop_loss=None, take_profit=None, magic_number=None, symbol=None, slippage=None, arrow_color=None, expiration=None, tags=None) -> tuple[ErrorID, OrderResult]
    Open a short order.
 
            Parameters:
@@ -348,7 +348,7 @@ Sell(self, volume: float, type=0, price=None, stop_loss=None, take_profit=None, 
                    OrderResult: The order result.
 
 
-ModifyOrder(self, uid, price=None, stop_loss=None, take_profit=None, arrow_color=None, expiration=None, tags=None) -> (<function NewType.<locals>.new_type at 0x7fe120629dc0>, <function NewType.<locals>.new_type at 0x7fe122ed0940>)
+ModifyOrder(self, uid, price=None, stop_loss=None, take_profit=None, arrow_color=None, expiration=None, tags=None) -> tuple[ErrorID, OrderResult]
    Modify a order.
 
            Parameters:
@@ -363,7 +363,45 @@ ModifyOrder(self, uid, price=None, stop_loss=None, take_profit=None, arrow_color
                    ErrorID: If 0 success.
                    OrderResult: The order result.
 
-CloseOrder(self, uid, price, volume: float, slippage=None, arrow_color=None, tags=None) -> (<function NewType.<locals>.new_type at 0x7fe120629dc0>, <function NewType.<locals>.new_type at 0x7fe122ed0940>)
+UpdateOrderTags(self, uid, tags=None, patch=None, merge=True, remove_keys=None, expected_tag_ver=None) -> tuple[ErrorID, dict]
+   只更新已有订单的 tags。
+
+           这个 API 用于记录策略元数据，例如订单由哪个策略创建、当前由哪个
+           管理器接管。它不会发送交易平台的改单指令，也不会修改 volume、
+           open price、stop loss、take profit、order status 等交易字段。
+
+           Parameters:
+                   uid : 订单 UID。
+                   tags (dict): 要写入的 tags。merge=True 时会合并到已有
+                           tags；merge=False 时会替换已有 tags。
+                   patch (dict): 要合并到已有 tags 的局部更新内容，适合表达
+                           增量修改。
+                   merge (bool): True 表示把 tags/patch 合并到当前 tags；
+                           False 表示用 tags 替换当前 tags，如果 tags 为 None
+                           则使用 patch 替换。
+                   remove_keys (list): 合并或替换后需要删除的 tag key。
+                   expected_tag_ver: 可选的乐观锁版本。如果传入该值，且当前
+                           tags.tag_ver 不匹配，则更新失败。
+
+           Returns:
+                   ErrorID: 0 表示成功。
+                   dict: {'order_uid': uid, 'tags': updated_tags, 'sync': True}
+
+SetOrderTags(self, uid, tags) -> tuple[ErrorID, dict]
+   替换已有订单的全部 tags。
+
+           这是 UpdateOrderTags(uid, tags=tags, merge=False) 的便捷封装。
+           它只更新订单 tags，不会修改任何交易字段。
+
+           Parameters:
+                   uid : 订单 UID。
+                   tags (dict): 要保存的完整 tag 字典。
+
+           Returns:
+                   ErrorID: 0 表示成功。
+                   dict: {'order_uid': uid, 'tags': updated_tags, 'sync': True}
+
+CloseOrder(self, uid, price, volume: float, slippage=None, arrow_color=None, tags=None) -> tuple[ErrorID, OrderResult]
    Close a order.
 
            Parameters:
@@ -447,7 +485,7 @@ GetPendingOrderUIDs(self, symbol: str = None, scope: int = DataScope.EA)
            Returns:
                    The uid list.
 
-GetOrder(self, order_uid: <function NewType.<locals>.new_type at 0x7fe122ed0940>)
+GetOrder(self, order_uid: OrderUID)
    Returns the order object.
 
            Parameters:
