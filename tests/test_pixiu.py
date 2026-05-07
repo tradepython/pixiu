@@ -461,6 +461,34 @@ class PiXiuTests(TestCase):
         self.assertEqual(self.test_result, "OK")
 
     @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_ea_settings_accessor(self):
+        params = dict(self.eat_params)
+        params['global_values'] = dict(self.eat_params['global_values'])
+        params['script_path'] = None
+        params['script'] = "\n".join([
+            "def PX_InitScriptSettings():",
+            "    return {'charts': {}, 'params': {",
+            "        'grid_pips': {'value': 25, 'config': {'type': 'int'}},",
+            "        'target_profit': {'value': '0.75%', 'config': {'type': 'str'}},",
+            "        'enabled_text': {'value': 'true', 'config': {'type': 'str'}},",
+            "    }}",
+            "def PX_ValidScriptSettings(script_settings=None):",
+            "    return {'success': True, 'errmsg': ''}",
+            "assertEqual(EA_SETTINGS.grid_pips, 25)",
+            "assertEqual(EA_SETTINGS.target_profit, '0.75%')",
+            "assertIsNone(EA_SETTINGS.missing_param)",
+            "assertEqual(EA_SETTINGS.get('grid_pips', 0, 'int'), 25)",
+            "assertEqual(EA_SETTINGS.get('grid_pips', 0, 'float'), 25.0)",
+            "assertTrue(EA_SETTINGS.get('enabled_text', False, 'bool'))",
+            "assertEqual(EA_SETTINGS.get('missing_param', 'fallback'), 'fallback')",
+            "set_test_result('OK')",
+            "StopTester()",
+        ])
+        eatt = EATTester(self, params)
+        eatt.execute("123456", sync=True)
+        self.assertEqual(self.test_result, "OK")
+
+    @skipIf(debug_some_tests, "debug some tests")
     def test_ea_tester_account_ea_scope(self):
         shared_persistent_data = {}
 

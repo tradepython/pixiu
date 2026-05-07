@@ -43,6 +43,30 @@ OrderResult = NewType('OrderResult', Result)
 CommandResult = NewType('CommandResult', Result)
 
 
+class EASettings:
+    """Read-only EA parameter accessor backed by GetParam."""
+
+    def __init__(self, get_param):
+        self.__get_param__ = get_param
+
+    def __getattr__(self, name):
+        if name.startswith('_'):
+            raise AttributeError(name)
+        return self.__get_param__(name, None)
+
+    def get(self, name, default=None, value_type='raw'):
+        value = self.__get_param__(name, default)
+        if value_type == 'bool':
+            if isinstance(value, str):
+                return value.strip().lower() in ('1', 'true', 'yes', 'y', 'on')
+            return bool(value)
+        if value_type == 'int':
+            return int(value)
+        if value_type == 'float':
+            return float(value)
+        return value
+
+
 class APIStub(abc.ABC):
     __global_defines__ = dict(
         TimeFrame=TimeFrame,

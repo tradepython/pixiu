@@ -1,4 +1,22 @@
 
+### [2026-05-07]
+#### Version:
+#####   Package:
+#####    pixiu: 0.175.*.20260507
+#####
+#### **Descriptions：**
+    1.api.py:
+        1) Add read-only EASettings accessor class for script parameters
+    2.api_base.py:
+        1) Inject global EA_SETTINGS into EA safe globals
+        2) EA_SETTINGS reads values from the existing GetParam/script_settings.params path
+    3.test_pixiu.py:
+        1) Add test_ea_tester_ea_settings_accessor
+        2) Verify EA_SETTINGS.xxx and EA_SETTINGS.get(name, default, value_type)
+    4.README.md / README.zh.md:
+        1) Document EA_SETTINGS usage
+
+
 ### [2026-05-06]
 #### Version:
 #####   Package:

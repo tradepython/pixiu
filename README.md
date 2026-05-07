@@ -528,6 +528,19 @@ GetParam(self, name, default=None)
            Returns:
                    The EA parameter value.
 
+EA_SETTINGS
+   Read-only EA parameter accessor backed by GetParam/script_settings.params.
+
+           Usage:
+                   EA_SETTINGS.grid_pips
+                   EA_SETTINGS.get("grid_pips", 0, "int")
+                   EA_SETTINGS.get("enabled", False, "bool")
+
+           Notes:
+                   Attribute access returns None when the parameter is missing.
+                   get(name, default, value_type) supports raw, bool, int and float.
+                   EA_SETTINGS does not provide a write/update API.
+
   GetSettings(self, name, default=None)
     Returns the EA Settings value.
 

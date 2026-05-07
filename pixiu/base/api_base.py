@@ -16,7 +16,7 @@ from pixiu.api.utils import (load_json, dump_json, uuid_str)
 import uuid
 import hashlib
 
-from ..api.v1 import (TimeFrame, OrderCommand, Order, APIStub as API_V1)
+from ..api.v1 import (TimeFrame, OrderCommand, Order, EASettings, APIStub as API_V1)
 
 import logging
 log = logging.getLogger(__name__)
@@ -101,6 +101,7 @@ class API_V1_Base(API_V1):
         env_dict["uuid"] = uuid
         env_dict["hashlib"] = hashlib
         env_dict["UID"] = uuid_str
+        env_dict["EA_SETTINGS"] = EASettings(self.GetParam)
         #
         env_dict["max"] = max
         env_dict["min"] = min
@@ -134,4 +135,3 @@ class API_V1_Base(API_V1):
                 global_defines = getattr(self, fun_n)
                 for k in global_defines:
                     env_dict[k] = global_defines[k]
-
