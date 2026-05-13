@@ -1,4 +1,15 @@
 
+### [2026-05-13]
+#### Version:
+#####   Package:
+#####    pixiu: 0.176.*.20260513
+#####
+#### **Descriptions：**
+    1.ea_tester.py:
+        1) Keep tester order history robust when open, modify, close, partial close, or seeded orders do not include tags
+        2) Default missing order tags to an empty dict to avoid KeyError in diagnostic EA order tests
+
+
 ### [2026-05-07]
 #### Version:
 #####   Package:

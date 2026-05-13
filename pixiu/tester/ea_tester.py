@@ -700,7 +700,7 @@ class EATester(EABase):
                                  price=price,
                                  stop_loss=round(order_dict['stop_loss'], self.context.price_digits),
                                  take_profit=round(order_dict['take_profit'], self.context.price_digits),
-                                 comment=order_dict['comment'], tags=order_dict['tags'],
+                                 comment=order_dict['comment'], tags=order_dict.get('tags', {}),
                                  balance=None, profit=None))
         
         return EID_OK, order_uid
@@ -959,7 +959,7 @@ class EATester(EABase):
                                  price=round(price, self.context.price_digits),
                                  stop_loss=round(stop_loss, self.context.price_digits),
                                  take_profit=round(take_profit, self.context.price_digits),
-                                 comment=order_dict['comment'], tags=order_dict['tags'],
+                                 comment=order_dict['comment'], tags=order_dict.get('tags', {}),
                                  balance=None, profit=None))
 
         return EID_OK, dict(order_uid=order_uid, command_uid=None, sync=True)
@@ -1188,7 +1188,7 @@ class EATester(EABase):
                                     take_profit=round(order_dict['take_profit'], self.context.price_digits),
                                     balance=round(self.context.account["balance"], self.context.default_digits),
                                     profit=round(closed_profit, self.context.default_digits),
-                                    comment=order_dict['comment'], tags=order_dict['tags']))
+                                    comment=order_dict['comment'], tags=order_dict.get('tags', {})))
 
         return EID_OK, dict(order_uid=order_uid, command_uid=None, sync=True)
 
@@ -1264,7 +1264,7 @@ class EATester(EABase):
                                             take_profit=round(order_dict['take_profit'], self.context.price_digits),
                                             balance=round(self.context.account["balance"], self.context.default_digits),
                                             profit=round(order_dict['profit'], self.context.default_digits),
-                                            comment=order_dict['comment'], tags=order_dict['tags']))
+                                            comment=order_dict['comment'], tags=order_dict.get('tags', {})))
 
         return EID_OK, dict(result=result, command_uid=None, sync=True)
 
@@ -1663,7 +1663,7 @@ class EATester(EABase):
                                     price=round(price, self.context.price_digits),
                                     stop_loss=round(stop_loss, self.context.price_digits),
                                     take_profit=round(take_profit, self.context.price_digits),
-                                    comment=order_dict['comment'], tags=order_dict['tags'],
+                                    comment=order_dict['comment'], tags=order_dict.get('tags', {}),
                                     balance=None, profit=None))
         return order_uid
 
