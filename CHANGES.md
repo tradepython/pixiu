@@ -1,4 +1,21 @@
 
+### [2026-05-14]
+#### Version:
+#####   Package:
+#####    pixiu: 0.177.*.20260514
+#####
+#### **Descriptions：**
+    1.ea_base.py:
+        1) Add AddParam helper support for desc, optimizable, and optimization metadata
+    2.api.py:
+        1) Document AddParam optimization metadata fields in the API declaration
+    3.README.md / README.zh.md:
+        1) Add EA parameter optimization metadata documentation and examples
+        2) Recommend config.optimizable=false by default and define config.optimization usage
+    4.ts_settings.py / test_pixiu.py:
+        1) Add optimization metadata script-setting examples
+        2) Add regression coverage for optimizable and optimization metadata parsing
+
 ### [2026-05-13]
 #### Version:
 #####   Package:

@@ -317,6 +317,17 @@ class APIStub(abc.ABC):
 
                 Parameters:
                         name (str): The EA parameter name.
+                        value: Parameter default value when param is not provided.
+                        type (str): Parameter type, for example bool/int/float/percent/timeframe/str.
+                        required (bool): Whether the parameter is required.
+                        min/max: Optional numeric limits.
+                        options (dict): Optional select options.
+                        desc (dict|str): Optional parameter description metadata.
+                        optimizable (bool): Optional optimization switch for tooling.
+                        optimization (dict): Optional optimization defaults such as
+                                             type/start/stop/step.
+                        param (dict): Full parameter payload. When provided, kwargs are
+                                      expected to already be merged into the payload.
 
 
                 Returns:

@@ -334,6 +334,12 @@ class EATester(EABase):
                     param['config']['max'] = kwargs['max']
                 if 'options' in kwargs:
                     param['config']['options'] = kwargs['options']
+                if 'desc' in kwargs:
+                    param['config']['desc'] = kwargs['desc']
+                if 'optimizable' in kwargs:
+                    param['config']['optimizable'] = kwargs['optimizable']
+                if 'optimization' in kwargs:
+                    param['config']['optimization'] = kwargs['optimization']
                 #
                 param['config']['required'] = kwargs.get('required', False)
                 # AddParam("debug", value=True, type="bool", required=True)

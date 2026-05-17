@@ -489,6 +489,36 @@ class PiXiuTests(TestCase):
         self.assertEqual(self.test_result, "OK")
 
     @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_script_settings_optimization_metadata(self):
+        params = dict(self.eat_params)
+        params['global_values'] = dict(self.eat_params['global_values'])
+        params['script_path'] = None
+        params['script'] = "\n".join([
+            "def PX_InitScriptSettings():",
+            "    return {'charts': {}, 'params': {}}",
+            "AddParam('grid_atr_ratio', value=0.5, type='float', min=0.1, max=2.0, required=True,",
+            "         optimizable=True,",
+            "         optimization={'type': 'float', 'start': 0.1, 'stop': 1.5, 'step': 0.1},",
+            "         desc={'en': 'Grid ATR ratio'})",
+            "AddParam('mode_switch', value=False, type='bool', required=False)",
+            "def PX_ValidScriptSettings(script_settings=None):",
+            "    return {'success': True, 'errmsg': ''}",
+        ])
+        eatt = EATTester(self, params)
+        metadata = eatt.parse_script(params['script'])
+        script_settings = metadata['script_settings']
+        grid_atr_ratio = script_settings['params']['grid_atr_ratio']
+        self.assertEqual(grid_atr_ratio['value'], 0.5)
+        self.assertEqual(grid_atr_ratio['config']['type'], 'float')
+        self.assertTrue(grid_atr_ratio['config']['optimizable'])
+        self.assertEqual(grid_atr_ratio['config']['optimization']['type'], 'float')
+        self.assertEqual(grid_atr_ratio['config']['optimization']['start'], 0.1)
+        self.assertEqual(grid_atr_ratio['config']['optimization']['stop'], 1.5)
+        self.assertEqual(grid_atr_ratio['config']['optimization']['step'], 0.1)
+        self.assertEqual(grid_atr_ratio['config']['desc']['en'], 'Grid ATR ratio')
+        self.assertFalse(script_settings['params']['mode_switch']['config'].get('optimizable', False))
+
+    @skipIf(debug_some_tests, "debug some tests")
     def test_ea_tester_account_ea_scope(self):
         shared_persistent_data = {}
 

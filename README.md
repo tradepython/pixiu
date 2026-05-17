@@ -541,7 +541,60 @@ EA_SETTINGS
                    get(name, default, value_type) supports raw, bool, int and float.
                    EA_SETTINGS does not provide a write/update API.
 
-  GetSettings(self, name, default=None)
+EA parameter optimization metadata
+   Pixiu stores EA parameters in script_settings.params. Each parameter may define
+   optimization metadata inside config so external optimizers such as EAOptim can
+   discover which parameters are safe to optimize and what default ranges to use.
+
+           Recommended fields:
+                   config.optimizable (bool):
+                           Whether the parameter is allowed to be optimized.
+                           Recommended default: false.
+
+                   config.optimization (dict):
+                           Optional optimization defaults. Recommended fields:
+                           type, start, stop, step.
+                           type usually matches config.type.
+
+           Example:
+                   AddParam(
+                       "grid_atr_ratio",
+                       value=0.5,
+                       type="float",
+                       min=0.1,
+                       max=2.0,
+                       required=True,
+                       optimizable=True,
+                       optimization={"type": "float", "start": 0.1, "stop": 1.5, "step": 0.1},
+                       desc={"en": "Grid ATR ratio"}
+                   )
+
+                   AddParam(
+                       "group_target_profit",
+                       param={
+                           "value": "1.0%",
+                           "config": {
+                               "type": "percent",
+                               "required": False,
+                               "optimizable": True,
+                               "optimization": {
+                                   "type": "percent",
+                                   "start": "0.5%",
+                                   "stop": "5.0%",
+                                   "step": "0.5%"
+                               }
+                           }
+                       }
+                   )
+
+           Notes:
+                   Only expose parameters with config.optimizable=true in optimization UIs.
+                   optimization.start/stop/step should use the same representation as the
+                   parameter type: numbers for int/float, percentage strings for percent.
+                   Runtime access through GetParam and EA_SETTINGS is unchanged; these
+                   metadata fields are for tooling and validation.
+
+GetSettings(self, name, default=None)
     Returns the EA Settings value.
 
             Parameters:

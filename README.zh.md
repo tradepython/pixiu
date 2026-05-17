@@ -517,6 +517,59 @@ EA_SETTINGS
                    get(name, default, value_type) 支持 raw、bool、int、float。
                    EA_SETTINGS 暂不提供写入或双向通信接口。
 
+EA 参数优化元数据
+   Pixiu 将 EA 参数保存在 script_settings.params 中。每个参数都可以在
+   config 里定义优化元数据，供 EAOptim 等外部优化器识别“哪些参数允许优化”
+   以及“默认优化范围是什么”。
+
+           推荐字段：
+                   config.optimizable (bool)：
+                           是否允许该参数进入优化。
+                           推荐默认值：false。
+
+                   config.optimization (dict)：
+                           可选；定义默认优化范围。推荐字段：
+                           type、start、stop、step。
+                           其中 type 一般与 config.type 保持一致。
+
+           示例：
+                   AddParam(
+                       "grid_atr_ratio",
+                       value=0.5,
+                       type="float",
+                       min=0.1,
+                       max=2.0,
+                       required=True,
+                       optimizable=True,
+                       optimization={"type": "float", "start": 0.1, "stop": 1.5, "step": 0.1},
+                       desc={"en": "Grid ATR ratio", "zh": "网格 ATR 比例"}
+                   )
+
+                   AddParam(
+                       "group_target_profit",
+                       param={
+                           "value": "1.0%",
+                           "config": {
+                               "type": "percent",
+                               "required": False,
+                               "optimizable": True,
+                               "optimization": {
+                                   "type": "percent",
+                                   "start": "0.5%",
+                                   "stop": "5.0%",
+                                   "step": "0.5%"
+                               }
+                           }
+                       }
+                   )
+
+           说明：
+                   优化界面应只展示 config.optimizable=true 的参数。
+                   optimization.start/stop/step 应与参数类型保持同样的表达方式：
+                   int/float 使用数值，percent 使用百分号字符串。
+                   运行时的 GetParam 和 EA_SETTINGS 行为不变；这些字段主要用于
+                   工具层展示和校验。
+
 GetSettings(self, name, default=None)
     Returns the EA Settings value.
 
