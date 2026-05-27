@@ -282,6 +282,85 @@ class APIStub(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
+    def CalcProfit(self, order_type, symbol, volume, open_price, close_price) -> float:
+        '''
+        Calculates hypothetical order profit in the current account currency.
+
+                Parameters:
+                        order_type: Order direction. Supported values are OrderCommand.BUY
+                                    and OrderCommand.SELL.
+                        symbol (str): Symbol name. If None returns current symbol.
+                        volume (float): Number of lots.
+                        open_price (float): Hypothetical open price.
+                        close_price (float): Hypothetical close price.
+
+                Returns:
+                        Profit in account currency. Positive means profit, negative means loss.
+        '''
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def OrderCalcProfit(self, order_type, symbol, volume, open_price, close_price) -> float:
+        '''
+        MT5-style alias of CalcProfit.
+        '''
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def CalcMargin(self, order_type, symbol, volume, price) -> float:
+        '''
+        Calculates hypothetical order margin in the current account currency.
+
+                Parameters:
+                        order_type: Order direction. Supported values are OrderCommand.BUY
+                                    and OrderCommand.SELL.
+                        symbol (str): Symbol name. If None returns current symbol.
+                        volume (float): Number of lots.
+                        price (float): Hypothetical open price.
+
+                Returns:
+                        Margin in account currency.
+        '''
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def OrderCalcMargin(self, order_type, symbol, volume, price) -> float:
+        '''
+        MT5-style alias of CalcMargin.
+        '''
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def TickValue(self, symbol=None, order_type=OrderCommand.BUY, price=None) -> float:
+        '''
+        Returns the account-currency value of one tick for one lot.
+
+                Parameters:
+                        symbol (str): Symbol name. If None returns current symbol.
+                        order_type: Order direction used for the estimate.
+                        price (float): Reference price. If None, uses current market price.
+
+                Returns:
+                        One-tick value for one lot in account currency.
+        '''
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def PipValue(self, symbol=None, order_type=OrderCommand.BUY, price=None) -> float:
+        '''
+        Returns the account-currency value of one pip for one lot.
+
+                Parameters:
+                        symbol (str): Symbol name. If None returns current symbol.
+                        order_type: Order direction used for the estimate.
+                        price (float): Reference price. If None, uses current market price.
+
+                Returns:
+                        One-pip value for one lot in account currency.
+        '''
+        raise NotImplementedError
+
+    @abc.abstractmethod
     def SymbolInfo(self, item, symbol=None, default=None):
         '''
         Returns the symbol information.

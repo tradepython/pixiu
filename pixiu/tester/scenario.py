@@ -5,6 +5,7 @@ from datetime import timezone
 import dateutil
 
 from pixiu.api import OrderCommand
+from pixiu.api.v1 import DataScope
 
 
 class ScenarioEngine:
@@ -36,6 +37,8 @@ class ScenarioEngine:
             tester.seed_order(order_spec,
                               affect_report=bool(order_spec.get("count_in_report", False)),
                               affect_logs=bool(order_spec.get("write_log", False)))
+        for data_spec in self._iter_initial_data_specs():
+            self._save_data(tester, data_spec)
 
     def before_tick(self, tester):
         if not self.enabled:
@@ -71,7 +74,7 @@ class ScenarioEngine:
         return normalized
 
     def _default_once(self, action):
-        return action not in ("override_spread", "mutate_tick")
+        return action not in ("override_spread", "mutate_tick", "price_path")
 
     def _parse_time(self, value):
         if value is None:
@@ -133,6 +136,8 @@ class ScenarioEngine:
         try:
             if action == "mutate_tick":
                 self._mutate_tick(tester, params)
+            elif action == "price_path":
+                self._price_path(tester, event, params)
             elif action == "override_spread":
                 self._override_spread(tester, params)
             elif action == "place_order":
@@ -144,6 +149,8 @@ class ScenarioEngine:
                 self._close_order(tester, params)
             elif action == "cancel_order":
                 self._cancel_order(tester, params)
+            elif action == "save_data":
+                self._save_data(tester, params)
             else:
                 tester.write_log(f"Scenario event skipped: unsupported action={action}", type="ea")
                 return
@@ -169,6 +176,75 @@ class ScenarioEngine:
                 target = rename.get(source, source)
                 if target in fields:
                     tick_info[target][tick_index] = tick_info[target][tick_index] + delta
+
+    def _price_path(self, tester, event, params):
+        tick_index = tester.context.tick_current_index
+        tick_info = tester.context.tick_info
+        path_index, path_total, path_ratio = self._price_path_position(tester, event)
+        point = tester.get_symbol_properties(tester.context.symbol)["point"]
+
+        start_bid = params.get("start_bid", params.get("start", params.get("price")))
+        if start_bid is None:
+            start_bid = tick_info["b"][tick_index] or tick_info["c"][tick_index]
+        start_bid = float(start_bid)
+
+        end_bid = params.get("end_bid", params.get("end"))
+        if end_bid is not None and path_total > 0:
+            bid = start_bid + (float(end_bid) - start_bid) * path_ratio
+        else:
+            step = params.get("step")
+            if step is None:
+                step = float(params.get("step_points", 0)) * point
+            bid = start_bid + float(step) * path_index
+
+        spread_point = params.get("spread_point", params.get("spread_points", tester.context.spread_point))
+        spread = float(spread_point) * point
+        ask = params.get("ask")
+        if ask is None:
+            ask = bid + spread
+        ask = float(ask)
+
+        close_price = float(params.get("close", bid))
+        open_price = float(params.get("open", close_price))
+        high_offset = float(params.get("high_offset", spread))
+        low_offset = float(params.get("low_offset", spread))
+        high_price = float(params.get("high", max(open_price, close_price, ask) + abs(high_offset)))
+        low_price = float(params.get("low", min(open_price, close_price, bid) - abs(low_offset)))
+
+        tick_info["o"][tick_index] = open_price
+        tick_info["h"][tick_index] = high_price
+        tick_info["l"][tick_index] = low_price
+        tick_info["c"][tick_index] = close_price
+        tick_info["b"][tick_index] = bid
+        tick_info["a"][tick_index] = ask
+        if "volume" in params:
+            tick_info["v"][tick_index] = params["volume"]
+        elif "v" in params:
+            tick_info["v"][tick_index] = params["v"]
+
+        tester.context.spread_point = float(spread_point)
+        tester.context.spread_calculated = abs(spread)
+
+    def _price_path_position(self, tester, event):
+        tick_index = tester.context.tick_current_index
+        if event["from_tick"] is not None:
+            start = event["from_tick"]
+            end = event["to_tick"] if event["to_tick"] is not None else start
+            path_index = max(0, tick_index - start)
+            path_total = max(0, end - start)
+            path_ratio = path_index / path_total if path_total else 0
+            return path_index, path_total, path_ratio
+
+        tick_time = tester.current_time()
+        if event["from_ts"] is not None:
+            start = event["from_ts"]
+            end = event["to_ts"] if event["to_ts"] is not None else start
+            path_total = max(0, end - start)
+            path_index = max(0, tick_time - start)
+            path_ratio = path_index / path_total if path_total else 0
+            return path_index, path_total, path_ratio
+
+        return 0, 0, 0
 
     def _override_spread(self, tester, params):
         spread_point = params.get("spread_point", params.get("value"))
@@ -204,6 +280,40 @@ class ScenarioEngine:
         if order is None:
             return
         tester.close_order(order_uid, order["volume"], 0, comment=params.get("comment", "scenario_cancel"), tags=params.get("tags"))
+
+    def _iter_initial_data_specs(self):
+        for key in ("data", "persistent_data", "runtime_data"):
+            value = self.initial_state.get(key, [])
+            if isinstance(value, list):
+                for item in value:
+                    yield item
+            elif isinstance(value, dict):
+                for scope, scope_items in value.items():
+                    if isinstance(scope_items, dict):
+                        for name, data in scope_items.items():
+                            yield {"scope": scope, "name": name, "data": data}
+
+    def _save_data(self, tester, params):
+        scope = self._resolve_data_scope(params.get("scope", DataScope.EA))
+        name = params.get("name")
+        if not name:
+            return
+        data = params.get("data")
+        data_format = params.get("format", "json")
+        tester.save_data(name, data, scope, data_format)
+
+    def _resolve_data_scope(self, scope):
+        if isinstance(scope, int):
+            return scope
+        scope_name = str(scope).upper()
+        scopes = {
+            "EA": DataScope.EA,
+            "EA_VERSION": DataScope.EA_VERSION,
+            "ACCOUNT": DataScope.ACCOUNT,
+            "EA_SETTINGS": DataScope.EA_SETTINGS,
+            "ACCOUNT_EA": DataScope.ACCOUNT_EA,
+        }
+        return scopes.get(scope_name, DataScope.EA)
 
     def _resolve_order_uid(self, tester, params):
         order_uid = params.get("order_uid")

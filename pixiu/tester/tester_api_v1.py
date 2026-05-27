@@ -120,6 +120,24 @@ class TesterAPI_V1(API_V1_Base):
     def AccountFreeMargin(self):
         return self.GetAccount().free_margin
 
+    def CalcProfit(self, order_type, symbol, volume, open_price, close_price):
+        return self.tester.calc_profit(order_type, symbol, volume, open_price, close_price)
+
+    def OrderCalcProfit(self, order_type, symbol, volume, open_price, close_price):
+        return self.CalcProfit(order_type, symbol, volume, open_price, close_price)
+
+    def CalcMargin(self, order_type, symbol, volume, price):
+        return self.tester.calc_margin(order_type, symbol, volume, price)
+
+    def OrderCalcMargin(self, order_type, symbol, volume, price):
+        return self.CalcMargin(order_type, symbol, volume, price)
+
+    def TickValue(self, symbol=None, order_type=OrderCommand.BUY, price=None):
+        return self.tester.tick_value(symbol=symbol, order_type=order_type, price=price)
+
+    def PipValue(self, symbol=None, order_type=OrderCommand.BUY, price=None):
+        return self.tester.pip_value(symbol=symbol, order_type=order_type, price=price)
+
     def SymbolInfo(self, item, symbol=None, default=None):
         if symbol is None:
             symbol = self.default_symbol

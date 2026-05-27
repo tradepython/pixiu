@@ -43,6 +43,16 @@ elif scenario_case == "mutate_tick":
         set_test_result("OK")
         StopTester()
 
+elif scenario_case == "price_path":
+    if scenario_time == valid_event_time:
+        assertAlmostEqual(Bid(), valid_event_bid)
+        assertAlmostEqual(Ask(), valid_event_ask)
+        assertAlmostEqual(Close(), valid_event_close)
+        assertAlmostEqual(Low(), valid_event_low)
+        assertAlmostEqual(High(), valid_event_high)
+        set_test_result("OK")
+        StopTester()
+
 elif scenario_case == "place_order":
     if scenario_time == valid_place_time:
         opened = GetOpenedOrderUIDs()
@@ -73,5 +83,12 @@ elif scenario_case == "initial_state_open_time":
         opened_order = GetOrder(opened[0])
         assertEqual(opened_order.ticket, str(valid_opened_ticket))
         assertEqual(opened_order.open_time, valid_open_time)
+        set_test_result("OK")
+        StopTester()
+
+elif scenario_case == "account_ea_runtime_data":
+    if scenario_time == valid_initial_time:
+        data = LoadData(valid_data_name, scope=DataScope.ACCOUNT_EA)
+        assertEqual(data, valid_data)
         set_test_result("OK")
         StopTester()

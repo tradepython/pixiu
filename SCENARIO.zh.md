@@ -29,7 +29,8 @@
   "scenario": {
     "initial_state": {
       "account_overrides": {},
-      "orders": []
+      "orders": [],
+      "data": []
     },
     "events": []
   }
@@ -134,6 +135,58 @@
 - `count_in_report`：可选；`initial_state` 的订单默认是 `false`
 - `write_log`：可选；默认是 `false`
 
+### `initial_state.data`
+
+用于在主 tick 循环开始前写入 tester 的持久运行态数据。
+
+当 EA 除了已有订单之外，还依赖已有运行态信息时会用到它，例如 GridFire 的 `open_info_<SYMBOL>` 记录。
+
+示例：
+
+```json
+{
+  "data": [
+    {
+      "scope": "ACCOUNT_EA",
+      "name": "open_info_EURUSD",
+      "data": {
+        "symbol": "EURUSD",
+        "status": "running",
+        "stage": 5,
+        "orders": ["7001", "7002", "7003", "7004"]
+      }
+    }
+  ]
+}
+```
+
+支持字段：
+
+- `scope`：可选。支持 `EA`、`EA_VERSION`、`ACCOUNT`、`EA_SETTINGS`、`ACCOUNT_EA`。默认是 `EA`
+- `name`：必填
+- `data`：可 JSON 序列化的数据
+- `format`：可选。目前只支持 `json`
+
+`initial_state.data` 也支持对象形式：
+
+```json
+{
+  "data": {
+    "ACCOUNT_EA": {
+      "open_info_EURUSD": {
+        "symbol": "EURUSD",
+        "status": "running"
+      }
+    }
+  }
+}
+```
+
+别名：
+
+- `persistent_data`
+- `runtime_data`
+
 ## `events`
 
 `events` 表示回测运行过程中的事件动作。
@@ -214,6 +267,7 @@
 默认行为：
 
 - `mutate_tick`：默认 `once = false`
+- `price_path`：默认 `once = false`
 - `override_spread`：默认 `once = false`
 - 其它动作：默认 `once = true`
 
@@ -277,7 +331,38 @@
 }
 ```
 
-### 2. `override_spread`
+### 2. `price_path`
+
+用于在一段 tick 或时间区间内生成连续价格路径，适合快速构造单边暴跌、单边拉升、跳空后缓慢回补等极端行情。
+
+示例：
+
+```json
+{
+  "id": "extreme_downtrend",
+  "phase": "pre_tick",
+  "from_tick": 10,
+  "to_tick": 40,
+  "action": "price_path",
+  "params": {
+    "start_bid": 1.1800,
+    "step": -0.0010,
+    "spread_point": 20
+  }
+}
+```
+
+`params` 支持的主要字段：
+
+- `start_bid` / `start` / `price`：路径起始 bid
+- `end_bid` / `end`：路径结束 bid；设置后会按区间线性插值
+- `step`：每个 tick 的 bid 价格步长
+- `step_points`：每个 tick 的 points 步长，会按 symbol point 转换为价格
+- `spread_point` / `spread_points`：路径中的点差
+- `open` / `high` / `low` / `close` / `ask` / `volume`：可手动覆盖对应字段
+- `high_offset` / `low_offset`：未手动指定 high/low 时，相对自动价格的上下偏移
+
+### 3. `override_spread`
 
 用于临时覆盖当前 tick 的 `spread_point`。
 
@@ -302,7 +387,7 @@
 - 更新 tester context 中的 `spread_point`
 - 当前 tick 的 `ask` 会按 `bid + spread` 重新计算
 
-### 3. `place_order`
+### 4. `place_order`
 
 用于在测试过程中动态下单。
 
@@ -333,7 +418,7 @@
 - `write_log`：默认 `true`
 - `open_time`：默认使用当前 tick 时间
 
-### 4. `close_order`
+### 5. `close_order`
 
 用于关闭已有订单。
 
@@ -360,7 +445,7 @@
 
 使用 `order_uid` 或 `ticket` 任意一种都可以定位订单。
 
-### 5. `cancel_order`
+### 6. `cancel_order`
 
 用于取消已有挂单。
 
@@ -384,6 +469,74 @@
 - `tags`
 
 使用 `order_uid` 或 `ticket` 任意一种都可以定位订单。
+
+### 7. `save_data`
+
+用于在测试运行过程中写入运行态数据。
+
+示例：
+
+```json
+{
+  "action": "save_data",
+  "phase": "pre_tick",
+  "at_tick": 20,
+  "params": {
+    "scope": "ACCOUNT_EA",
+    "name": "open_info_EURUSD",
+    "data": {
+      "symbol": "EURUSD",
+      "status": "running",
+      "stage": 6
+    }
+  }
+}
+```
+
+`params` 支持：
+
+- `scope`
+- `name`
+- `data`
+- `format`
+
+## Script Settings 覆盖
+
+测试配置里的 `script_settings` 会合并到 EA 通过 `PX_InitScriptSettings()` 和 `AddParam()` 生成的默认配置上。
+
+这样测试配置中的 `grid_pips`、`orders_queue_timeout_seconds`、`risk_min_spread_multiplier` 等值可以覆盖 EA 默认参数，同时保留原有参数元数据。
+
+示例：
+
+```json
+{
+  "tests": {
+    "extreme_case": {
+      "script_settings": {
+        "params": {
+          "grid_pips": 8,
+          "orders_queue_timeout_seconds": 3,
+          "risk_min_spread_multiplier": 1.25
+        }
+      }
+    }
+  }
+}
+```
+
+也可以用完整参数结构来覆盖：
+
+```json
+{
+  "script_settings": {
+    "params": {
+      "grid_pips": {
+        "value": 8
+      }
+    }
+  }
+}
+```
 
 ## 完整示例
 

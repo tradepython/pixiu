@@ -29,7 +29,8 @@ Put `scenario` under `tests.<test_name>`:
   "scenario": {
     "initial_state": {
       "account_overrides": {},
-      "orders": []
+      "orders": [],
+      "data": []
     },
     "events": []
   }
@@ -134,6 +135,58 @@ Order fields:
 - `count_in_report`: optional, default `false` for `initial_state` orders
 - `write_log`: optional, default `false`
 
+### `initial_state.data`
+
+Seeds tester persistent runtime data before the main tick loop starts.
+
+This is useful when an EA needs existing runtime state, such as a GridFire `open_info_<SYMBOL>` record, in addition to existing orders.
+
+Example:
+
+```json
+{
+  "data": [
+    {
+      "scope": "ACCOUNT_EA",
+      "name": "open_info_EURUSD",
+      "data": {
+        "symbol": "EURUSD",
+        "status": "running",
+        "stage": 5,
+        "orders": ["7001", "7002", "7003", "7004"]
+      }
+    }
+  ]
+}
+```
+
+Supported fields:
+
+- `scope`: optional. Supports `EA`, `EA_VERSION`, `ACCOUNT`, `EA_SETTINGS`, `ACCOUNT_EA`. Default is `EA`.
+- `name`: required.
+- `data`: JSON-serializable data.
+- `format`: optional. Currently only `json` is supported.
+
+`initial_state.data` also supports an object form:
+
+```json
+{
+  "data": {
+    "ACCOUNT_EA": {
+      "open_info_EURUSD": {
+        "symbol": "EURUSD",
+        "status": "running"
+      }
+    }
+  }
+}
+```
+
+Aliases:
+
+- `persistent_data`
+- `runtime_data`
+
 ## `events`
 
 `events` are runtime actions executed during the backtest loop.
@@ -214,6 +267,7 @@ Meaning:
 Default behavior:
 
 - `mutate_tick`: default `once = false`
+- `price_path`: default `once = false`
 - `override_spread`: default `once = false`
 - other actions: default `once = true`
 
@@ -277,7 +331,38 @@ Example with `delta`:
 }
 ```
 
-### 2. `override_spread`
+### 2. `price_path`
+
+Generates a continuous price path over a tick/time range. This is useful for quickly building extreme market conditions such as one-way crashes, rallies, gaps, and pullbacks.
+
+Example:
+
+```json
+{
+  "id": "extreme_downtrend",
+  "phase": "pre_tick",
+  "from_tick": 10,
+  "to_tick": 40,
+  "action": "price_path",
+  "params": {
+    "start_bid": 1.1800,
+    "step": -0.0010,
+    "spread_point": 20
+  }
+}
+```
+
+Common `params`:
+
+- `start_bid` / `start` / `price`: starting bid
+- `end_bid` / `end`: ending bid; when set, Pixiu linearly interpolates over the matched range
+- `step`: bid price step per tick
+- `step_points`: point step per tick, converted by symbol point
+- `spread_point` / `spread_points`: generated spread
+- `open` / `high` / `low` / `close` / `ask` / `volume`: optional field overrides
+- `high_offset` / `low_offset`: automatic high/low offsets when high/low are not provided
+
+### 3. `override_spread`
 
 Temporarily overrides `spread_point` for the current tick.
 
@@ -302,7 +387,7 @@ Current behavior:
 - `spread_point` is updated in tester context
 - current tick `ask` is recalculated from `bid + spread`
 
-### 3. `place_order`
+### 4. `place_order`
 
 Places an order during the test.
 
@@ -333,7 +418,7 @@ Default behavior for `place_order`:
 - `write_log`: default `true`
 - `open_time`: current tick time
 
-### 4. `close_order`
+### 5. `close_order`
 
 Closes an existing order.
 
@@ -360,7 +445,7 @@ Supported `params`:
 
 Use either `order_uid` or `ticket` to identify the order.
 
-### 5. `cancel_order`
+### 6. `cancel_order`
 
 Cancels an existing pending order.
 
@@ -384,6 +469,74 @@ Supported `params`:
 - `tags`
 
 Use either `order_uid` or `ticket` to identify the order.
+
+### 7. `save_data`
+
+Writes runtime data during the test.
+
+Example:
+
+```json
+{
+  "action": "save_data",
+  "phase": "pre_tick",
+  "at_tick": 20,
+  "params": {
+    "scope": "ACCOUNT_EA",
+    "name": "open_info_EURUSD",
+    "data": {
+      "symbol": "EURUSD",
+      "status": "running",
+      "stage": 6
+    }
+  }
+}
+```
+
+Supported `params`:
+
+- `scope`
+- `name`
+- `data`
+- `format`
+
+## Script Settings Overrides
+
+Test config `script_settings` are merged on top of EA defaults from `PX_InitScriptSettings()` and `AddParam()`.
+
+This allows test config values such as `grid_pips`, `orders_queue_timeout_seconds`, and `risk_min_spread_multiplier` to override EA defaults while keeping the original parameter metadata.
+
+Example:
+
+```json
+{
+  "tests": {
+    "extreme_case": {
+      "script_settings": {
+        "params": {
+          "grid_pips": 8,
+          "orders_queue_timeout_seconds": 3,
+          "risk_min_spread_multiplier": 1.25
+        }
+      }
+    }
+  }
+}
+```
+
+You can also override a parameter using the full parameter payload:
+
+```json
+{
+  "script_settings": {
+    "params": {
+      "grid_pips": {
+        "value": 8
+      }
+    }
+  }
+}
+```
 
 ## Full example
 

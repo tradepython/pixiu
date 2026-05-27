@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import sys
 from unittest import (TestCase, TestLoader, TestSuite, TextTestRunner, skip, skipIf)
 
-from pixiu.api import utc_from_timestamp
+from pixiu.api import utc_from_timestamp, OrderCommand
 from pixiu.api.v1 import (TimeFrame, SymbolData, DataScope)
 from pixiu.tester import (EATester, )
 from pixiu.optimizer import (EAOptimizer, )
@@ -188,6 +188,24 @@ class EATTester(EATester):
             # self.test_obj.assertEqual(value, self.Close(), msg=f"{name}: {datetime.fromtimestamp(self.current_time())}: error!")
             self.test_obj.assertEqual(value, self.Close(), msg=f"{name}: {datetime.fromtimestamp(self.current_time(), tz=pytz.utc)}: error!")
 
+class CrossCurrencyEATTester(EATester):
+    def __init__(self, params, tick_data_by_symbol):
+        self.tick_data_by_symbol = tick_data_by_symbol
+        super(CrossCurrencyEATTester, self).__init__(params)
+
+    def get_data_info(self, symbol, timeframe=TimeFrame.M1, start_time=None, end_time=None, last_count=None):
+        self.context.symbol_data.setdefault(symbol, {})
+        data = self.context.symbol_data[symbol].get(timeframe, None)
+        if data is None:
+            data = self.tick_data_by_symbol[symbol]
+            self.context.symbol_data[symbol][timeframe] = data
+        return data
+
+    def on_load_ticks(self, *args, **kwargs):
+        self.context.tick_info = self.get_data_info(self.context.symbol, self.context.tick_timeframe,
+                                                    self.context.start_time, self.context.end_time)
+        return 0
+
 class PiXiuTests(TestCase):
     def setUp(self):
         self.test_result = ""
@@ -257,6 +275,54 @@ class PiXiuTests(TestCase):
 
     def get_value_by_time(self, values, time, item_name):
         return values[time][item_name]
+
+    def make_tick_data(self, symbol, prices, start_ts=1615766400):
+        rows = []
+        for idx, price_info in enumerate(prices):
+            if isinstance(price_info, dict):
+                close = float(price_info.get('close', price_info.get('c')))
+                bid = float(price_info.get('bid', price_info.get('b', close)))
+                ask = float(price_info.get('ask', price_info.get('a', bid)))
+            else:
+                close = float(price_info)
+                bid = close
+                ask = close
+            rows.append((symbol, float(start_ts + idx * 60), close, close, close, close, 1.0, ask, bid))
+        return np.array(rows, dtype=[('s', object), ('t', float), ('o', float), ('h', float), ('c', float),
+                                    ('l', float), ('v', float), ('a', float), ('b', float)])
+
+    def make_cross_currency_params(self, account_currency, symbol_properties, script='', global_values=None):
+        return dict(
+            symbol='EURGBP',
+            script=script,
+            start_time='2021-03-15',
+            end_time='2021-03-16',
+            tick_max_index=2,
+            balance=10000,
+            leverage=100,
+            currency=account_currency,
+            spread_point=2,
+            symbol_properties=symbol_properties,
+            account=dict(self.account, currency=account_currency),
+            currency_conversion_settings=dict(
+                mode='dynamic',
+                auto_download=False,
+                path_policy='direct_then_usd',
+                missing_rate='error',
+                time_alignment='latest_before_or_at_tick',
+                price_mode='bid_ask',
+                fallback_enabled=False,
+            ),
+            global_values={} if global_values is None else global_values,
+        )
+
+    def make_cross_currency_tester(self, account_currency, symbol_properties, tick_data_by_symbol):
+        params = self.make_cross_currency_params(account_currency, symbol_properties)
+        tester = CrossCurrencyEATTester(params, tick_data_by_symbol)
+        tester.init_data()
+        tester.context.tick_info = tick_data_by_symbol['EURGBP']
+        tester.context.tick_current_index = 0
+        return tester
 
     def set_test_result(self, result):
         self.test_result = result
@@ -489,6 +555,38 @@ class PiXiuTests(TestCase):
         self.assertEqual(self.test_result, "OK")
 
     @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_script_settings_override_config(self):
+        params = dict(self.eat_params)
+        params['global_values'] = dict(self.eat_params['global_values'])
+        params['script_path'] = None
+        params['script_settings'] = {
+            'params': {
+                'grid_pips': 8,
+                'orders_queue_timeout_seconds': {'value': 3},
+                'risk_min_spread_multiplier': 1.25,
+            }
+        }
+        params['script'] = "\n".join([
+            "def PX_InitScriptSettings():",
+            "    return {'charts': {}, 'params': {",
+            "        'grid_pips': {'value': 25, 'config': {'type': 'int'}},",
+            "        'orders_queue_timeout_seconds': {'value': 60, 'config': {'type': 'int'}},",
+            "    }}",
+            "AddParam('risk_min_spread_multiplier', value=3.0, type='float')",
+            "def PX_ValidScriptSettings(script_settings=None):",
+            "    return {'success': script_settings['params']['grid_pips']['value'] == 8, 'errmsg': 'grid_pips'}",
+            "assertEqual(GetParam('grid_pips'), 8)",
+            "assertEqual(GetParam('orders_queue_timeout_seconds'), 3)",
+            "assertEqual(GetParam('risk_min_spread_multiplier'), 1.25)",
+            "assertEqual(EA_SETTINGS.grid_pips, 8)",
+            "set_test_result('OK')",
+            "StopTester()",
+        ])
+        eatt = EATTester(self, params)
+        eatt.execute("123456", sync=True)
+        self.assertEqual(self.test_result, "OK")
+
+    @skipIf(debug_some_tests, "debug some tests")
     def test_ea_tester_script_settings_optimization_metadata(self):
         params = dict(self.eat_params)
         params['global_values'] = dict(self.eat_params['global_values'])
@@ -553,6 +651,133 @@ class PiXiuTests(TestCase):
         self.assertEqual(writer.load_data("shared-key", DataScope.ACCOUNT_EA), payload)
         self.assertEqual(different_account.load_data("shared-key", DataScope.ACCOUNT_EA), {"value": "account-b"})
         self.assertEqual(different_ea.load_data("shared-key", DataScope.ACCOUNT_EA), {"value": "ea-b"})
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_cross_currency_direct_profit_conversion(self):
+        """Test dynamic direct conversion for cross-currency profit and margin"""
+        symbols = {
+            'EURGBP': {'symbol': 'EURGBP', 'spread': 2, 'digits': 5, 'stop_level': 0, 'volume_min': 0.01,
+                       'trade_contract_size': 100000, 'point': 0.00001,
+                       'currency_profit': 'GBP', 'currency_base': 'EUR', 'currency_margin': 'GBP'},
+            'GBPUSD': {'symbol': 'GBPUSD', 'spread': 2, 'digits': 5, 'stop_level': 0, 'volume_min': 0.01,
+                       'trade_contract_size': 100000, 'point': 0.00001,
+                       'currency_profit': 'USD', 'currency_base': 'GBP', 'currency_margin': 'GBP'},
+        }
+        ticks = {
+            'EURGBP': self.make_tick_data('EURGBP', [{'bid': 0.8500, 'ask': 0.8502, 'close': 0.8500},
+                                                     {'bid': 0.8510, 'ask': 0.8512, 'close': 0.8510}]),
+            'GBPUSD': self.make_tick_data('GBPUSD', [{'bid': 1.2500, 'ask': 1.2502, 'close': 1.2500},
+                                                     {'bid': 1.2500, 'ask': 1.2502, 'close': 1.2500}]),
+        }
+        tester = self.make_cross_currency_tester('USD', symbols, ticks)
+        tester.prepare_currency_conversion_data()
+        order_uid = tester.seed_order({'kind': 'market', 'side': 'buy', 'volume': 1, 'open_price': 0.8500})
+        order = tester.get_order(order_uid)
+        self.assertEqual(order['margin'], 1062.5)
+
+        tester.context.tick_current_index = 1
+        profit = tester.__calculate_profit__(100, 0.8510)
+        self.assertAlmostEqual(profit, 125.0)
+        self.assertAlmostEqual(tester.get_order(order_uid)['profit'], 125.0)
+        self.assertAlmostEqual(tester.calc_profit(OrderCommand.BUY, 'EURGBP', 1, 0.8500, 0.8510), 125.0)
+        self.assertAlmostEqual(tester.calc_margin(OrderCommand.BUY, 'EURGBP', 1, 0.8500), 1062.5)
+        self.assertAlmostEqual(tester.tick_value('EURGBP', OrderCommand.BUY, 0.8500), 1.25)
+        self.assertAlmostEqual(tester.pip_value('EURGBP', OrderCommand.BUY, 0.8500), 12.5)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_cross_currency_prefers_direct_pair(self):
+        """Test direct cross pair is preferred when available"""
+        symbols = {
+            'EURGBP': {'symbol': 'EURGBP', 'spread': 2, 'digits': 5, 'stop_level': 0, 'volume_min': 0.01,
+                       'trade_contract_size': 100000, 'point': 0.00001,
+                       'currency_profit': 'GBP', 'currency_base': 'EUR', 'currency_margin': 'GBP'},
+            'GBPJPY': {'symbol': 'GBPJPY', 'spread': 3, 'digits': 3, 'stop_level': 0, 'volume_min': 0.01,
+                       'trade_contract_size': 100000, 'point': 0.001,
+                       'currency_profit': 'JPY', 'currency_base': 'GBP', 'currency_margin': 'GBP'},
+            'GBPUSD': {'symbol': 'GBPUSD', 'spread': 2, 'digits': 5, 'stop_level': 0, 'volume_min': 0.01,
+                       'trade_contract_size': 100000, 'point': 0.00001,
+                       'currency_profit': 'USD', 'currency_base': 'GBP', 'currency_margin': 'GBP'},
+            'USDJPY': {'symbol': 'USDJPY', 'spread': 3, 'digits': 3, 'stop_level': 0, 'volume_min': 0.01,
+                       'trade_contract_size': 100000, 'point': 0.001,
+                       'currency_profit': 'JPY', 'currency_base': 'USD', 'currency_margin': 'USD'},
+        }
+        ticks = {
+            'EURGBP': self.make_tick_data('EURGBP', [0.8500, 0.8510]),
+            'GBPJPY': self.make_tick_data('GBPJPY', [{'bid': 195.0, 'ask': 195.03, 'close': 195.0},
+                                                     {'bid': 195.0, 'ask': 195.03, 'close': 195.0}]),
+            'GBPUSD': self.make_tick_data('GBPUSD', [1.25, 1.25]),
+            'USDJPY': self.make_tick_data('USDJPY', [156.0, 156.0]),
+        }
+        tester = self.make_cross_currency_tester('JPY', symbols, ticks)
+        tester.prepare_currency_conversion_data()
+        path = tester.currency_conversion_paths[('GBP', 'JPY')]
+        self.assertEqual([leg['symbol'] for leg in path], ['GBPJPY'])
+        self.assertAlmostEqual(tester.convert_currency(100, 'GBP', 'JPY', at_time=ticks['EURGBP'][1]['t']), 19500.0)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_cross_currency_uses_usd_bridge_without_direct_pair(self):
+        """Test USD bridge is used when direct cross pair is unavailable"""
+        symbols = {
+            'EURGBP': {'symbol': 'EURGBP', 'spread': 2, 'digits': 5, 'stop_level': 0, 'volume_min': 0.01,
+                       'trade_contract_size': 100000, 'point': 0.00001,
+                       'currency_profit': 'GBP', 'currency_base': 'EUR', 'currency_margin': 'GBP'},
+            'GBPUSD': {'symbol': 'GBPUSD', 'spread': 2, 'digits': 5, 'stop_level': 0, 'volume_min': 0.01,
+                       'trade_contract_size': 100000, 'point': 0.00001,
+                       'currency_profit': 'USD', 'currency_base': 'GBP', 'currency_margin': 'GBP'},
+            'USDJPY': {'symbol': 'USDJPY', 'spread': 3, 'digits': 3, 'stop_level': 0, 'volume_min': 0.01,
+                       'trade_contract_size': 100000, 'point': 0.001,
+                       'currency_profit': 'JPY', 'currency_base': 'USD', 'currency_margin': 'USD'},
+        }
+        ticks = {
+            'EURGBP': self.make_tick_data('EURGBP', [0.8500, 0.8510]),
+            'GBPUSD': self.make_tick_data('GBPUSD', [{'bid': 1.25, 'ask': 1.2502, 'close': 1.25},
+                                                     {'bid': 1.25, 'ask': 1.2502, 'close': 1.25}]),
+            'USDJPY': self.make_tick_data('USDJPY', [{'bid': 156.0, 'ask': 156.03, 'close': 156.0},
+                                                     {'bid': 156.0, 'ask': 156.03, 'close': 156.0}]),
+        }
+        tester = self.make_cross_currency_tester('JPY', symbols, ticks)
+        tester.prepare_currency_conversion_data()
+        path = tester.currency_conversion_paths[('GBP', 'JPY')]
+        self.assertEqual([leg['symbol'] for leg in path], ['GBPUSD', 'USDJPY'])
+        self.assertAlmostEqual(tester.convert_currency(100, 'GBP', 'JPY', at_time=ticks['EURGBP'][1]['t']), 19500.0)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_cross_currency_calc_api_script(self):
+        """Test EA-facing CalcProfit/CalcMargin/TickValue/PipValue API"""
+        symbols = {
+            'EURGBP': {'symbol': 'EURGBP', 'spread': 2, 'digits': 5, 'stop_level': 0, 'volume_min': 0.01,
+                       'trade_contract_size': 100000, 'point': 0.00001,
+                       'currency_profit': 'GBP', 'currency_base': 'EUR', 'currency_margin': 'GBP'},
+            'GBPUSD': {'symbol': 'GBPUSD', 'spread': 2, 'digits': 5, 'stop_level': 0, 'volume_min': 0.01,
+                       'trade_contract_size': 100000, 'point': 0.00001,
+                       'currency_profit': 'USD', 'currency_base': 'GBP', 'currency_margin': 'GBP'},
+        }
+        ticks = {
+            'EURGBP': self.make_tick_data('EURGBP', [{'bid': 0.8500, 'ask': 0.8502, 'close': 0.8500},
+                                                     {'bid': 0.8510, 'ask': 0.8512, 'close': 0.8510}]),
+            'GBPUSD': self.make_tick_data('GBPUSD', [{'bid': 1.2500, 'ask': 1.2502, 'close': 1.2500},
+                                                     {'bid': 1.2500, 'ask': 1.2502, 'close': 1.2500}]),
+        }
+        script = "\n".join([
+            "assertAlmostEqual(CalcProfit(OrderCommand.BUY, 'EURGBP', 1.0, 0.8500, 0.8510), 125.0)",
+            "assertAlmostEqual(OrderCalcProfit(OrderCommand.BUY, 'EURGBP', 1.0, 0.8500, 0.8510), 125.0)",
+            "assertAlmostEqual(CalcProfit(OrderCommand.SELL, 'EURGBP', 1.0, 0.8510, 0.8500), 125.0)",
+            "assertAlmostEqual(CalcMargin(OrderCommand.BUY, 'EURGBP', 1.0, 0.8500), 1062.5)",
+            "assertAlmostEqual(OrderCalcMargin(OrderCommand.BUY, 'EURGBP', 1.0, 0.8500), 1062.5)",
+            "assertAlmostEqual(TickValue('EURGBP', OrderCommand.BUY, 0.8500), 1.25)",
+            "assertAlmostEqual(PipValue('EURGBP', OrderCommand.BUY, 0.8500), 12.5)",
+            "set_test_result('OK')",
+            "StopTester()",
+        ])
+        params = self.make_cross_currency_params(
+            'USD',
+            symbols,
+            script=script,
+            global_values=dict(assertAlmostEqual=self.assertAlmostEqual, set_test_result=self.set_test_result),
+        )
+        tester = CrossCurrencyEATTester(params, ticks)
+        tester.execute("123456", sync=True)
+        self.assertEqual(self.test_result, "OK")
 
 
     def get_timeframe_value_by_time(self, timeframe, v_time, item_name):
@@ -808,6 +1033,39 @@ class PiXiuTests(TestCase):
         self.assertEqual(self.test_result, "OK")
 
     @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_scenario_account_ea_runtime_data(self):
+        """Test EA Tester scenario initial ACCOUNT_EA runtime data"""
+        data_name = "open_info_USDCHF"
+        data = {
+            "symbol": "USDCHF",
+            "status": "running",
+            "orders": ["7001", "7002"],
+            "stage": 5,
+        }
+        self.eat_params['tick_max_index'] = 2
+        self.eat_params['script_path'] = os.path.abspath("scripts/v1/ts_scenario.py")
+        self.eat_params['scenario'] = {
+            'initial_state': {
+                'data': [
+                    {
+                        'scope': 'ACCOUNT_EA',
+                        'name': data_name,
+                        'data': data,
+                    }
+                ]
+            }
+        }
+        self.eat_params['global_values'].update(dict(
+            scenario_case='account_ea_runtime_data',
+            valid_initial_time=utc_from_timestamp(new_a[0]['t']),
+            valid_data_name=data_name,
+            valid_data=data,
+        ))
+        eatt = EATTester(self, self.eat_params)
+        eatt.execute("123456", sync=True)
+        self.assertEqual(self.test_result, "OK")
+
+    @skipIf(debug_some_tests, "debug some tests")
     def test_ea_tester_scenario_mutate_tick(self):
         """Test EA Tester scenario mutate tick and spread"""
         event_index = 2
@@ -848,6 +1106,51 @@ class PiXiuTests(TestCase):
         }
         self.eat_params['global_values'].update(dict(
             scenario_case='mutate_tick',
+            valid_event_time=event_time,
+            valid_event_bid=event_bid,
+            valid_event_ask=event_ask,
+            valid_event_close=event_close,
+            valid_event_low=event_low,
+            valid_event_high=event_high,
+        ))
+        eatt = EATTester(self, self.eat_params)
+        eatt.execute("123456", sync=True)
+        self.assertEqual(self.test_result, "OK")
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_scenario_price_path(self):
+        """Test EA Tester scenario generated price path"""
+        event_index = 3
+        event_time = utc_from_timestamp(new_a[event_index]['t'])
+        start_bid = 0.92000
+        step = -0.00100
+        spread_point = 15
+        point = self.symbol_properties[self.symbol]['point']
+        event_bid = start_bid + step * (event_index - 1)
+        event_ask = event_bid + spread_point * point
+        event_close = event_bid
+        event_low = event_bid - spread_point * point
+        event_high = event_ask + spread_point * point
+        self.eat_params['tick_max_index'] = 5
+        self.eat_params['script_path'] = os.path.abspath("scripts/v1/ts_scenario.py")
+        self.eat_params['scenario'] = {
+            'events': [
+                {
+                    'id': 'extreme_downtrend',
+                    'phase': 'pre_tick',
+                    'from_tick': 1,
+                    'to_tick': 4,
+                    'action': 'price_path',
+                    'params': {
+                        'start_bid': start_bid,
+                        'step': step,
+                        'spread_point': spread_point,
+                    }
+                }
+            ]
+        }
+        self.eat_params['global_values'].update(dict(
+            scenario_case='price_path',
             valid_event_time=event_time,
             valid_event_bid=event_bid,
             valid_event_ask=event_ask,

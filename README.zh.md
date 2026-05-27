@@ -248,6 +248,100 @@ timeframe: 时间帧，以下值
 }
 ```
 
+交叉货币换算
+=======
+
+当交易品种的盈亏币种或保证金币种与账户币种不一致时，Pixiu 可以在测试过程中把盈亏和保证金换算到账户币种。
+
+通过 `currency_conversion_settings` 启用动态换汇：
+
+```json
+{
+  "tests": {
+    "testEURGBP_USD": {
+      "symbol": "EURGBP",
+      "account": "default",
+      "currency": "USD",
+      "tick_data": {
+        "channel": "tradepython.com",
+        "api_token": "YOUR-API-TOKEN",
+        "source": {"type": "public", "name": "Demo1"},
+        "format": "json",
+        "period": 30,
+        "timeframe": "m1"
+      },
+      "currency_conversion_settings": {
+        "mode": "dynamic",
+        "auto_download": true,
+        "download_policy": "before_test",
+        "path_policy": "direct_then_usd",
+        "missing_rate": "download_then_error",
+        "time_alignment": "latest_before_or_at_tick",
+        "price_mode": "bid_ask",
+        "fallback_enabled": false
+      }
+    }
+  }
+}
+```
+
+第一版支持的行为：
+
+    mode: dynamic
+      使用换汇 symbol 的 tick 数据。
+
+    auto_download: true
+      PXTester 会在回测 tick loop 开始前，从相同 tick_data channel 尝试加载缺失的换汇 symbol。
+
+    download_policy: before_test
+      换汇数据在测试开始前准备。Pixiu 不会在 tick loop 中下载数据。
+
+    path_policy: direct_then_usd
+      Pixiu 先尝试直接或反向换汇对。如果不可用，且两边都不是 USD，则使用 USD 中转。
+
+    time_alignment: latest_before_or_at_tick
+      使用当前测试 tick 时间之前或等于当前时间的最近一条换汇 tick。
+
+示例：
+
+    GBP -> JPY:
+      优先使用 GBPJPY。
+      如果 GBPJPY 不可用，使用 GBPUSD + USDJPY。
+
+    GBP -> USD:
+      优先使用 GBPUSD。
+      如果 GBPUSD 不可用，使用 USDGBP。
+
+可以通过 `currency_conversions` 显式配置换汇来源：
+
+```json
+{
+  "currency_conversions": {
+    "GBPUSD": {
+      "source": "symbol",
+      "symbol": "GBPUSD",
+      "price": "bid_ask",
+      "fallback": {
+        "bid": 1.2500,
+        "ask": 1.2502
+      }
+    },
+    "USDJPY": {
+      "source": "symbol",
+      "symbol": "USDJPY",
+      "price": "bid_ask"
+    },
+    "GBPJPY": {
+      "source": "symbol",
+      "symbol": "GBPJPY",
+      "price": "bid_ask"
+    }
+  }
+}
+```
+
+完整开发说明见 `CROSS_CURRENCY.zh.md`。
+
 脚本例子
 =======
 1.买入或卖出一个产品
@@ -281,6 +375,59 @@ AccountFreeMargin(self)
 
            Returns:
                    The free margin.
+
+CalcProfit(order_type, symbol, volume, open_price, close_price) -> float
+   计算一笔假设订单的账户币种盈亏。
+
+           Parameters:
+                   order_type: 订单方向，支持 OrderCommand.BUY 和 OrderCommand.SELL。
+                   symbol (str): 交易品种。None 表示当前 symbol。
+                   volume (float): 手数。
+                   open_price (float): 假设开仓价。
+                   close_price (float): 假设平仓价。
+
+           Returns:
+                   账户币种盈亏。正数表示盈利，负数表示亏损。
+
+OrderCalcProfit(order_type, symbol, volume, open_price, close_price) -> float
+   CalcProfit 的 MT5 风格别名。
+
+CalcMargin(order_type, symbol, volume, price) -> float
+   计算一笔假设订单的账户币种保证金。
+
+           Parameters:
+                   order_type: 订单方向，支持 OrderCommand.BUY 和 OrderCommand.SELL。
+                   symbol (str): 交易品种。None 表示当前 symbol。
+                   volume (float): 手数。
+                   price (float): 假设开仓价。
+
+           Returns:
+                   账户币种保证金。
+
+OrderCalcMargin(order_type, symbol, volume, price) -> float
+   CalcMargin 的 MT5 风格别名。
+
+TickValue(symbol=None, order_type=OrderCommand.BUY, price=None) -> float
+   返回 1 手交易时 1 tick 对应的账户币种价值。
+
+           Parameters:
+                   symbol (str): 交易品种。None 表示当前 symbol。
+                   order_type: 用于估算的订单方向。
+                   price (float): 参考价格。None 表示使用当前市场价格。
+
+           Returns:
+                   1 手 1 tick 的账户币种价值。
+
+PipValue(symbol=None, order_type=OrderCommand.BUY, price=None) -> float
+   返回 1 手交易时 1 pip 对应的账户币种价值。
+
+           Parameters:
+                   symbol (str): 交易品种。None 表示当前 symbol。
+                   order_type: 用于估算的订单方向。
+                   price (float): 参考价格。None 表示使用当前市场价格。
+
+           Returns:
+                   1 手 1 pip 的账户币种价值。
 
 Ask(self, shift=0, symbol=None) -> float
    Returns Ask price value for the default symbol with default timeframe and shift.

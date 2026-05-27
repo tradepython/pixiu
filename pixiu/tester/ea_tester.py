@@ -5,6 +5,7 @@ import pyjson5 as json5
 import threading
 import importlib
 import dateutil
+import copy
 from datetime import datetime, timezone
 import numpy as np
 from RestrictedPython import (compile_restricted, safe_globals, utility_builtins,)
@@ -71,6 +72,10 @@ class EATester(EABase):
         self.context.safe_globals = self.copy_globals()
         self.print_collection = None
         self.scenario_engine = ScenarioEngine(params.get("scenario", None))
+        self.currency_conversion_settings = params.get("currency_conversion_settings", {}) or {}
+        self.currency_conversions = params.get("currency_conversions", {}) or {}
+        self.currency_conversion_paths = {}
+        self.currency_conversion_symbol_data = {}
         #
         # self.errid = None
         # self.errmsg = None
@@ -118,12 +123,18 @@ class EATester(EABase):
         #
         self.context.script_settings = None
         try:
-            # ss = params.get("script_settings", self.context.script_metadata.get('script_settings', None))
-            ss = self.context.script_metadata.get('script_settings', params.get("script_settings", None))
+            ss = self.merge_script_settings(self.context.script_metadata.get('script_settings', None),
+                                            params.get("script_settings", None))
             if isinstance(ss, str):
                 self.context.script_settings = json5.loads(ss)
             else:
                 self.context.script_settings = ss
+            valid_ret = self.valid_final_script_settings()
+            if valid_ret is not None:
+                if valid_ret.get('success', True):
+                    self.context.script_metadata.pop('valid_script_settings', None)
+                else:
+                    self.context.script_metadata['valid_script_settings'] = valid_ret
         except:
             traceback.print_exc()
         #
@@ -162,6 +173,68 @@ class EATester(EABase):
         self.context.set_error(EID_OK, 'EID_OK')
         #
         self.context.reset_flags()
+
+    def merge_script_settings(self, base_settings, override_settings):
+        base = self._load_script_settings(base_settings)
+        override = self._load_script_settings(override_settings)
+        if not override:
+            return base
+        if not isinstance(base, dict):
+            base = {}
+        ret = copy.deepcopy(base)
+        if 'params' not in ret or not isinstance(ret.get('params'), dict):
+            ret['params'] = {}
+        if 'charts' not in ret or not isinstance(ret.get('charts'), dict):
+            ret['charts'] = {}
+
+        override_params = override.get('params', override)
+        if isinstance(override_params, dict):
+            for name, value in override_params.items():
+                if name in ('params', 'charts'):
+                    continue
+                current = copy.deepcopy(ret['params'].get(name, {}))
+                if isinstance(value, dict):
+                    if isinstance(current, dict) and 'config' in current and 'value' not in value and 'config' not in value:
+                        current['value'] = value
+                    else:
+                        current = self._deep_merge(current if isinstance(current, dict) else {}, value)
+                else:
+                    if isinstance(current, dict) and 'config' in current:
+                        current['value'] = value
+                    else:
+                        current = value
+                ret['params'][name] = current
+
+        override_charts = override.get('charts', {})
+        if isinstance(override_charts, dict):
+            ret['charts'] = self._deep_merge(ret['charts'], override_charts)
+        return ret
+
+    def _load_script_settings(self, settings):
+        if isinstance(settings, str):
+            return json5.loads(settings)
+        return copy.deepcopy(settings)
+
+    def _deep_merge(self, base, override):
+        if not isinstance(base, dict) or not isinstance(override, dict):
+            return copy.deepcopy(override)
+        ret = copy.deepcopy(base)
+        for key, value in override.items():
+            if isinstance(value, dict) and isinstance(ret.get(key), dict):
+                ret[key] = self._deep_merge(ret[key], value)
+            else:
+                ret[key] = copy.deepcopy(value)
+        return ret
+
+    def valid_final_script_settings(self):
+        try:
+            env = self.init_script_env(self.context.script)
+            if env is None:
+                return None
+            return self.valid_script_settings(self.context.script_settings, env)
+        except:
+            traceback.print_exc()
+        return None
 
     def get_init_data(self, name, values):
         ret = None
@@ -622,7 +695,10 @@ class EATester(EABase):
             return EID_EAT_INVALID_ORDER_TYPE, -1
         #
         sp = self.get_symbol_properties(new_order['symbol'])
-        margin = new_order['open_price'] * self.__calculate_pip__(new_order['open_price']) * new_order['volume'] * sp['trade_contract_size'] / self.context.account['leverage']
+        if self.is_currency_conversion_enabled():
+            margin = self.calculate_order_margin(new_order, sp)
+        else:
+            margin = new_order['open_price'] * self.__calculate_pip__(new_order['open_price']) * new_order['volume'] * sp['trade_contract_size'] / self.context.account['leverage']
         margin = round(margin, self.context.default_digits)
         if margin > self.context.account['balance'] - self.context.account['margin']:
             return EID_EAT_NOT_ENOUGH_MONEY, -1
@@ -776,8 +852,21 @@ class EATester(EABase):
             ds = ods[ods['cid'] == cid]
             if len(ds) == 0:
                 return 0
-            pips = self.__calculate_pip__(price)
-            ds['pf'] = pips * (price - ds['o']) * ds['v'] * ds['tcs'] * ds['pf_f']
+            if self.is_currency_conversion_enabled():
+                for sid in np.unique(ds['sid']):
+                    sid_ds = ds[ds['sid'] == sid]
+                    symbol = self.context.sid_data[int(sid)]
+                    sp = self.get_symbol_properties(symbol)
+                    raw_profit = (price - sid_ds['o']) * sid_ds['v'] * sid_ds['tcs'] * sid_ds['pf_f']
+                    sid_ds['pf'] = [
+                        self.convert_currency(pf, sp['currency_profit'], self.context.account['currency'],
+                                              at_time=self.current_time(), purpose='profit')
+                        for pf in raw_profit
+                    ]
+                    ds[ds['sid'] == sid] = sid_ds
+            else:
+                pips = self.__calculate_pip__(price)
+                ds['pf'] = pips * (price - ds['o']) * ds['v'] * ds['tcs'] * ds['pf_f']
             ds['sl_p'] = (price - ds['sl']) * ds['pf_f']
             ds['tp_p'] = (price - ds['tp']) * ds['pf_f']
             profit = ds['pf'].sum()
@@ -1550,6 +1639,284 @@ class EATester(EABase):
     def __calculate_pip_with_base_currency__(self, price):
         return 1.0 / price
 
+    def is_currency_conversion_enabled(self):
+        mode = str(self.currency_conversion_settings.get("mode", "")).lower()
+        return mode in ("dynamic", "static")
+
+    def get_account_currency(self):
+        return (self.context.account.get('currency') or '').upper()
+
+    def normalize_currency(self, currency):
+        return (currency or '').upper()
+
+    def get_conversion_setting(self, name, default=None):
+        return self.currency_conversion_settings.get(name, default)
+
+    def normalize_order_type(self, order_type):
+        if isinstance(order_type, str):
+            value = order_type.upper()
+            if value in ("BUY", "LONG"):
+                return OrderCommand.BUY
+            if value in ("SELL", "SHORT"):
+                return OrderCommand.SELL
+        if order_type in (OrderCommand.BUY, OrderCommand.SELL):
+            return order_type
+        raise ValueError(f"unsupported order_type: {order_type}")
+
+    def calc_profit(self, order_type, symbol, volume, open_price, close_price):
+        order_type = self.normalize_order_type(order_type)
+        symbol = self.context.symbol if symbol is None else symbol
+        sp = self.get_symbol_properties(symbol)
+        direction = 1 if order_type == OrderCommand.BUY else -1
+        raw_profit = (float(close_price) - float(open_price)) * float(volume) * float(sp['trade_contract_size']) * direction
+
+        if self.is_currency_conversion_enabled():
+            return self.convert_currency(raw_profit, sp['currency_profit'], self.get_account_currency(),
+                                         at_time=self.current_time(), purpose='profit')
+
+        account_currency = self.get_account_currency()
+        base_currency = self.normalize_currency(sp.get('currency_base'))
+        factor = (1.0 / float(close_price)) if account_currency == base_currency else 1.0
+        return raw_profit * factor
+
+    def calc_margin(self, order_type, symbol, volume, price):
+        order_type = self.normalize_order_type(order_type)
+        symbol = self.context.symbol if symbol is None else symbol
+        sp = self.get_symbol_properties(symbol)
+        order = dict(symbol=symbol, cmd=order_type, open_price=float(price), volume=float(volume))
+        if self.is_currency_conversion_enabled():
+            return self.calculate_order_margin(order, sp)
+
+        account_currency = self.get_account_currency()
+        base_currency = self.normalize_currency(sp.get('currency_base'))
+        factor = (1.0 / float(price)) if account_currency == base_currency else 1.0
+        return float(price) * factor * float(volume) * float(sp['trade_contract_size']) / float(self.context.account['leverage'])
+
+    def symbol_tick_size(self, symbol):
+        sp = self.get_symbol_properties(symbol)
+        tick_size = sp.get('tick_size', sp.get('trade_tick_size', None))
+        if tick_size is None:
+            tick_size = sp.get('point', None)
+        if tick_size is None:
+            raise ValueError(f"missing tick_size/point for symbol: {symbol}")
+        return float(tick_size)
+
+    def symbol_pip_size(self, symbol):
+        sp = self.get_symbol_properties(symbol)
+        pip_size = sp.get('pip_size', None)
+        if pip_size is not None:
+            return float(pip_size)
+        point = float(sp['point'])
+        digits = int(sp['digits'])
+        return point * 10 if digits in (3, 5) else point
+
+    def get_reference_price(self, symbol, order_type, price=None):
+        if price is not None:
+            return float(price)
+        symbol = self.context.symbol if symbol is None else symbol
+        order_type = self.normalize_order_type(order_type)
+        if symbol == self.context.symbol:
+            return float(self.Ask() if order_type == OrderCommand.BUY else self.Bid())
+        tick = self.get_conversion_tick(symbol, self.current_time())
+        close = float(tick['c'])
+        if close <= 0:
+            close = float(tick['b'])
+        if close <= 0:
+            raise ValueError(f"missing reference price for symbol: {symbol}")
+        return close
+
+    def tick_value(self, symbol=None, order_type=OrderCommand.BUY, price=None):
+        symbol = self.context.symbol if symbol is None else symbol
+        order_type = self.normalize_order_type(order_type)
+        price = self.get_reference_price(symbol, order_type, price)
+        tick_size = self.symbol_tick_size(symbol)
+        close_price = price + tick_size if order_type == OrderCommand.BUY else price - tick_size
+        return abs(self.calc_profit(order_type, symbol, 1.0, price, close_price))
+
+    def pip_value(self, symbol=None, order_type=OrderCommand.BUY, price=None):
+        symbol = self.context.symbol if symbol is None else symbol
+        order_type = self.normalize_order_type(order_type)
+        price = self.get_reference_price(symbol, order_type, price)
+        pip_size = self.symbol_pip_size(symbol)
+        close_price = price + pip_size if order_type == OrderCommand.BUY else price - pip_size
+        return abs(self.calc_profit(order_type, symbol, 1.0, price, close_price))
+
+    def calculate_order_margin(self, order, sp):
+        base_currency = self.normalize_currency(sp.get('currency_base'))
+        profit_currency = self.normalize_currency(sp.get('currency_profit'))
+        margin_currency = self.normalize_currency(sp.get('currency_margin', base_currency))
+        open_price = float(order['open_price'])
+        volume = float(order['volume'])
+        contract_size = float(sp['trade_contract_size'])
+        leverage = float(self.context.account['leverage'])
+
+        if margin_currency == base_currency:
+            margin = volume * contract_size / leverage
+        elif margin_currency == profit_currency:
+            margin = open_price * volume * contract_size / leverage
+        else:
+            base_margin = volume * contract_size / leverage
+            margin = self.convert_currency(base_margin, base_currency, margin_currency,
+                                           at_time=self.current_time(), purpose='margin')
+
+        return self.convert_currency(margin, margin_currency, self.get_account_currency(),
+                                     at_time=self.current_time(), purpose='margin')
+
+    def prepare_currency_conversion_data(self):
+        if not self.is_currency_conversion_enabled():
+            return
+
+        account_currency = self.get_account_currency()
+        symbols = [self.context.symbol]
+        for symbol in symbols:
+            sp = self.get_symbol_properties(symbol)
+            for currency in (sp.get('currency_profit'), sp.get('currency_margin')):
+                from_currency = self.normalize_currency(currency)
+                if from_currency and from_currency != account_currency:
+                    self.resolve_conversion_path(from_currency, account_currency, load=True)
+
+    def resolve_conversion_path(self, from_currency, to_currency, load=False):
+        from_currency = self.normalize_currency(from_currency)
+        to_currency = self.normalize_currency(to_currency)
+        key = (from_currency, to_currency)
+        if key in self.currency_conversion_paths:
+            return self.currency_conversion_paths[key]
+        if from_currency == to_currency:
+            self.currency_conversion_paths[key] = []
+            return []
+
+        direct_path = self.resolve_direct_or_inverse(from_currency, to_currency, load=load)
+        if direct_path is not None:
+            self.currency_conversion_paths[key] = direct_path
+            return direct_path
+
+        path_policy = self.get_conversion_setting("path_policy", "direct_then_usd")
+        if path_policy == "direct_then_usd" and from_currency != "USD" and to_currency != "USD":
+            first_leg = self.resolve_direct_or_inverse(from_currency, "USD", load=load)
+            second_leg = self.resolve_direct_or_inverse("USD", to_currency, load=load)
+            if first_leg is not None and second_leg is not None:
+                path = first_leg + second_leg
+                self.currency_conversion_paths[key] = path
+                return path
+
+        raise Exception(f"Missing currency conversion path: {from_currency}->{to_currency}")
+
+    def resolve_direct_or_inverse(self, from_currency, to_currency, load=False):
+        direct = f"{from_currency}{to_currency}"
+        inverse = f"{to_currency}{from_currency}"
+        direct_leg = self.prepare_conversion_leg(direct, from_currency, to_currency, inverse=False, load=load)
+        if direct_leg is not None:
+            return [direct_leg]
+        inverse_leg = self.prepare_conversion_leg(inverse, from_currency, to_currency, inverse=True, load=load)
+        if inverse_leg is not None:
+            return [inverse_leg]
+        return None
+
+    def prepare_conversion_leg(self, symbol, from_currency, to_currency, inverse=False, load=False):
+        if not self.is_conversion_symbol_candidate(symbol):
+            return None
+        if not load:
+            return dict(symbol=symbol, from_currency=from_currency, to_currency=to_currency, inverse=inverse)
+        if self.get_conversion_setting("fallback_enabled", False) and self.has_conversion_fallback(symbol):
+            return dict(symbol=symbol, from_currency=from_currency, to_currency=to_currency, inverse=inverse)
+        try:
+            self.ensure_conversion_symbol_data(symbol)
+            return dict(symbol=symbol, from_currency=from_currency, to_currency=to_currency, inverse=inverse)
+        except Exception:
+            return None
+
+    def is_conversion_symbol_candidate(self, symbol):
+        if symbol == self.context.symbol:
+            return True
+        if symbol in self.currency_conversions:
+            return True
+        if self.context.default_symbol_properties and symbol in self.context.default_symbol_properties:
+            return True
+        if symbol in self.context.symbol_data:
+            return True
+        return bool(self.get_conversion_setting("auto_download", False))
+
+    def has_conversion_fallback(self, symbol):
+        config = self.currency_conversions.get(symbol, {})
+        return isinstance(config, dict) and isinstance(config.get("fallback"), dict)
+
+    def ensure_conversion_symbol_data(self, symbol):
+        if symbol in self.currency_conversion_symbol_data:
+            return self.currency_conversion_symbol_data[symbol]
+        if symbol == self.context.symbol and self.context.tick_info is not None:
+            data = self.context.tick_info
+        else:
+            config = self.currency_conversions.get(symbol, {})
+            source_symbol = config.get("symbol", symbol) if isinstance(config, dict) else symbol
+            data = self.get_data_info(source_symbol, self.context.tick_timeframe,
+                                      start_time=self.context.start_time, end_time=self.context.end_time)
+        if data is None or len(data) == 0:
+            raise Exception(f"Missing conversion symbol data: {symbol}")
+        self.currency_conversion_symbol_data[symbol] = data
+        return data
+
+    def get_conversion_tick(self, symbol, at_time):
+        data = self.ensure_conversion_symbol_data(symbol)
+        times = data['t']
+        idx = np.searchsorted(times, at_time, side='right') - 1
+        if idx < 0:
+            raise Exception(f"Missing conversion tick before {at_time}: {symbol}")
+        return data[idx]
+
+    def get_fallback_conversion_rate(self, symbol, inverse=False):
+        fallback = self.currency_conversions.get(symbol, {}).get("fallback", None)
+        if not isinstance(fallback, dict):
+            return None
+        bid = float(fallback.get("bid", fallback.get("mid", 0)) or 0)
+        ask = float(fallback.get("ask", fallback.get("mid", bid)) or bid)
+        if bid <= 0 or ask <= 0:
+            return None
+        return (1.0 / ask) if inverse else bid
+
+    def get_conversion_leg_rate(self, leg, at_time, purpose='profit'):
+        symbol = leg['symbol']
+        inverse = bool(leg.get('inverse', False))
+        try:
+            tick = self.get_conversion_tick(symbol, at_time)
+            bid = float(tick['b'])
+            ask = float(tick['a'])
+            close = float(tick['c'])
+            if bid <= 0:
+                bid = close
+            if ask <= 0:
+                has_symbol_properties = self.context.default_symbol_properties and symbol in self.context.default_symbol_properties
+                point = self.get_symbol_properties(symbol).get('point', 0) if has_symbol_properties else 0
+                spread = self.get_symbol_properties(symbol).get('spread', 0) if has_symbol_properties else 0
+                ask = bid + (float(point) * float(spread))
+                if ask <= 0:
+                    ask = bid
+            if ask <= 0 or bid <= 0:
+                raise Exception(f"Invalid conversion tick price: {symbol}")
+            return (1.0 / ask) if inverse else bid
+        except Exception:
+            fallback_rate = self.get_fallback_conversion_rate(symbol, inverse=inverse)
+            if fallback_rate is not None and self.get_conversion_setting("fallback_enabled", False):
+                return fallback_rate
+            raise
+
+    def get_conversion_rate(self, from_currency, to_currency, at_time=None, purpose='profit'):
+        from_currency = self.normalize_currency(from_currency)
+        to_currency = self.normalize_currency(to_currency)
+        if from_currency == to_currency:
+            return 1.0
+        if at_time is None:
+            at_time = self.current_time()
+        path = self.currency_conversion_paths.get((from_currency, to_currency))
+        if path is None:
+            path = self.resolve_conversion_path(from_currency, to_currency, load=False)
+        rate = 1.0
+        for leg in path:
+            rate *= self.get_conversion_leg_rate(leg, at_time, purpose=purpose)
+        return rate
+
+    def convert_currency(self, amount, from_currency, to_currency, at_time=None, purpose='profit'):
+        return float(amount) * self.get_conversion_rate(from_currency, to_currency, at_time=at_time, purpose=purpose)
+
     def import_module(self, name, target):
         # get a handle on the module
         mdl = importlib.import_module(name)
@@ -1962,6 +2329,7 @@ class EATester(EABase):
 
             expiration = 900  # 900s
             self.on_load_ticks()
+            self.prepare_currency_conversion_data()
 
             count = self.context.tick_info.size
             self.context.tick_current_index = self.context.tick_start_index
@@ -2074,6 +2442,7 @@ class EATester(EABase):
             #
             expiration = 900  # 900s
             self.on_load_ticks()
+            self.prepare_currency_conversion_data()
             #
             count = self.context.tick_info.size
             #

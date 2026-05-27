@@ -74,6 +74,8 @@ class PXTester(EATester):
         symbol_properties = test_config['symbols']
         #
         tick_data = test_params['tick_data']
+        self.tick_source = tick_data
+        self.symbol_tick_data = {}
         if isinstance(tick_data, str):
             tick_data = self.config_path_to_abs_path(test_config_path, tick_data)
             try:
@@ -91,6 +93,7 @@ class PXTester(EATester):
         self.new_a = np.array(data,
                          dtype=[('s', object), ('t', float), ('o', float), ('h', float), ('c', float),
                                 ('l', float), ('v', float), ('a', float), ('b', float), ])
+        self.symbol_tick_data[symbol] = self.new_a
         #
         self.eat_params = test_params
         self.eat_params['symbol_properties'] = symbol_properties
@@ -269,6 +272,19 @@ class PXTester(EATester):
             raise NotImplementedError
         else:
             return channel(symbol, tick_source)
+
+    def load_symbol_tick_data(self, symbol):
+        data = self.symbol_tick_data.get(symbol, None)
+        if data is not None:
+            return data
+        if not isinstance(self.tick_source, dict):
+            return None
+        data = self.get_tick_data_from_channel(symbol, self.tick_source)
+        data = np.array(data,
+                        dtype=[('s', object), ('t', float), ('o', float), ('h', float), ('c', float),
+                               ('l', float), ('v', float), ('a', float), ('b', float), ])
+        self.symbol_tick_data[symbol] = data
+        return data
 
     def init_data(self):
         super(PXTester, self).init_data()
@@ -469,11 +485,16 @@ class PXTester(EATester):
         if data is None:
             st = dateutil.parser.parse(self.start_time)
             et = dateutil.parser.parse(self.end_time)
-            # ary = self.new_a[(self.new_a['t'] >= st.timestamp()) & (self.new_a['t'] < et.timestamp())]
-            ary = self.new_a[(self.new_a['t'] >= st.replace(tzinfo=pytz.utc).timestamp()) & (self.new_a['t'] < et.replace(tzinfo=pytz.utc).timestamp())]
+            source_data = self.load_symbol_tick_data(symbol)
+            if source_data is None:
+                source_data = self.new_a
+            source_symbols = source_data['s'].astype(str)
+            symbol_data = source_data[source_symbols == symbol]
+            if symbol_data.size == 0:
+                symbol_data = source_data
+            ary = symbol_data[(symbol_data['t'] >= st.replace(tzinfo=pytz.utc).timestamp()) & (symbol_data['t'] < et.replace(tzinfo=pytz.utc).timestamp())]
             #
             data = self.pandas_to_tf_data(ary, timeframe)
             self.symbol_data[symbol][timeframe] = data
 
         return self.symbol_data[symbol][timeframe]
-

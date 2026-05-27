@@ -68,6 +68,8 @@ class EATesterContext:
             return_logs=[],
             balance_dead_line=params.get("balance_dead_line", 0.0),
             account=params.get("account", None),
+            currency_conversion_settings=params.get("currency_conversion_settings", None),
+            currency_conversions=params.get("currency_conversions", None),
             #
             log_file=None,
             tick_info = None
@@ -560,4 +562,3 @@ class EATesterContext:
     # @log_path.setter
     # def log_path(self, value):
     #     self.ctx['log_path'] = value
-

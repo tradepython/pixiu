@@ -1,4 +1,33 @@
 
+### [2026-05-27]
+#### Version:
+#####   Package:
+#####    pixiu: 0.178.*.20260527
+#####
+#### **Descriptions：**
+    1.ea_tester.py:
+        1) Add dynamic cross-currency conversion helpers for tester profit and margin calculation
+        2) Add direct_then_usd conversion path resolution
+        3) Prefer direct conversion symbols first, then fall back to USD bridge symbols
+        4) Add latest_before_or_at_tick conversion tick lookup
+        5) Add CalcProfit/CalcMargin/TickValue/PipValue tester implementations
+    2.pxtester.py:
+        1) Add per-symbol tick data cache for conversion symbols
+        2) Allow channel-backed tick data loading for inferred conversion symbols before backtest execution
+    3.api.py / tester_api_v1.py:
+        1) Add EA-facing CalcProfit and CalcMargin APIs with MT5-style aliases
+        2) Add EA-facing TickValue and PipValue APIs
+    4.test_pixiu.py:
+        1) Add regression tests for direct cross-currency profit conversion
+        2) Add regression tests for direct pair priority
+        3) Add regression tests for USD bridge conversion when direct pair is unavailable
+        4) Add script-level regression coverage for CalcProfit, CalcMargin, TickValue, and PipValue
+    5.README.md / README.zh.md:
+        1) Document cross-currency dynamic conversion configuration in the API/config guide
+        2) Document CalcProfit, CalcMargin, TickValue, and PipValue
+    6.CROSS_CURRENCY.md / CROSS_CURRENCY.zh.md:
+        1) Add cross-currency conversion development design and implementation notes
+
 ### [2026-05-14]
 #### Version:
 #####   Package:

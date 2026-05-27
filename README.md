@@ -260,6 +260,100 @@ Test with tradepython data test
 }
 ```
 
+Cross-currency conversion
+=======
+
+When the trading symbol profit or margin currency differs from the account currency, Pixiu can convert profit and margin into the account currency during testing.
+
+Enable dynamic conversion with `currency_conversion_settings`:
+
+```json
+{
+  "tests": {
+    "testEURGBP_USD": {
+      "symbol": "EURGBP",
+      "account": "default",
+      "currency": "USD",
+      "tick_data": {
+        "channel": "tradepython.com",
+        "api_token": "YOUR-API-TOKEN",
+        "source": {"type": "public", "name": "Demo1"},
+        "format": "json",
+        "period": 30,
+        "timeframe": "m1"
+      },
+      "currency_conversion_settings": {
+        "mode": "dynamic",
+        "auto_download": true,
+        "download_policy": "before_test",
+        "path_policy": "direct_then_usd",
+        "missing_rate": "download_then_error",
+        "time_alignment": "latest_before_or_at_tick",
+        "price_mode": "bid_ask",
+        "fallback_enabled": false
+      }
+    }
+  }
+}
+```
+
+Supported first-version behavior:
+
+    mode: dynamic
+      Use conversion symbol tick data.
+
+    auto_download: true
+      PXTester attempts to load missing conversion symbols from the same tick_data channel before the backtest loop starts.
+
+    download_policy: before_test
+      Conversion data is prepared before the test starts. Pixiu does not download data during the tick loop.
+
+    path_policy: direct_then_usd
+      Pixiu first tries the direct or inverse conversion pair. If it is unavailable and neither currency is USD, Pixiu uses a USD bridge.
+
+    time_alignment: latest_before_or_at_tick
+      Use the latest conversion tick whose time is less than or equal to the current test tick.
+
+Examples:
+
+    GBP -> JPY:
+      Prefer GBPJPY.
+      If GBPJPY is unavailable, use GBPUSD + USDJPY.
+
+    GBP -> USD:
+      Prefer GBPUSD.
+      If GBPUSD is unavailable, use USDGBP.
+
+You can explicitly configure conversion sources with `currency_conversions`:
+
+```json
+{
+  "currency_conversions": {
+    "GBPUSD": {
+      "source": "symbol",
+      "symbol": "GBPUSD",
+      "price": "bid_ask",
+      "fallback": {
+        "bid": 1.2500,
+        "ask": 1.2502
+      }
+    },
+    "USDJPY": {
+      "source": "symbol",
+      "symbol": "USDJPY",
+      "price": "bid_ask"
+    },
+    "GBPJPY": {
+      "source": "symbol",
+      "symbol": "GBPJPY",
+      "price": "bid_ask"
+    }
+  }
+}
+```
+
+For a full development note, see `CROSS_CURRENCY.md`.
+
 Script Samples
 =======
 1. Buy or sell a product
@@ -301,6 +395,59 @@ AccountFreeMargin(self)
 
            Returns:
                    The free margin.
+
+CalcProfit(order_type, symbol, volume, open_price, close_price) -> float
+   Calculates hypothetical order profit in the current account currency.
+
+           Parameters:
+                   order_type: Order direction. Supported values are OrderCommand.BUY and OrderCommand.SELL.
+                   symbol (str): Symbol name. If None returns current symbol.
+                   volume (float): Number of lots.
+                   open_price (float): Hypothetical open price.
+                   close_price (float): Hypothetical close price.
+
+           Returns:
+                   Profit in account currency. Positive means profit, negative means loss.
+
+OrderCalcProfit(order_type, symbol, volume, open_price, close_price) -> float
+   MT5-style alias of CalcProfit.
+
+CalcMargin(order_type, symbol, volume, price) -> float
+   Calculates hypothetical order margin in the current account currency.
+
+           Parameters:
+                   order_type: Order direction. Supported values are OrderCommand.BUY and OrderCommand.SELL.
+                   symbol (str): Symbol name. If None returns current symbol.
+                   volume (float): Number of lots.
+                   price (float): Hypothetical open price.
+
+           Returns:
+                   Margin in account currency.
+
+OrderCalcMargin(order_type, symbol, volume, price) -> float
+   MT5-style alias of CalcMargin.
+
+TickValue(symbol=None, order_type=OrderCommand.BUY, price=None) -> float
+   Returns the account-currency value of one tick for one lot.
+
+           Parameters:
+                   symbol (str): Symbol name. If None returns current symbol.
+                   order_type: Order direction used for the estimate.
+                   price (float): Reference price. If None, uses current market price.
+
+           Returns:
+                   One-tick value for one lot in account currency.
+
+PipValue(symbol=None, order_type=OrderCommand.BUY, price=None) -> float
+   Returns the account-currency value of one pip for one lot.
+
+           Parameters:
+                   symbol (str): Symbol name. If None returns current symbol.
+                   order_type: Order direction used for the estimate.
+                   price (float): Reference price. If None, uses current market price.
+
+           Returns:
+                   One-pip value for one lot in account currency.
 
 Ask(self, shift=0, symbol=None) -> float
    Returns Ask price value for the default symbol with default timeframe and shift.
