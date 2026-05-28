@@ -1,0 +1,245 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pixiu.dev/schemas/ops/replay-package.v1.json",
+  "title": "Pixiu Replay Package v1",
+  "type": "object",
+  "required": ["schema", "exported_at", "strategy", "period", "account", "symbols", "prices"],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "pixiu.replay.v1"
+    },
+    "exported_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "strategy": {
+      "type": "object",
+      "required": ["strategy_id"],
+      "properties": {
+        "strategy_id": {"type": "string"},
+        "name": {"type": "string"},
+        "provider": {"type": "string"},
+        "provider_ref": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "period": {
+      "type": "object",
+      "required": ["start_time", "end_time"],
+      "properties": {
+        "start_time": {"type": "string", "format": "date-time"},
+        "end_time": {"type": "string", "format": "date-time"},
+        "timeframe": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "account": {
+      "type": "object",
+      "properties": {
+        "balance": {"type": "number"},
+        "equity": {"type": "number"},
+        "margin": {"type": "number"},
+        "free_margin": {"type": "number"},
+        "margin_level": {"type": "number"},
+        "currency": {"type": "string"},
+        "leverage": {"type": "number"}
+      },
+      "additionalProperties": true
+    },
+    "account_series": {
+      "type": "array",
+      "default": [],
+      "description": "Account time series used for risk replay and margin diagnostics.",
+      "items": {
+        "type": "object",
+        "required": ["time"],
+        "properties": {
+          "time": {"type": "string", "format": "date-time"},
+          "balance": {"type": "number"},
+          "equity": {"type": "number"},
+          "margin": {"type": "number"},
+          "free_margin": {"type": "number"},
+          "margin_level": {"type": "number"},
+          "free_margin_level": {"type": "number"},
+          "profit": {"type": "number"},
+          "credit": {"type": "number"},
+          "currency": {"type": "string"},
+          "leverage": {"type": "number"}
+        },
+        "additionalProperties": true
+      }
+    },
+    "symbols": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["symbol"],
+        "properties": {
+          "symbol": {"type": "string"},
+          "digits": {"type": "integer"},
+          "point": {"type": "number"},
+          "spread": {"type": "number"},
+          "volume_min": {"type": "number"},
+          "volume_max": {"type": "number"},
+          "trade_contract_size": {"type": "number"},
+          "currency_profit": {"type": "string"},
+          "currency_base": {"type": "string"},
+          "currency_margin": {"type": "string"}
+        },
+        "additionalProperties": true
+      }
+    },
+    "prices": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["symbol", "time", "open", "high", "low", "close"],
+        "properties": {
+          "symbol": {"type": "string"},
+          "time": {"type": "string", "format": "date-time"},
+          "timeframe": {"type": "string"},
+          "open": {"type": "number"},
+          "high": {"type": "number"},
+          "low": {"type": "number"},
+          "close": {"type": "number"},
+          "volume": {"type": "number"},
+          "ask": {"type": "number"},
+          "bid": {"type": "number"}
+        },
+        "additionalProperties": true
+      }
+    },
+    "orders": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "object",
+        "required": ["order_id", "status", "symbol", "side", "volume"],
+        "properties": {
+          "order_id": {"type": "string"},
+          "ticket": {"type": ["string", "integer"]},
+          "status": {
+            "type": "string",
+            "enum": ["opened", "pending", "closed", "canceled", "unknown"]
+          },
+          "symbol": {"type": "string"},
+          "side": {
+            "type": "string",
+            "enum": ["buy", "sell", "buy_limit", "sell_limit", "buy_stop", "sell_stop", "unknown"]
+          },
+          "volume": {"type": "number"},
+          "open_price": {"type": "number"},
+          "close_price": {"type": "number"},
+          "stop_loss": {"type": "number"},
+          "take_profit": {"type": "number"},
+          "profit": {"type": "number"},
+          "commission": {"type": "number"},
+          "swap": {"type": "number"},
+          "open_time": {"type": "string"},
+          "close_time": {"type": "string"},
+          "tags": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "runtime_data": {
+      "type": "object",
+      "default": {},
+      "additionalProperties": true
+    },
+    "settings": {
+      "type": "object",
+      "default": {},
+      "additionalProperties": true
+    },
+    "logs": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "object",
+        "required": ["time", "message"],
+        "properties": {
+          "time": {"type": "string", "format": "date-time"},
+          "level": {"type": "string"},
+          "source": {"type": "string"},
+          "message": {"type": "string"},
+          "data": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "commands": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "object",
+        "properties": {
+          "command_id": {"type": "string"},
+          "time": {"type": "string", "format": "date-time"},
+          "action": {"type": "string"},
+          "args": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "result": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "risk_events": {
+      "type": "array",
+      "default": [],
+      "description": "Provider or replay detected risk events such as defense, lock, forced liquidation, or cooldown.",
+      "items": {
+        "type": "object",
+        "required": ["time", "type"],
+        "properties": {
+          "time": {"type": "string", "format": "date-time"},
+          "type": {
+            "type": "string",
+            "examples": [
+              "enter_defense",
+              "lock_position",
+              "force_liquidation",
+              "equity_drawdown",
+              "cooldown",
+              "open_blocked"
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["info", "warning", "critical"]
+          },
+          "symbol": {"type": "string"},
+          "order_ids": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "metric": {"type": "string"},
+          "value": {"type": ["number", "string", "boolean", "null"]},
+          "threshold": {"type": ["number", "string", "boolean", "null"]},
+          "message": {"type": "string"},
+          "data": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": false
+}

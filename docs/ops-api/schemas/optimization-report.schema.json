@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pixiu.dev/schemas/ops/optimization-report.v1.json",
+  "title": "Pixiu Optimization Report v1",
+  "type": "object",
+  "required": ["schema", "strategy_id", "created_at", "baseline", "cases", "ranking"],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "pixiu.optimization.report.v1"
+    },
+    "strategy_id": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "replay_package_id": {
+      "type": "string"
+    },
+    "objective": {
+      "type": "object",
+      "properties": {
+        "metric": {"type": "string"},
+        "direction": {
+          "type": "string",
+          "enum": ["maximize", "minimize"]
+        },
+        "description": {"type": "string"}
+      },
+      "additionalProperties": true
+    },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "max_drawdown": {"type": ["number", "string"]},
+        "max_orders": {"type": "integer"},
+        "max_order_size": {"type": "number"},
+        "min_free_margin": {"type": "number"},
+        "min_free_margin_level": {"type": ["number", "string"]},
+        "max_risk_events": {"type": "integer"}
+      }
+    },
+    "baseline": {
+      "$ref": "#/$defs/OptimizationCase"
+    },
+    "cases": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/OptimizationCase"
+      }
+    },
+    "ranking": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["case_id", "rank"],
+        "properties": {
+          "case_id": {"type": "string"},
+          "rank": {"type": "integer"},
+          "score": {"type": "number"},
+          "accepted": {"type": "boolean"},
+          "reason": {"type": "string"}
+        },
+        "additionalProperties": true
+      }
+    },
+    "recommended_case_id": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "OptimizationCase": {
+      "type": "object",
+      "required": ["case_id", "settings", "metrics"],
+      "properties": {
+        "case_id": {"type": "string"},
+        "name": {"type": "string"},
+        "settings": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "metrics": {
+          "type": "object",
+          "required": ["net_profit", "max_drawdown"],
+          "properties": {
+            "net_profit": {"type": "number"},
+            "gross_profit": {"type": "number"},
+            "gross_loss": {"type": "number"},
+            "max_drawdown": {"type": "number"},
+            "max_drawdown_pct": {"type": "number"},
+            "max_orders": {"type": "integer"},
+            "max_order_size": {"type": "number"},
+            "max_total_volume": {"type": "number"},
+            "min_equity": {"type": "number"},
+            "min_free_margin": {"type": "number"},
+            "min_margin_level": {"type": "number"},
+            "min_free_margin_level": {"type": "number"},
+            "risk_events_count": {"type": "integer"},
+            "orders_opened": {"type": "integer"},
+            "orders_closed": {"type": "integer"},
+            "win_rate": {"type": "number"},
+            "profit_factor": {"type": "number"}
+          },
+          "additionalProperties": true
+        },
+        "risk_events": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["time", "type"],
+            "properties": {
+              "time": {"type": "string", "format": "date-time"},
+              "type": {"type": "string"},
+              "severity": {
+                "type": "string",
+                "enum": ["info", "warning", "critical"]
+              },
+              "message": {"type": "string"},
+              "data": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "orders": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "logs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}
+

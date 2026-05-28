@@ -1,0 +1,77 @@
+{
+  "tests": {
+    "scenario_demo": {
+      "symbol": "USDCHF",
+      "account": "default",
+      "tick_data": "./usdchf_m1_20210315-0415.csv",
+      "scenario": {
+        "initial_state": {
+          "account_overrides": {
+            "balance": 8000,
+            "equity": 8000,
+            "free_margin": 8000
+          },
+          "orders": [
+            {
+              "kind": "market",
+              "side": "buy",
+              "volume": 0.2,
+              "open_price": 0.9234,
+              "stop_loss": 0.922,
+              "take_profit": 0.926,
+              "comment": "seed long",
+              "count_in_report": false
+            },
+            {
+              "kind": "pending",
+              "side": "sell_stop",
+              "volume": 0.1,
+              "open_price": 0.921,
+              "stop_loss": 0.9225,
+              "take_profit": 0.918
+            }
+          ]
+        },
+        "events": [
+          {
+            "id": "flash_crash",
+            "phase": "pre_tick",
+            "at": "2021-03-16T10:05:00Z",
+            "action": "mutate_tick",
+            "params": {
+              "low": 0.91,
+              "high": 0.924,
+              "close": 0.912,
+              "bid": 0.91195,
+              "ask": 0.9125
+            }
+          },
+          {
+            "id": "wide_spread",
+            "phase": "pre_tick",
+            "from": "2021-03-16T10:05:00Z",
+            "to": "2021-03-16T10:10:00Z",
+            "action": "override_spread",
+            "once": false,
+            "params": {
+              "spread_point": 80
+            }
+          },
+          {
+            "id": "manual_hedge",
+            "phase": "post_order_processing",
+            "at_tick": 50,
+            "action": "place_order",
+            "params": {
+              "kind": "market",
+              "side": "sell",
+              "volume": 0.1,
+              "comment": "scenario hedge",
+              "count_in_report": false
+            }
+          }
+        ]
+      }
+    }
+  }
+}

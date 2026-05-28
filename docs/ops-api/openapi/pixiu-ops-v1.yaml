@@ -1,0 +1,1048 @@
+openapi: 3.1.0
+info:
+  title: Pixiu Ops API
+  version: 1.0.0
+  summary: Remote strategy operations protocol for pixiu ops.
+  description: >
+    Pixiu Ops API lets pixiu inspect remote strategy instances, export replay
+    data, manage guard state, and submit settings proposals through a provider
+    controlled HTTP interface.
+servers:
+  - url: https://example.com
+    description: Provider endpoint
+security:
+  - bearerAuth: []
+tags:
+  - name: discovery
+  - name: auth
+  - name: strategies
+  - name: logs
+  - name: replay
+  - name: optimization
+  - name: commands
+  - name: risk
+  - name: guard
+  - name: settings
+paths:
+  /v1/capabilities:
+    get:
+      tags: [discovery]
+      summary: Return provider capabilities.
+      operationId: getCapabilities
+      security: []
+      responses:
+        "200":
+          description: Capabilities response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapabilitiesResponse"
+
+  /v1/auth/whoami:
+    get:
+      tags: [auth]
+      summary: Return the authenticated caller.
+      operationId: whoami
+      responses:
+        "200":
+          description: Authenticated caller.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WhoamiResponse"
+
+  /v1/strategies:
+    get:
+      tags: [strategies]
+      summary: List strategy instances visible to the caller.
+      operationId: listStrategies
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Strategy list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListStrategiesResponse"
+
+  /v1/strategies/{strategy_id}/snapshot:
+    get:
+      tags: [strategies]
+      summary: Return a point-in-time strategy snapshot.
+      operationId: getStrategySnapshot
+      parameters:
+        - $ref: "#/components/parameters/StrategyId"
+        - name: include
+          in: query
+          required: false
+          description: Comma separated optional sections.
+          schema:
+            type: string
+            examples: ["account,orders,prices,runtime_data,settings,status"]
+      responses:
+        "200":
+          description: Strategy snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StrategySnapshotResponse"
+
+  /v1/strategies/{strategy_id}/logs:
+    get:
+      tags: [logs]
+      summary: Return strategy logs.
+      operationId: getStrategyLogs
+      parameters:
+        - $ref: "#/components/parameters/StrategyId"
+        - $ref: "#/components/parameters/Since"
+        - $ref: "#/components/parameters/Until"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: level
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [debug, info, warning, error]
+      responses:
+        "200":
+          description: Log rows.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogsResponse"
+
+  /v1/strategies/{strategy_id}/commands:
+    get:
+      tags: [commands]
+      summary: List strategy commands and command results.
+      operationId: listStrategyCommands
+      parameters:
+        - $ref: "#/components/parameters/StrategyId"
+        - $ref: "#/components/parameters/Since"
+        - $ref: "#/components/parameters/Until"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, dispatched, executed, failed, blocked, expired, canceled, unknown]
+        - name: action
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Command list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommandsResponse"
+
+  /v1/strategies/{strategy_id}/commands/{command_id}:
+    get:
+      tags: [commands]
+      summary: Return one command with provider result details.
+      operationId: getStrategyCommand
+      parameters:
+        - $ref: "#/components/parameters/StrategyId"
+        - name: command_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Command detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommandResponse"
+
+  /v1/strategies/{strategy_id}/risk-rules:
+    get:
+      tags: [risk]
+      summary: Return configured platform and strategy risk rules.
+      operationId: getRiskRules
+      parameters:
+        - $ref: "#/components/parameters/StrategyId"
+      responses:
+        "200":
+          description: Risk rules.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RiskRulesResponse"
+
+  /v1/strategies/{strategy_id}/risk-evaluation:
+    post:
+      tags: [risk]
+      summary: Evaluate whether an action would be allowed now.
+      operationId: evaluateRisk
+      parameters:
+        - $ref: "#/components/parameters/StrategyId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RiskEvaluationRequest"
+      responses:
+        "200":
+          description: Risk evaluation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RiskEvaluationResponse"
+
+  /v1/strategies/{strategy_id}/replay/export:
+    post:
+      tags: [replay]
+      summary: Export a replay package.
+      operationId: exportReplay
+      parameters:
+        - $ref: "#/components/parameters/StrategyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplayExportRequest"
+      responses:
+        "200":
+          description: Replay package.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReplayExportResponse"
+
+  /v1/strategies/{strategy_id}/optimization/reports:
+    post:
+      tags: [optimization]
+      summary: Store or validate an optimization report generated by a client.
+      operationId: submitOptimizationReport
+      parameters:
+        - $ref: "#/components/parameters/StrategyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OptimizationReport"
+      responses:
+        "200":
+          description: Stored optimization report reference.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OptimizationReportSubmitResponse"
+
+  /v1/strategies/{strategy_id}/guard:
+    get:
+      tags: [guard]
+      summary: Return current guard state.
+      operationId: getGuard
+      parameters:
+        - $ref: "#/components/parameters/StrategyId"
+      responses:
+        "200":
+          description: Guard state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuardResponse"
+    post:
+      tags: [guard]
+      summary: Update guard state.
+      operationId: updateGuard
+      parameters:
+        - $ref: "#/components/parameters/StrategyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GuardUpdateRequest"
+      responses:
+        "200":
+          description: Updated guard state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuardResponse"
+
+  /v1/strategies/{strategy_id}/settings:
+    get:
+      tags: [settings]
+      summary: Return current strategy settings.
+      operationId: getSettings
+      parameters:
+        - $ref: "#/components/parameters/StrategyId"
+      responses:
+        "200":
+          description: Strategy settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettingsResponse"
+
+  /v1/strategies/{strategy_id}/settings/dry-run:
+    post:
+      tags: [settings]
+      summary: Validate a settings proposal without applying it.
+      operationId: dryRunSettings
+      parameters:
+        - $ref: "#/components/parameters/StrategyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettingsProposal"
+      responses:
+        "200":
+          description: Validation result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettingsDryRunResponse"
+
+  /v1/strategies/{strategy_id}/settings/apply:
+    post:
+      tags: [settings]
+      summary: Apply a settings proposal.
+      operationId: applySettings
+      parameters:
+        - $ref: "#/components/parameters/StrategyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/SettingsProposal"
+                - type: object
+                  required: [confirm]
+                  properties:
+                    confirm:
+                      type: boolean
+                      const: true
+      responses:
+        "200":
+          description: Apply result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettingsApplyResponse"
+
+  /v1/strategies/{strategy_id}/settings/rollback:
+    post:
+      tags: [settings]
+      summary: Roll back a prior settings change.
+      operationId: rollbackSettings
+      parameters:
+        - $ref: "#/components/parameters/StrategyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [change_id, reason]
+              properties:
+                change_id:
+                  type: string
+                reason:
+                  type: string
+                  minLength: 1
+      responses:
+        "200":
+          description: Rollback result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettingsApplyResponse"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    StrategyId:
+      name: strategy_id
+      in: path
+      required: true
+      schema:
+        type: string
+    Since:
+      name: since
+      in: query
+      required: false
+      schema:
+        type: string
+        description: ISO-8601 timestamp or provider-supported relative duration.
+        examples: ["2026-05-17T10:00:00Z", "2h"]
+    Until:
+      name: until
+      in: query
+      required: false
+      schema:
+        type: string
+        description: ISO-8601 timestamp.
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000
+        default: 100
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+  schemas:
+    ApiMeta:
+      type: object
+      required: [request_id, server_time]
+      properties:
+        request_id:
+          type: string
+        server_time:
+          type: string
+          format: date-time
+        provider:
+          type: string
+        protocol:
+          type: string
+          const: pixiu-ops
+        protocol_version:
+          type: string
+          const: "1.0"
+
+    ErrorResponse:
+      type: object
+      required: [error, meta]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            retryable:
+              type: boolean
+              default: false
+            details:
+              type: object
+              additionalProperties: true
+        meta:
+          $ref: "#/components/schemas/ApiMeta"
+
+    CapabilitiesResponse:
+      type: object
+      required: [protocol, version, features, auth, limits, meta]
+      properties:
+        protocol:
+          type: string
+          const: pixiu-ops
+        version:
+          type: string
+          const: "1.0"
+        provider:
+          type: object
+          additionalProperties: true
+        features:
+          type: array
+          items:
+            type: string
+          examples:
+            - [snapshot, logs, commands, risk_rules, risk_evaluation, replay_export, guard, settings_apply, settings_rollback]
+        auth:
+          type: object
+          required: [schemes]
+          properties:
+            schemes:
+              type: array
+              items:
+                type: string
+              examples: [["bearer"]]
+            scopes:
+              type: array
+              items:
+                type: string
+        limits:
+          type: object
+          additionalProperties: true
+        meta:
+          $ref: "#/components/schemas/ApiMeta"
+
+    WhoamiResponse:
+      type: object
+      required: [subject, scopes, meta]
+      properties:
+        subject:
+          type: object
+          required: [id]
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+            provider_subject:
+              type: object
+              additionalProperties: true
+        scopes:
+          type: array
+          items:
+            type: string
+        meta:
+          $ref: "#/components/schemas/ApiMeta"
+
+    StrategyRef:
+      type: object
+      required: [strategy_id, name, status]
+      properties:
+        strategy_id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+          enum: [running, paused, stopped, error, unknown]
+        symbols:
+          type: array
+          items:
+            type: string
+        tags:
+          type: object
+          additionalProperties: true
+        provider_ref:
+          type: object
+          description: Optional opaque provider references for display only.
+          additionalProperties: true
+
+    ListStrategiesResponse:
+      type: object
+      required: [items, meta]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/StrategyRef"
+        next_cursor:
+          type: string
+        meta:
+          $ref: "#/components/schemas/ApiMeta"
+
+    AccountSnapshot:
+      type: object
+      additionalProperties: true
+      properties:
+        balance:
+          type: number
+        equity:
+          type: number
+        margin:
+          type: number
+        free_margin:
+          type: number
+        margin_level:
+          type: number
+        currency:
+          type: string
+        leverage:
+          type: number
+
+    SymbolSnapshot:
+      type: object
+      required: [symbol]
+      additionalProperties: true
+      properties:
+        symbol:
+          type: string
+        digits:
+          type: integer
+        point:
+          type: number
+        spread:
+          type: number
+        volume_min:
+          type: number
+        volume_max:
+          type: number
+        trade_contract_size:
+          type: number
+
+    PriceSnapshot:
+      type: object
+      required: [symbol, time]
+      additionalProperties: true
+      properties:
+        symbol:
+          type: string
+        time:
+          type: string
+          format: date-time
+        bid:
+          type: number
+        ask:
+          type: number
+        open:
+          type: number
+        high:
+          type: number
+        low:
+          type: number
+        close:
+          type: number
+        volume:
+          type: number
+
+    OrderSnapshot:
+      type: object
+      required: [order_id, status, symbol, side, volume]
+      additionalProperties: true
+      properties:
+        order_id:
+          type: string
+        ticket:
+          type: string
+        status:
+          type: string
+          enum: [opened, pending, closed, canceled, unknown]
+        symbol:
+          type: string
+        side:
+          type: string
+          enum: [buy, sell, buy_limit, sell_limit, buy_stop, sell_stop, unknown]
+        volume:
+          type: number
+        open_price:
+          type: number
+        close_price:
+          type: number
+        stop_loss:
+          type: number
+        take_profit:
+          type: number
+        profit:
+          type: number
+        commission:
+          type: number
+        swap:
+          type: number
+        open_time:
+          type: string
+        close_time:
+          type: string
+        tags:
+          type: object
+          additionalProperties: true
+
+    StrategySnapshotResponse:
+      type: object
+      required: [strategy, snapshot_time, meta]
+      properties:
+        strategy:
+          $ref: "#/components/schemas/StrategyRef"
+        snapshot_time:
+          type: string
+          format: date-time
+        account:
+          $ref: "#/components/schemas/AccountSnapshot"
+        symbol:
+          $ref: "#/components/schemas/SymbolSnapshot"
+        prices:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/PriceSnapshot"
+        orders:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderSnapshot"
+        runtime_data:
+          type: object
+          additionalProperties: true
+        settings:
+          type: object
+          additionalProperties: true
+        status:
+          type: object
+          additionalProperties: true
+        guard:
+          $ref: "#/components/schemas/GuardState"
+        meta:
+          $ref: "#/components/schemas/ApiMeta"
+
+    LogItem:
+      type: object
+      required: [time, message]
+      additionalProperties: true
+      properties:
+        time:
+          type: string
+          format: date-time
+        level:
+          type: string
+          enum: [debug, info, warning, error, unknown]
+        source:
+          type: string
+        message:
+          type: string
+        data:
+          type: object
+          additionalProperties: true
+
+    LogsResponse:
+      type: object
+      required: [items, meta]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LogItem"
+        next_cursor:
+          type: string
+        meta:
+          $ref: "#/components/schemas/ApiMeta"
+
+    CommandItem:
+      type: object
+      required: [command_id, action, status]
+      properties:
+        command_id:
+          type: string
+        time:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        action:
+          type: string
+          examples: [open_order, modify_order, close_order, close_many]
+        source:
+          type: string
+          examples: [strategy, user, provider, guard]
+        status:
+          type: string
+          enum: [pending, dispatched, executed, failed, blocked, expired, canceled, unknown]
+        symbol:
+          type: string
+        order_id:
+          type: string
+        args:
+          type: object
+          additionalProperties: true
+        result:
+          type: object
+          additionalProperties: true
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            executor:
+              type: string
+            error_id:
+              type: integer
+        blocked_by:
+          type: array
+          items:
+            $ref: "#/components/schemas/RiskDecision"
+        provider_ref:
+          type: object
+          additionalProperties: true
+
+    CommandsResponse:
+      type: object
+      required: [items, meta]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CommandItem"
+        next_cursor:
+          type: string
+        meta:
+          $ref: "#/components/schemas/ApiMeta"
+
+    CommandResponse:
+      type: object
+      required: [command, meta]
+      properties:
+        command:
+          $ref: "#/components/schemas/CommandItem"
+        meta:
+          $ref: "#/components/schemas/ApiMeta"
+
+    RiskRule:
+      type: object
+      required: [rule_id, scope, enabled, status]
+      properties:
+        rule_id:
+          type: string
+        name:
+          type: string
+        scope:
+          type: string
+          enum: [provider, account, strategy, symbol, guard, settings, unknown]
+        enabled:
+          type: boolean
+        status:
+          type: string
+          enum: [pass, warn, block, inactive, unknown]
+        action:
+          type: string
+          examples: [open_order, modify_order, close_order, all]
+        value:
+          description: Configured rule value.
+        current:
+          description: Current observed value.
+        threshold:
+          description: Normalized threshold value.
+        message:
+          type: string
+        provider_ref:
+          type: object
+          additionalProperties: true
+
+    RiskRulesResponse:
+      type: object
+      required: [rules, meta]
+      properties:
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/RiskRule"
+        meta:
+          $ref: "#/components/schemas/ApiMeta"
+
+    RiskEvaluationRequest:
+      type: object
+      properties:
+        action:
+          type: string
+          default: open_order
+          examples: [open_order, modify_order, close_order]
+        args:
+          type: object
+          additionalProperties: true
+
+    RiskDecision:
+      type: object
+      required: [rule_id, reason]
+      properties:
+        rule_id:
+          type: string
+        scope:
+          type: string
+        reason:
+          type: string
+        severity:
+          type: string
+          enum: [info, warning, critical]
+        action:
+          type: string
+        value:
+          description: Current observed value.
+        threshold:
+          description: Rule threshold.
+        provider_ref:
+          type: object
+          additionalProperties: true
+
+    RiskEvaluationResponse:
+      type: object
+      required: [action, allowed, meta]
+      properties:
+        action:
+          type: string
+        allowed:
+          type: boolean
+        blocked_by:
+          type: array
+          items:
+            $ref: "#/components/schemas/RiskDecision"
+        warnings:
+          type: array
+          items:
+            $ref: "#/components/schemas/RiskDecision"
+        evaluated_at:
+          type: string
+          format: date-time
+        meta:
+          $ref: "#/components/schemas/ApiMeta"
+
+    ReplayExportRequest:
+      type: object
+      required: [start_time, end_time]
+      properties:
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        include_logs:
+          type: boolean
+          default: true
+        include_runtime_data:
+          type: boolean
+          default: true
+        include_command_history:
+          type: boolean
+          default: true
+        max_price_rows:
+          type: integer
+          minimum: 1
+          maximum: 1000000
+
+    ReplayPackage:
+      $ref: "../schemas/replay-package.schema.json"
+
+    OptimizationReport:
+      $ref: "../schemas/optimization-report.schema.json"
+
+    ReplayExportResponse:
+      type: object
+      required: [package, meta]
+      properties:
+        package:
+          $ref: "#/components/schemas/ReplayPackage"
+        meta:
+          $ref: "#/components/schemas/ApiMeta"
+
+    OptimizationReportSubmitResponse:
+      type: object
+      required: [report_id, accepted, meta]
+      properties:
+        report_id:
+          type: string
+        accepted:
+          type: boolean
+        warnings:
+          type: array
+          items:
+            type: string
+        meta:
+          $ref: "#/components/schemas/ApiMeta"
+
+    GuardState:
+      type: object
+      required: [mode, updated_at]
+      properties:
+        mode:
+          type: string
+          enum: [normal, pause_open, observe]
+        reason:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+        updated_by:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        provider_state:
+          type: object
+          additionalProperties: true
+
+    GuardResponse:
+      type: object
+      required: [guard, meta]
+      properties:
+        guard:
+          $ref: "#/components/schemas/GuardState"
+        meta:
+          $ref: "#/components/schemas/ApiMeta"
+
+    GuardUpdateRequest:
+      type: object
+      required: [mode, reason]
+      properties:
+        mode:
+          type: string
+          enum: [normal, pause_open, observe]
+        reason:
+          type: string
+          minLength: 1
+        expires_at:
+          type: string
+          format: date-time
+
+    SettingsResponse:
+      type: object
+      required: [settings, meta]
+      properties:
+        settings:
+          type: object
+          additionalProperties: true
+        editable_fields:
+          type: array
+          items:
+            type: string
+        version:
+          type: string
+        checksum:
+          type: string
+        meta:
+          $ref: "#/components/schemas/ApiMeta"
+
+    SettingsProposal:
+      $ref: "../schemas/settings-proposal.schema.json"
+
+    SettingsDryRunResponse:
+      type: object
+      required: [valid, diff, meta]
+      properties:
+        valid:
+          type: boolean
+        diff:
+          type: array
+          items:
+            type: object
+            required: [path, old_value, new_value]
+            properties:
+              path:
+                type: string
+              old_value: true
+              new_value: true
+        warnings:
+          type: array
+          items:
+            type: string
+        errors:
+          type: array
+          items:
+            type: string
+        meta:
+          $ref: "#/components/schemas/ApiMeta"
+
+    SettingsApplyResponse:
+      type: object
+      required: [change_id, settings, meta]
+      properties:
+        change_id:
+          type: string
+        settings:
+          type: object
+          additionalProperties: true
+        rollback_supported:
+          type: boolean
+          default: true
+        meta:
+          $ref: "#/components/schemas/ApiMeta"
