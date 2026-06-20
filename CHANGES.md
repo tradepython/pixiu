@@ -1,4 +1,28 @@
 
+### [2026-06-20]
+#### Version:
+#####   Package:
+#####    pixiu: 0.179.*.20260620
+#####
+#### **Descriptions：**
+    1.pxtester.py:
+        1) Fix chart replay frame timestamps to use the raw feed epoch from current_time()
+        2) Avoid converting Time() naive UTC datetimes with timestamp(), which shifts graph frames in local time zones such as Asia/Shanghai
+        3) Keep generated chart_replay in test_graph_data for downstream browser/report validation
+    2.chart protocol / chart viewer:
+        1) Verify the time-fixed report file /private/tmp/pixiu_gf109_chart_protocol_timefix_20260620.html
+        2) Confirm order markers and graph frames now use the same UTC time base
+        3) Confirm #36 CLOSE at 2026-05-11 18:25:00 UTC matches the same-minute frame range
+        4) Confirm #37 OPEN at 2026-05-11 20:20:00 UTC is within spread tolerance against the same-minute frame
+        5) Record remaining small price mismatches as bid/ask or stop-loss execution display semantics, not graph timestamp drift
+    3.test_pixiu.py:
+        1) Add regression coverage that PXTester graph ticks preserve the raw epoch timestamp
+        2) Verify full test suite passes after the timestamp fix
+    4.Validation:
+        1) Same-minute order/frame match with spread tolerance: 214 / 218
+        2) Old minus-8-hour matching behavior after the fix: 1 / 218
+        3) Runtime JavaScript syntax check for the generated chart HTML passes
+
 ### [2026-05-27]
 #### Version:
 #####   Package:

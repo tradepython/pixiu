@@ -2,6 +2,7 @@ import argparse
 from multiprocessing import (Pool, Process, Manager, Queue, Value)
 from pixiu.tester.ea_tester_graph import EATesterGraphServer
 from pixiu.pxtester import PXTester
+from pixiu.tester.chart_viewer import write_chart_replay_html
 from pixiu.builder import EABuilder
 from pixiu.optimizer import EAOptimizer
 from tabulate import tabulate
@@ -99,6 +100,27 @@ class MainApp:
         if not tag:
             return
         self.save_data(data, ext=f".{tag}.gd")
+
+    def save_chart_reports(self, output_path, graph_data):
+        if not output_path or not graph_data:
+            return []
+        saved = []
+        is_single_file = output_path.lower().endswith(".html") and len(graph_data) == 1
+        for test_name, item in graph_data.items():
+            replay = item.get("chart_replay") if isinstance(item, dict) else None
+            if replay is None:
+                continue
+            if is_single_file:
+                report_path = output_path
+            else:
+                safe_name = "".join(c if c.isalnum() or c in ("-", "_", ".") else "_" for c in test_name)
+                report_path = os.path.join(output_path, f"{self.tag}-{safe_name}.html")
+            saved.append(write_chart_replay_html(replay, report_path, title=f"{test_name} Chart Replay"))
+        if saved:
+            print("Chart report:")
+            for path in saved:
+                print(f"  {path}")
+        return saved
 
     def set_tag(self, tag):
         if tag is None:
@@ -280,6 +302,7 @@ class MainApp:
         tag_data = dict(result=ri, utc_time=datetime.utcnow().isoformat())
         self.save_tag_data(self.tag, tag_data)
         self.save_tag_graph_data(self.tag, graph_data)
+        self.save_chart_reports(args.chartreport, graph_data)
         #
         self.__convert_report(reports, ri)
         compare_reports = []
@@ -338,6 +361,7 @@ class MainApp:
         tag_data = dict(result=ri, utc_time=datetime.utcnow().isoformat())
         self.save_tag_data(self.tag, tag_data)
         self.save_tag_graph_data(self.tag, graph_data)
+        self.save_chart_reports(args.chartreport, graph_data)
         self.__convert_report(reports, ri)
         compare_reports = []
         self.get_compare_reports(args, compare_reports)
@@ -423,6 +447,8 @@ def main(*args, **kwargs):
     parser_test.add_argument('-l', '--datafile', type=str, default='_pixiu_data.json', help='Data file name')
     parser_test.add_argument('-r', '--compare', nargs='+', help='Compare with the tags list')
     parser_test.add_argument('-g', '--graph', type=MainApp.str2bool, default=False, help='Display tester graph')
+    parser_test.add_argument('--chart-report', dest='chartreport', type=str, required=False,
+                             help='Write browser chart report HTML. Use a file path for one test or a directory for multiple tests.')
     parser_test.add_argument('-x', '--exec', type=str, required=False, help='Exec command')
     #
     parser_build = subparsers.add_parser('build', help='Build EA')
@@ -475,4 +501,3 @@ def main(*args, **kwargs):
 
 if __name__ == '__main__':
     main()
-

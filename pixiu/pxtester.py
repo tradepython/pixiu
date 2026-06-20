@@ -331,7 +331,9 @@ class PXTester(EATester):
     def on_end_tick(self, *args, **kwargs):
         try:
             self.__update_execuate_log__(self.ticket, count=20, force=False)
-            tick = dict(t=self.Time().timestamp(), o=self.Open(), c=self.Close(),
+            # Keep chart replay on the raw feed epoch; Time() returns a naive UTC datetime.
+            tick_time = float(self.current_time())
+            tick = dict(t=tick_time, o=self.Open(), c=self.Close(),
                                                                     h=self.High(), l=self.Low(), v=self.Volume(),
                                                                     equity=self.context.account['equity'],
                                                                     balance=self.context.account['balance'],
@@ -376,7 +378,10 @@ class PXTester(EATester):
             self.test_result.value = json.dumps(dict(report=self.context.report))
         if self.test_graph_data is not None:
             # self.test_graph_data.value = json5.dumps(dict(graph_data=self.graph_data), quote_keys=True)
-            self.test_graph_data.value = json.dumps(dict(graph_data=self.graph_data))
+            self.test_graph_data.value = json.dumps(dict(
+                graph_data=self.graph_data,
+                chart_replay=self.build_chart_replay(graph_data=self.graph_data),
+            ))
 
         return 0
     #

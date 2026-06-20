@@ -7,11 +7,13 @@ import argparse
 import pytz
 from datetime import datetime, timedelta
 import sys
+import tempfile
+from types import SimpleNamespace
 from unittest import (TestCase, TestLoader, TestSuite, TextTestRunner, skip, skipIf)
 
 from pixiu.api import utc_from_timestamp, OrderCommand
 from pixiu.api.v1 import (TimeFrame, SymbolData, DataScope)
-from pixiu.tester import (EATester, )
+from pixiu.tester import (EATester, LegacyChartAdapter, render_chart_replay_html)
 from pixiu.optimizer import (EAOptimizer, )
 import numpy as np
 import time
@@ -615,6 +617,319 @@ class PiXiuTests(TestCase):
         self.assertEqual(grid_atr_ratio['config']['optimization']['step'], 0.1)
         self.assertEqual(grid_atr_ratio['config']['desc']['en'], 'Grid ATR ratio')
         self.assertFalse(script_settings['params']['mode_switch']['config'].get('optimizable', False))
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_legacy_chart_adapter_builds_chart_protocol_replay(self):
+        adapter = LegacyChartAdapter(
+            script_settings={
+                "charts": {
+                    "price": {
+                        "series": [
+                            {"name": "top_signal", "color": "#89F3DAFF"},
+                            {"name": "bottom_signal", "color": "#e7dc48"},
+                        ]
+                    }
+                }
+            },
+            charts_data=[
+                {
+                    "cn": "price",
+                    "time": "2021-03-15 00:00:00",
+                    "data": {
+                        "top_signal": 0.9321,
+                        "bottom_signal": {"value": 0.9310},
+                    },
+                }
+            ],
+            graph_data={
+                "symbol": self.symbol,
+                "ticks": [
+                    {
+                        "t": 1615766400,
+                        "o": 0.9300,
+                        "h": 0.9330,
+                        "l": 0.9290,
+                        "c": 0.9320,
+                        "v": 10,
+                        "equity": 10010,
+                        "balance": 10000,
+                        "margin": 100,
+                        "orders": [
+                            {
+                                "uid": "1",
+                                "ticket": "1",
+                                "type": "BUY",
+                                "volume": 0.1,
+                                "price": 0.9320,
+                                "comment": "open",
+                            }
+                        ],
+                    }
+                ],
+            },
+            print_logs=["hello chart"],
+            report={"balance": {"value": 10000}},
+            symbols=self.symbol_properties,
+            default_symbol=self.symbol,
+            timeframe=TimeFrame.M1,
+            account=self.account,
+        )
+
+        replay = adapter.build()
+
+        self.assertEqual(replay["version"], "pixiu-chart-v1")
+        self.assertEqual(replay["mode"], "replay")
+        self.assertEqual(replay["panes"][0]["id"], "price")
+        self.assertEqual(replay["frames"][0]["symbol"], self.symbol)
+        self.assertEqual(replay["frames"][0]["timeframe"], TimeFrame.M1)
+        self.assertEqual(replay["account"][0]["equity"], 10010)
+        self.assertEqual(replay["orders"][0]["event"], "OPEN")
+        self.assertEqual(replay["orders"][0]["side"], "BUY")
+        self.assertEqual(replay["logs"][0]["message"], "hello chart")
+        self.assertEqual(replay["reports"]["summary"]["balance"], 10000)
+        self.assertEqual(replay["symbols"][self.symbol]["base_currency"], "USD")
+        self.assertEqual(replay["symbols"][self.symbol]["profit_currency"], "CHF")
+
+        series = {item["id"]: item for item in replay["series"]}
+        self.assertEqual(series["price.top_signal"]["color"], "#89F3DAFF")
+        self.assertEqual(series["price.top_signal"]["data"][0]["value"], 0.9321)
+        self.assertEqual(series["price.bottom_signal"]["data"][0]["value"], 0.9310)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_build_chart_replay_uses_legacy_chart_settings(self):
+        params = dict(self.eat_params)
+        params['global_values'] = dict(self.eat_params['global_values'])
+        params['script_path'] = None
+        params['script'] = "\n".join([
+            "AddChart(name='price', chart={'series': [{'name': 'top_signal', 'color': '#89F3DAFF'}]})",
+            "def PX_InitScriptSettings():",
+            "    return {'charts': {}, 'params': {}}",
+            "def PX_ValidScriptSettings(script_settings=None):",
+            "    return {'success': True, 'errmsg': ''}",
+        ])
+        eatt = EATTester(self, params)
+        eatt.context.charts_data.append({
+            "cn": "price",
+            "time": 1615766400,
+            "data": {"top_signal": 0.9321},
+        })
+
+        replay = eatt.build_chart_replay(graph_data={
+            "symbol": self.symbol,
+            "ticks": [
+                {
+                    "t": 1615766400,
+                    "o": 0.9300,
+                    "h": 0.9330,
+                    "l": 0.9290,
+                    "c": 0.9320,
+                    "v": 10,
+                    "equity": 10010,
+                    "balance": 10000,
+                    "margin": 100,
+                    "orders": [],
+                }
+            ],
+        })
+
+        self.assertEqual(replay["version"], "pixiu-chart-v1")
+        self.assertEqual(replay["panes"][0]["id"], "price")
+        self.assertEqual(replay["frames"][0]["close"], 0.9320)
+        self.assertEqual(replay["series"][0]["name"], "top_signal")
+        self.assertEqual(replay["series"][0]["data"][0]["value"], 0.9321)
+        self.assertIsNotNone(replay["metadata"]["pixiu_version"])
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_px_tester_graph_tick_time_uses_raw_epoch(self):
+        from pixiu.pxtester import PXTester
+
+        class GraphTimestampPXTester(PXTester):
+            def __init__(self, symbol, tick_data, account):
+                self.context = SimpleNamespace(
+                    ticket="timestamp-test",
+                    symbol=symbol,
+                    tick_info=tick_data,
+                    tick_current_index=0,
+                    account=account,
+                )
+                self.graph_data = {"ticks": [], "name": "timestamp-test", "symbol": symbol, "group": "test"}
+                self.tick_order_logs = []
+                self.tester_graph_server = None
+
+            def __update_execuate_log__(self, *args, **kwargs):
+                return None
+
+        tick_ts = 1615766400.0
+        tester = GraphTimestampPXTester(
+            self.symbol,
+            self.make_tick_data(self.symbol, [{"close": 0.9320, "ask": 0.9321, "bid": 0.9319}], start_ts=tick_ts),
+            self.account,
+        )
+
+        tester.on_end_tick()
+
+        self.assertEqual(tester.graph_data["ticks"][0]["t"], tick_ts)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_chart_replay_browser_report_html(self):
+        replay = LegacyChartAdapter(
+            script_settings={"charts": {"price": {"series": [{"name": "top_signal", "color": "#89F3DAFF"}]}}},
+            charts_data=[{"cn": "price", "time": 1615766400, "data": {"top_signal": 0.9321}}],
+            graph_data={
+                "symbol": self.symbol,
+                "ticks": [
+                    {
+                        "t": 1615766400,
+                        "o": 0.9300,
+                        "h": 0.9330,
+                        "l": 0.9290,
+                        "c": 0.9320,
+                        "v": 10,
+                        "equity": 10010,
+                        "balance": 10000,
+                        "margin": 100,
+                        "orders": [],
+                    }
+                ],
+            },
+            symbols=self.symbol_properties,
+            default_symbol=self.symbol,
+            timeframe=TimeFrame.M1,
+            account=self.account,
+        ).build()
+
+        html_report = render_chart_replay_html(replay, title="Sample Chart")
+
+        self.assertIn("<title>Sample Chart</title>", html_report)
+        self.assertIn('id="pixiu-chart-data"', html_report)
+        self.assertIn('"version":"pixiu-chart-v1"', html_report)
+        self.assertIn("renderPriceChart", html_report)
+        self.assertIn('id="zoom-in"', html_report)
+        self.assertIn('id="zoom-out"', html_report)
+        self.assertIn('id="window-range"', html_report)
+        self.assertIn('id="orders-scope"', html_report)
+        self.assertIn('class="card orders-card"', html_report)
+        self.assertIn('id="orders-page-size"', html_report)
+        self.assertIn('value="50"', html_report)
+        self.assertIn('id="orders-prev"', html_report)
+        self.assertIn('id="orders-next"', html_report)
+        self.assertIn('id="show-account"', html_report)
+        self.assertIn('checked> Account', html_report)
+        self.assertIn('id="timeframe-select"', html_report)
+        self.assertIn('tabindex="0" aria-label="Chart area"', html_report)
+        self.assertIn('value="tick" selected>tick', html_report)
+        self.assertIn('let activeTimeframe = "tick"', html_report)
+        self.assertIn('value="h1">1hour', html_report)
+        self.assertIn('value="d1">1day', html_report)
+        self.assertIn("function aggregateFramesForTimeframe", html_report)
+        self.assertIn("function normalizeFrames", html_report)
+        self.assertIn("function frameValue", html_report)
+        self.assertIn("Math.floor(ts / 60) * 60", html_report)
+        self.assertIn("Math.floor(ts / 3600) * 3600", html_report)
+        self.assertIn("Math.floor(ts / 86400) * 86400", html_report)
+        self.assertIn("function makeXIndexScale", html_report)
+        self.assertIn("function panBars", html_report)
+        self.assertIn("function clampNumber", html_report)
+        self.assertIn("function frameIndexForTime", html_report)
+        self.assertIn("function xAxisLabels", html_report)
+        self.assertIn("function latestPointByVisibleFrame", html_report)
+        self.assertIn("function orderPriceValues", html_report)
+        self.assertIn("function orderLabelText", html_report)
+        self.assertIn("function orderKey", html_report)
+        self.assertIn("function orderTooltipHtml", html_report)
+        self.assertIn("function locateOrder", html_report)
+        self.assertIn("function bindOrdersInteraction", html_report)
+        self.assertIn("function updateOrderTooltipFromEvent", html_report)
+        self.assertIn("function renderOrderMarker", html_report)
+        self.assertIn('id="order-tooltip"', html_report)
+        self.assertIn('class="order-tooltip"', html_report)
+        self.assertIn('class="order-marker${focusedClass}"', html_report)
+        self.assertIn('class="label-bg"', html_report)
+        self.assertIn('data-order-key', html_report)
+        self.assertIn('role="button" tabindex="0"', html_report)
+        self.assertIn("scrollIntoView", html_report)
+        self.assertIn("showOrderTooltip", html_report)
+        self.assertIn("hideOrderTooltip", html_report)
+        self.assertIn("concat(orderPriceValues(visibleOrderItems))", html_report)
+        self.assertIn("const markerY = clampNumber", html_report)
+        self.assertIn("order.ticket || order.uid", html_report)
+        self.assertIn("window.__pixiuChartDebug", html_report)
+        self.assertIn('id="price-crosshair"', html_report)
+        self.assertIn('id="account-crosshair"', html_report)
+        self.assertIn('id="price-crosshair-value"', html_report)
+        self.assertIn('id="account-crosshair-time"', html_report)
+        self.assertIn("updateChartCrosshairs", html_report)
+        self.assertIn("renderChartCrosshairs", html_report)
+        self.assertIn('data-pane="price"', html_report)
+        self.assertIn('data-pane="account"', html_report)
+        self.assertIn("const maxRenderBars = 1800", html_report)
+        self.assertIn("function scheduleRender()", html_report)
+        self.assertIn("function displayFrames", html_report)
+        self.assertIn("function axisLabels", html_report)
+        self.assertIn("function renderReport()", html_report)
+        self.assertIn("function renderLogs()", html_report)
+        self.assertIn('class="report-overview"', html_report)
+        self.assertIn('class="metric-grid"', html_report)
+        self.assertIn('All report metrics', html_report)
+        self.assertIn('All logs', html_report)
+        self.assertIn("toLocaleString()", html_report)
+        self.assertIn('value="all">All orders', html_report)
+        self.assertIn("visibleOrders()", html_report)
+        self.assertIn('addEventListener("wheel"', html_report)
+        self.assertIn('addEventListener("mousedown"', html_report)
+        self.assertIn('addEventListener("mousemove"', html_report)
+        self.assertIn('addEventListener("keydown"', html_report)
+        self.assertIn('event.key === "ArrowLeft"', html_report)
+        self.assertIn('event.key === "ArrowUp"', html_report)
+        self.assertIn("pagedOrders()", html_report)
+        self.assertNotIn('class="card account-card"', html_report)
+        self.assertNotIn("orders.slice(-12)", html_report)
+        self.assertNotIn("<polygon points=", html_report)
+        self.assertNotIn("Object.entries(reports).slice(0, 14)", html_report)
+        self.assertNotIn("(replay.logs || []).slice(-30)", html_report)
+        self.assertIn("Math.min(...priceValues)", html_report)
+        self.assertIn("Math.max(...priceValues)", html_report)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_save_chart_report_html(self):
+        params = dict(self.eat_params)
+        params['global_values'] = dict(self.eat_params['global_values'])
+        params['script_path'] = None
+        params['script'] = "\n".join([
+            "AddChart(name='price', chart={'series': [{'name': 'top_signal', 'color': '#89F3DAFF'}]})",
+            "def PX_InitScriptSettings():",
+            "    return {'charts': {}, 'params': {}}",
+            "def PX_ValidScriptSettings(script_settings=None):",
+            "    return {'success': True, 'errmsg': ''}",
+        ])
+        eatt = EATTester(self, params)
+        eatt.context.charts_data.append({"cn": "price", "time": 1615766400, "data": {"top_signal": 0.9321}})
+        graph_data = {
+            "symbol": self.symbol,
+            "ticks": [
+                {
+                    "t": 1615766400,
+                    "o": 0.9300,
+                    "h": 0.9330,
+                    "l": 0.9290,
+                    "c": 0.9320,
+                    "v": 10,
+                    "equity": 10010,
+                    "balance": 10000,
+                    "margin": 100,
+                    "orders": [],
+                }
+            ],
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_path = os.path.join(tmp_dir, "chart.html")
+            saved_path = eatt.save_chart_report_html(output_path, graph_data=graph_data, title="Saved Chart")
+            self.assertEqual(saved_path, output_path)
+            with open(output_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            self.assertIn("<title>Saved Chart</title>", content)
+            self.assertIn('"frames":[', content)
 
     @skipIf(debug_some_tests, "debug some tests")
     def test_ea_tester_account_ea_scope(self):

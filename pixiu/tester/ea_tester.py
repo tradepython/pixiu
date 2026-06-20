@@ -20,6 +20,8 @@ from pixiu.api.v1 import (DataScope, )
 import traceback
 import logging
 from .scenario import ScenarioEngine, resolve_order_command
+from .chart_protocol import LegacyChartAdapter
+from .chart_viewer import render_chart_replay_html, write_chart_replay_html
 from pixiu import __version__ as pixiu_version
 log = logging.getLogger(__name__)
 
@@ -603,8 +605,53 @@ class EATester(EABase):
         self.context.order_logs.append(log_dict)
 
     def plot(self, chart_name, series):
-        self.context.charts_data.append(dict(cn=chart_name, data=series))
+        try:
+            plot_time = self.current_time()
+        except:
+            plot_time = None
+        self.context.charts_data.append(dict(cn=chart_name, data=series, time=plot_time))
         # self.charts_data.append(dict(cn="default", data=series))
+
+    def build_chart_replay(self, graph_data=None, metadata=None):
+        script_settings = self.context.script_settings
+        if not isinstance(script_settings, dict):
+            script_settings = {}
+        replay_metadata = {
+            "mode": "tester",
+            "pixiu_version": pixiu_version,
+            "script_name": self.context.script_metadata.get("name", None),
+            "script_version": self.context.script_metadata.get("version", None),
+        }
+        if metadata:
+            replay_metadata.update(metadata)
+        symbols = {}
+        if isinstance(self.context.ctx.get("default_symbol_properties", None), dict):
+            symbols.update(self.context.ctx.get("default_symbol_properties", {}))
+        if isinstance(self.context.ctx.get("symbol_properties", None), dict):
+            symbols.update(self.context.ctx.get("symbol_properties", {}))
+        adapter = LegacyChartAdapter(
+            script_settings=script_settings,
+            charts_data=self.context.ctx.get("charts_data", []),
+            graph_data=graph_data,
+            order_logs=self.context.ctx.get("order_logs", []),
+            account_logs=self.context.ctx.get("account_logs", []),
+            print_logs=self.context.ctx.get("print_logs", []),
+            report=self.context.ctx.get("report", {}),
+            metadata=replay_metadata,
+            symbols=symbols,
+            default_symbol=self.context.symbol,
+            timeframe=self.context.tick_timeframe,
+            account=self.context.account,
+        )
+        return adapter.build()
+
+    def build_chart_report_html(self, graph_data=None, metadata=None, title=None):
+        replay = self.build_chart_replay(graph_data=graph_data, metadata=metadata)
+        return render_chart_replay_html(replay, title=title)
+
+    def save_chart_report_html(self, output_path, graph_data=None, metadata=None, title=None):
+        replay = self.build_chart_replay(graph_data=graph_data, metadata=metadata)
+        return write_chart_replay_html(replay, output_path, title=title)
 
     def add_account_log(self, log_dict):
         """Add account log"""
