@@ -643,6 +643,6 @@
 
 ## 相关文件
 
-- 示例配置：[samples/scenario_sample.json](/Users/digiyouth/local_files/codes/oeoehui_pixiu/samples/scenario_sample.json)
-- 核心实现：[pixiu/tester/scenario.py](/Users/digiyouth/local_files/codes/oeoehui_pixiu/pixiu/tester/scenario.py)
-- 英文版文档：[SCENARIO.md](/Users/digiyouth/local_files/codes/oeoehui_pixiu/SCENARIO.md)
+- 示例配置：[samples/scenario_sample.json](samples/scenario_sample.json)
+- 核心实现：[pixiu/tester/scenario.py](pixiu/tester/scenario.py)
+- 英文版文档：[SCENARIO.md](SCENARIO.md)

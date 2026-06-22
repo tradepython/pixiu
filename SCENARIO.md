@@ -643,5 +643,5 @@ You can also override a parameter using the full parameter payload:
 
 ## Files
 
-- Example config: [samples/scenario_sample.json](/Users/digiyouth/local_files/codes/oeoehui_pixiu/samples/scenario_sample.json)
-- Core implementation: [pixiu/tester/scenario.py](/Users/digiyouth/local_files/codes/oeoehui_pixiu/pixiu/tester/scenario.py)
+- Example config: [samples/scenario_sample.json](samples/scenario_sample.json)
+- Core implementation: [pixiu/tester/scenario.py](pixiu/tester/scenario.py)

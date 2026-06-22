@@ -15,7 +15,7 @@
         7) Serialize live graph messages as strict JSON and convert NaN/Infinity report values to null
         8) Attach sanitized test configuration and final EA script settings metadata to the first live chart update
     2.chart protocol / chart viewer:
-        1) Verify the time-fixed report file /private/tmp/pixiu_gf109_chart_protocol_timefix_20260620.html
+        1) Verify the time-fixed chart protocol report fixture pixiu_gf109_chart_protocol_timefix_20260620.html
         2) Confirm order markers and graph frames now use the same UTC time base
         3) Confirm #36 CLOSE at 2026-05-11 18:25:00 UTC matches the same-minute frame range
         4) Confirm #37 OPEN at 2026-05-11 20:20:00 UTC is within spread tolerance against the same-minute frame

@@ -889,7 +889,7 @@ class PiXiuTests(TestCase):
                         "tick_source": {
                             "channel": "tradepython.com",
                             "api_token": "super-secret-token",
-                            "file_path": "/Users/digiyouth/private/ticks.csv",
+                            "file_path": "/home/example/private/ticks.csv",
                         },
                     },
                     "script_settings": {
@@ -920,7 +920,7 @@ class PiXiuTests(TestCase):
         self.assertIn("<file: ticks.csv>", metadata_json)
         self.assertNotIn("super-secret-token", metadata_json)
         self.assertNotIn("secret-password", metadata_json)
-        self.assertNotIn("/Users/digiyouth/private", metadata_json)
+        self.assertNotIn("/home/example/private", metadata_json)
 
     @skipIf(debug_some_tests, "debug some tests")
     def test_chart_live_state_converts_update_report_to_protocol_snapshot(self):
@@ -1025,7 +1025,7 @@ class PiXiuTests(TestCase):
                     "tick_source": {
                         "channel": "tradepython.com",
                         "api_token": "super-secret-token",
-                        "file_path": "/Users/digiyouth/private/ticks.csv",
+                        "file_path": "/home/example/private/ticks.csv",
                     },
                     "account": {
                         "currency": "USD",
@@ -1134,7 +1134,7 @@ class PiXiuTests(TestCase):
         self.assertNotIn("script-secret-token", html_report)
         self.assertNotIn("secret-password", html_report)
         self.assertNotIn("secret-server", html_report)
-        self.assertNotIn("/Users/digiyouth/private", html_report)
+        self.assertNotIn("/home/example/private", html_report)
         self.assertIn("const metricLabel", html_report)
         self.assertIn('replace(/_/g, " ")', html_report)
         self.assertIn('"sortino_ratio":1.25', html_report)
