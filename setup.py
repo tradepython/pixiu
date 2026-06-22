@@ -30,6 +30,7 @@ tests_require = [
     'pytest-cov',
 ]
 
+
 setup(
     name='pixiu',
     version='0.179.0',
