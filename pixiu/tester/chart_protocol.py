@@ -5,6 +5,47 @@ import dateutil.parser
 
 
 CHART_PROTOCOL_VERSION = "pixiu-chart-v1"
+REDACTED_VALUE = "[REDACTED]"
+SENSITIVE_KEYWORDS = (
+    "password",
+    "passwd",
+    "secret",
+    "token",
+    "api_token",
+    "access_token",
+    "refresh_token",
+    "private_key",
+    "authorization",
+    "auth",
+    "credential",
+    "cookie",
+    "session",
+    "server",
+    "broker",
+)
+PATH_KEYWORDS = ("path", "file")
+
+
+def sanitize_chart_config(value, key=None):
+    """Return a display-safe copy of config values for browser chart reports."""
+    key_text = str(key or "").lower()
+    if key_text and any(keyword in key_text for keyword in SENSITIVE_KEYWORDS):
+        return REDACTED_VALUE
+    if isinstance(value, dict):
+        return {item_key: sanitize_chart_config(item_value, item_key) for item_key, item_value in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [sanitize_chart_config(item) for item in value]
+    if isinstance(value, str):
+        if key_text and any(keyword in key_text for keyword in PATH_KEYWORDS):
+            return _safe_path_label(value)
+        if value.startswith(("/", "~")) or ":\\" in value:
+            return _safe_path_label(value)
+    return value
+
+
+def _safe_path_label(value):
+    name = str(value).replace("\\", "/").rstrip("/").split("/")[-1]
+    return "<file: %s>" % (name or "hidden")
 
 
 class LegacyChartAdapter(object):
@@ -56,8 +97,9 @@ class LegacyChartAdapter(object):
         }
 
     def _build_metadata(self, frames, account):
-        metadata = copy.deepcopy(self.metadata)
+        metadata = sanitize_chart_config(copy.deepcopy(self.metadata))
         metadata.setdefault("mode", "tester")
+        metadata.setdefault("script_settings", sanitize_chart_config(self.script_settings))
         if self.account:
             metadata.setdefault("account", {})
             metadata["account"].setdefault("currency", self.account.get("currency"))
@@ -296,12 +338,19 @@ class LegacyChartAdapter(object):
 
     def _build_reports(self):
         summary = {}
+        items = {}
         for key, item in self.report.items():
             if isinstance(item, dict) and "value" in item:
                 summary[key] = self._to_json_value(item.get("value"))
+                items[key] = {
+                    name: self._to_json_value(item.get(name))
+                    for name in ("desc", "type", "precision")
+                    if name in item
+                }
             else:
                 summary[key] = self._to_json_value(item)
-        return {"summary": summary}
+                items[key] = {}
+        return {"summary": summary, "items": items}
 
     def _apply_charts_data(self, series, frames):
         fallback_time = frames[-1]["time"] if frames else None

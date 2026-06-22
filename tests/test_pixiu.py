@@ -4,6 +4,7 @@
 
 import os
 import argparse
+import json
 import pytz
 from datetime import datetime, timedelta
 import sys
@@ -13,7 +14,7 @@ from unittest import (TestCase, TestLoader, TestSuite, TextTestRunner, skip, ski
 
 from pixiu.api import utc_from_timestamp, OrderCommand
 from pixiu.api.v1 import (TimeFrame, SymbolData, DataScope)
-from pixiu.tester import (EATester, LegacyChartAdapter, render_chart_replay_html)
+from pixiu.tester import (EATester, LegacyChartAdapter, render_chart_replay_html, render_chart_live_html)
 from pixiu.optimizer import (EAOptimizer, )
 import numpy as np
 import time
@@ -738,23 +739,44 @@ class PiXiuTests(TestCase):
         self.assertEqual(replay["series"][0]["name"], "top_signal")
         self.assertEqual(replay["series"][0]["data"][0]["value"], 0.9321)
         self.assertIsNotNone(replay["metadata"]["pixiu_version"])
+        self.assertIn("script_settings", replay["metadata"])
+        self.assertIn("charts", replay["metadata"]["script_settings"])
 
     @skipIf(debug_some_tests, "debug some tests")
     def test_px_tester_graph_tick_time_uses_raw_epoch(self):
         from pixiu.pxtester import PXTester
 
+        class GraphMessageCollector(object):
+            def __init__(self):
+                self.messages = []
+
+            def send_message(self, message):
+                self.messages.append(json5.loads(message))
+
         class GraphTimestampPXTester(PXTester):
             def __init__(self, symbol, tick_data, account):
+                self.test_name = "timestamp-test"
                 self.context = SimpleNamespace(
                     ticket="timestamp-test",
                     symbol=symbol,
                     tick_info=tick_data,
                     tick_current_index=0,
                     account=account,
+                    script_metadata={"name": "Timestamp EA", "version": "1.0"},
+                    script_settings={"params": {"grid_pips": {"value": 8}}},
+                    ctx={"chart_metadata": {"test_config": {"test_name": "timestamp-test"}}},
+                    report={
+                        "balance": {"value": account["balance"], "desc": "Balance"},
+                    },
                 )
                 self.graph_data = {"ticks": [], "name": "timestamp-test", "symbol": symbol, "group": "test"}
                 self.tick_order_logs = []
                 self.tester_graph_server = None
+                self.live_report_interval_seconds = 999
+                self.live_report_interval_ticks = 2
+                self.live_report_last_time = 0
+                self.live_report_last_tick_index = None
+                self.live_metadata_sent = False
 
             def __update_execuate_log__(self, *args, **kwargs):
                 return None
@@ -762,7 +784,11 @@ class PiXiuTests(TestCase):
         tick_ts = 1615766400.0
         tester = GraphTimestampPXTester(
             self.symbol,
-            self.make_tick_data(self.symbol, [{"close": 0.9320, "ask": 0.9321, "bid": 0.9319}], start_ts=tick_ts),
+            self.make_tick_data(self.symbol, [
+                {"close": 0.9320, "ask": 0.9321, "bid": 0.9319},
+                {"close": 0.9330, "ask": 0.9331, "bid": 0.9329},
+                {"close": 0.9340, "ask": 0.9341, "bid": 0.9339},
+            ], start_ts=tick_ts),
             self.account,
         )
 
@@ -770,10 +796,203 @@ class PiXiuTests(TestCase):
 
         self.assertEqual(tester.graph_data["ticks"][0]["t"], tick_ts)
 
+        graph_server = GraphMessageCollector()
+        tester.tester_graph_server = graph_server
+        tester.on_end_tick()
+        tester.context.tick_current_index = 1
+        tester.on_end_tick()
+        update_messages = [item for item in graph_server.messages if item.get("cmd") == "update_data"]
+        self.assertEqual(update_messages[0]["data"]["metadata"]["test_config"]["test_name"], "timestamp-test")
+        self.assertEqual(update_messages[0]["data"]["metadata"]["script_settings"]["params"]["grid_pips"]["value"], 8)
+        self.assertNotIn("metadata", update_messages[1]["data"])
+        self.assertEqual(update_messages[0]["data"]["report"]["live_balance"]["value"], self.balance)
+        self.assertNotIn("report", update_messages[1]["data"])
+
+        tester.context.tick_current_index = 2
+        tester.on_end_tick()
+        update_messages = [item for item in graph_server.messages if item.get("cmd") == "update_data"]
+        self.assertEqual(update_messages[2]["data"]["report"]["live_tick"]["value"], 3)
+
+        tester.__send_graph_report__(force=True)
+        report_messages = [item for item in graph_server.messages if item.get("cmd") == "update_report"]
+        self.assertEqual(len(report_messages), 1)
+        self.assertEqual(report_messages[0]["data"]["report"]["balance"]["value"], self.balance)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_chart_live_html_uses_chart_protocol_events(self):
+        replay = {
+            "version": "pixiu-chart-v1",
+            "mode": "live",
+            "metadata": {"mode": "tester_live"},
+            "symbols": {self.symbol: {"symbol": self.symbol}},
+            "panes": [{"id": "price", "title": "Live Price", "type": "price"}],
+            "frames": [],
+            "orders": [],
+            "account": [],
+            "logs": [],
+            "reports": {"summary": {}},
+        }
+
+        html_report = render_chart_live_html(
+            replay,
+            title="Live Chart",
+            event_url="/events",
+            snapshot_url="/snapshot",
+        )
+
+        self.assertIn("<title>Live Chart</title>", html_report)
+        self.assertIn("new EventSource", html_report)
+        self.assertIn('"/events"', html_report)
+        self.assertIn("function applyLiveDelta", html_report)
+        self.assertIn("function applyLiveSnapshot", html_report)
+        self.assertIn("replaceArray(rawFrames", html_report)
+        self.assertIn("appendLiveItems(orders", html_report)
+        self.assertIn("Object.assign(reportItems", html_report)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_chart_live_state_converts_update_data_to_protocol_snapshot(self):
+        from pixiu.tester.ea_tester_graph import PixiuChartLiveState
+
+        state = PixiuChartLiveState()
+        update = {
+            "cmd": "update_data",
+            "name": "test-live",
+            "symbol": self.symbol,
+            "group": "live-group",
+            "data": {
+                "price": {
+                    "t": 1615766400,
+                    "o": 0.9300,
+                    "h": 0.9330,
+                    "l": 0.9290,
+                    "c": 0.9320,
+                    "v": 10,
+                    "equity": 10010,
+                    "balance": 10000,
+                    "margin": 100,
+                    "orders": [
+                        {
+                            "uid": "1",
+                            "type": "BUY",
+                            "volume": 0.1,
+                            "price": 0.9320,
+                        }
+                    ],
+                },
+                "report": {
+                    "live_balance": {"value": 10000, "type": "value"},
+                    "live_equity": {"value": 10010, "type": "value"},
+                },
+                "metadata": {
+                    "test_config": {
+                        "test_name": "live-group",
+                        "tick_source": {
+                            "channel": "tradepython.com",
+                            "api_token": "super-secret-token",
+                            "file_path": "/Users/digiyouth/private/ticks.csv",
+                        },
+                    },
+                    "script_settings": {
+                        "params": {
+                            "grid_pips": {"value": 8},
+                            "password": {"value": "secret-password"},
+                        },
+                    },
+                },
+            },
+        }
+
+        delta = state.append_update_data(update)
+        snapshot = state.snapshot()
+
+        self.assertEqual(delta["type"], "append")
+        self.assertEqual(snapshot["mode"], "live")
+        self.assertEqual(snapshot["frames"][0]["time"], 1615766400)
+        self.assertEqual(snapshot["frames"][0]["close"], 0.9320)
+        self.assertEqual(snapshot["account"][0]["equity"], 10010)
+        self.assertEqual(snapshot["reports"]["summary"]["live_equity"], 10010)
+        self.assertEqual(snapshot["orders"][0]["event"], "OPEN")
+        self.assertEqual(snapshot["orders"][0]["side"], "BUY")
+        self.assertEqual(snapshot["metadata"]["test_name"], "live-group")
+        self.assertEqual(snapshot["metadata"]["script_settings"]["params"]["grid_pips"]["value"], 8)
+        metadata_json = json.dumps(snapshot["metadata"], ensure_ascii=False)
+        self.assertIn("[REDACTED]", metadata_json)
+        self.assertIn("<file: ticks.csv>", metadata_json)
+        self.assertNotIn("super-secret-token", metadata_json)
+        self.assertNotIn("secret-password", metadata_json)
+        self.assertNotIn("/Users/digiyouth/private", metadata_json)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_chart_live_state_converts_update_report_to_protocol_snapshot(self):
+        from pixiu.tester.ea_tester_graph import PixiuChartLiveState, _json_dumps
+
+        state = PixiuChartLiveState()
+        delta = state.append_message({
+            "cmd": "update_report",
+            "name": "test-live",
+            "symbol": self.symbol,
+            "group": "live-group",
+            "data": {
+                "time": 1615766460,
+                "message": "-- Result --",
+                "report": {
+                    "balance": {"value": 10020.5, "type": "value"},
+                    "win_rate": {"value": 0.75, "type": "%"},
+                },
+            },
+        })
+        snapshot = state.snapshot()
+
+        self.assertEqual(delta["type"], "report")
+        self.assertEqual(snapshot["reports"]["summary"]["balance"], 10020.5)
+        self.assertEqual(snapshot["reports"]["summary"]["win_rate"], 0.75)
+        self.assertEqual(snapshot["reports"]["items"]["balance"]["type"], "value")
+        self.assertEqual(snapshot["reports"]["items"]["win_rate"]["type"], "%")
+        self.assertNotIn("text", snapshot["reports"])
+        self.assertEqual(snapshot["logs"][0]["source"], "report")
+        self.assertEqual(snapshot["metadata"]["test_name"], "live-group")
+
+        nan_delta = state.append_message({
+            "cmd": "update_report",
+            "name": "test-live",
+            "symbol": self.symbol,
+            "group": "live-group",
+            "data": {
+                "time": 1615766520,
+                "report": {
+                    "trade_max_loss": {"value": float("nan"), "type": "value"},
+                    "bad_ratio": {"value": float("inf"), "type": "value"},
+                },
+            },
+        })
+        event_json = _json_dumps(nan_delta)
+        self.assertNotIn("NaN", event_json)
+        self.assertNotIn("Infinity", event_json)
+        self.assertIsNone(state.snapshot()["reports"]["summary"]["trade_max_loss"])
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_main_app_parse_graph_url(self):
+        from pixiu.main import MainApp
+
+        graph_config = MainApp.parse_graph_url("http://127.0.0.1:8051")
+
+        self.assertEqual(graph_config["url"], "http://127.0.0.1:8051/")
+        self.assertEqual(graph_config["host"], "127.0.0.1")
+        self.assertEqual(graph_config["port"], 8051)
+        self.assertEqual(MainApp.parse_graph_url("127.0.0.1:8052")["url"], "http://127.0.0.1:8052/")
+        self.assertEqual(MainApp.parse_graph_url("true")["url"], "http://127.0.0.1:8050/")
+        self.assertIsNone(MainApp.parse_graph_url("false"))
+
     @skipIf(debug_some_tests, "debug some tests")
     def test_chart_replay_browser_report_html(self):
         replay = LegacyChartAdapter(
-            script_settings={"charts": {"price": {"series": [{"name": "top_signal", "color": "#89F3DAFF"}]}}},
+            script_settings={
+                "charts": {"price": {"series": [{"name": "top_signal", "color": "#89F3DAFF"}]}},
+                "params": {
+                    "grid_pips": {"value": 8},
+                    "api_token": {"value": "script-secret-token"},
+                },
+            },
             charts_data=[{"cn": "price", "time": 1615766400, "data": {"top_signal": 0.9321}}],
             graph_data={
                 "symbol": self.symbol,
@@ -796,6 +1015,33 @@ class PiXiuTests(TestCase):
             default_symbol=self.symbol,
             timeframe=TimeFrame.M1,
             account=self.account,
+            metadata={
+                "test_config": {
+                    "test_name": "test-settings",
+                    "symbol": self.symbol,
+                    "timeframe": TimeFrame.M1,
+                    "start_time": "2026-01-02 08:31:00",
+                    "end_time": "2026-02-02 18:06:00",
+                    "tick_source": {
+                        "channel": "tradepython.com",
+                        "api_token": "super-secret-token",
+                        "file_path": "/Users/digiyouth/private/ticks.csv",
+                    },
+                    "account": {
+                        "currency": "USD",
+                        "balance": 10000,
+                        "leverage": 100,
+                        "server": "secret-server",
+                        "password": "secret-password",
+                    },
+                }
+            },
+            report={
+                "balance": {"value": 10000.123, "desc": "Balance", "type": "value", "precision": 2},
+                "win_rate": {"value": 0.75, "desc": "Win Rate", "type": "%", "precision": 2},
+                "sortino_ratio": {"value": 1.25, "desc": "Sortino Ratio", "type": "value", "precision": 2},
+                "max_drawdown": {"value": -123.45, "desc": "Max Drawdown", "type": "value", "precision": 2},
+            },
         ).build()
 
         html_report = render_chart_replay_html(replay, title="Sample Chart")
@@ -809,6 +1055,11 @@ class PiXiuTests(TestCase):
         self.assertIn('id="window-range"', html_report)
         self.assertIn('id="orders-scope"', html_report)
         self.assertIn('class="card orders-card"', html_report)
+        self.assertIn('id="orders-panel"', html_report)
+        self.assertIn('<summary>Orders</summary>', html_report)
+        self.assertIn('class="report-details" open', html_report)
+        self.assertNotIn('id="orders-toggle"', html_report)
+        self.assertNotIn("view.ordersCollapsed", html_report)
         self.assertIn('id="orders-page-size"', html_report)
         self.assertIn('value="50"', html_report)
         self.assertIn('id="orders-prev"', html_report)
@@ -868,6 +1119,41 @@ class PiXiuTests(TestCase):
         self.assertIn("function axisLabels", html_report)
         self.assertIn("function renderReport()", html_report)
         self.assertIn("function renderLogs()", html_report)
+        self.assertIn("function renderSettings()", html_report)
+        self.assertIn("function hydrateSettingsJson", html_report)
+        self.assertIn("function bindSettingsJsonDetails", html_report)
+        self.assertIn("requestIdleCallback", html_report)
+        self.assertIn("Expand to load formatted settings JSON.", html_report)
+        self.assertIn('class="card settings-card"', html_report)
+        self.assertIn("Test Config", html_report)
+        self.assertIn("EA Script Settings", html_report)
+        self.assertIn("[REDACTED]", html_report)
+        self.assertIn("<file: ticks.csv>", html_report)
+        self.assertIn('"grid_pips"', html_report)
+        self.assertNotIn("super-secret-token", html_report)
+        self.assertNotIn("script-secret-token", html_report)
+        self.assertNotIn("secret-password", html_report)
+        self.assertNotIn("secret-server", html_report)
+        self.assertNotIn("/Users/digiyouth/private", html_report)
+        self.assertIn("const metricLabel", html_report)
+        self.assertIn('replace(/_/g, " ")', html_report)
+        self.assertIn('"sortino_ratio":1.25', html_report)
+        self.assertIn('"items":{"balance":{"desc":"Balance","type":"value","precision":2}', html_report)
+        self.assertIn("const reportItems", html_report)
+        self.assertIn("const terminalRound", html_report)
+        self.assertIn('itemType === "%"', html_report)
+        self.assertIn("item.precision ?? 2", html_report)
+        self.assertIn('"max_drawdown":-123.45', html_report)
+        self.assertIn("function metricValueClass", html_report)
+        self.assertIn("negative-value", html_report)
+        self.assertIn('class="${metricValueClass(v).trim()}"', html_report)
+        self.assertIn("grid-template-columns: minmax(0, 1fr) max-content", html_report)
+        self.assertIn(".order-row > span", html_report)
+        self.assertIn("overflow-wrap: anywhere", html_report)
+        self.assertIn("max-height: none", html_report)
+        self.assertIn("overflow: visible", html_report)
+        self.assertNotIn('class="report-text"', html_report)
+        self.assertNotIn("const reportText", html_report)
         self.assertIn('class="report-overview"', html_report)
         self.assertIn('class="metric-grid"', html_report)
         self.assertIn('All report metrics', html_report)
@@ -889,6 +1175,64 @@ class PiXiuTests(TestCase):
         self.assertNotIn("(replay.logs || []).slice(-30)", html_report)
         self.assertIn("Math.min(...priceValues)", html_report)
         self.assertIn("Math.max(...priceValues)", html_report)
+        self.assertIn("const formatMetric", html_report)
+        self.assertIn('--number-font: "DIN Alternate"', html_report)
+        self.assertIn("font-family: var(--number-font)", html_report)
+        self.assertIn("svg text", html_report)
+        self.assertIn("font-variant-numeric: tabular-nums", html_report)
+        self.assertIn("isPercentMetric", html_report)
+        self.assertIn("const integerMetrics", html_report)
+        self.assertIn('"live_tick"', html_report)
+        self.assertIn('"total_trades"', html_report)
+        self.assertIn('"max_consecutive_losses"', html_report)
+        self.assertIn("const isTimeMetric", html_report)
+        self.assertIn("!Number.isFinite(date.getTime())", html_report)
+        self.assertIn('typeof t === "string"', html_report)
+        self.assertIn("return t", html_report)
+        self.assertIn("return String(t)", html_report)
+        self.assertIn("String(Math.round(n))", html_report)
+        html_with_nan = render_chart_replay_html({
+            "version": "pixiu-chart-v1",
+            "reports": {"summary": {"bad": float("nan")}},
+        })
+        self.assertNotIn("NaN", html_with_nan)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_return_ratio_uses_account_equity_curve(self):
+        params = dict(self.eat_params)
+        params['script'] = ""
+        tester = EATTester(self, params)
+        tester.init_data()
+        equity_values = [10000.0, 10100.0, 10050.0, 10200.0]
+        tester.context.account_logs = [{"equity": value} for value in equity_values]
+        tester.context.return_logs.extend([{"equity": 10000.0}, {"equity": 10200.0}])
+
+        ratio = tester.calculate_return_ratio()
+        returns = np.array([np.log(equity_values[i] / equity_values[i - 1]) for i in range(1, len(equity_values))])
+        expected_sharpe = np.sqrt(len(returns)) * (returns.mean() / returns.std(ddof=0))
+        downside = np.minimum(returns, 0.0)
+        expected_sortino = np.sqrt(len(returns)) * (returns.mean() / np.sqrt(np.mean(np.square(downside))))
+
+        self.assertAlmostEqual(ratio["sharpe_ratio"], expected_sharpe)
+        self.assertAlmostEqual(ratio["sortino_ratio"], expected_sortino)
+
+        tester.context.account_logs = [{"equity": 10500.0}, {"equity": 10200.0}]
+        ratio = tester.calculate_return_ratio()
+        self.assertGreater(ratio["sharpe_ratio"], 0)
+        self.assertGreater(ratio["sortino_ratio"], 0)
+
+        tester.context.report["balance"]["value"] = 10200.0
+        tester.context.account["balance"] = 10200.0
+        tester.context.account_logs = [{"equity": 10500.0}, {"equity": 9700.0}]
+        ratio = tester.calculate_return_ratio()
+        self.assertGreater(ratio["sharpe_ratio"], 0)
+        self.assertGreater(ratio["sortino_ratio"], 0)
+
+        tester.context.account["profit"] = -500.0
+        tester.context.account["margin"] = 100.0
+        tester.close_all_orders(price=1.0, comment="stop")
+        self.assertEqual(tester.context.account["profit"], 0.0)
+        self.assertEqual(tester.context.account["margin"], 0.0)
 
     @skipIf(debug_some_tests, "debug some tests")
     def test_ea_tester_save_chart_report_html(self):

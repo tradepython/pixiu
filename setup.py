@@ -19,8 +19,6 @@ requires = [
     'tabulate',
     'hashids',
     'pytz',
-    'dash',
-    'plotly',
     'pyjson5',
     'jinja2',
     'black'
@@ -34,7 +32,7 @@ tests_require = [
 
 setup(
     name='pixiu',
-    version='0.178.0',
+    version='0.179.0',
     description='PiXiu - A trading backtesting tool similar to MT4/MT5',
     long_description=README + '\n\n' + CHANGES,
     long_description_content_type="text/markdown",

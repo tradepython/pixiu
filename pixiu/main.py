@@ -12,7 +12,9 @@ import uuid
 import hashlib
 import traceback
 import os
+import webbrowser
 from datetime import datetime
+from urllib.parse import urlparse
 
 graph_server = None
 
@@ -34,6 +36,34 @@ class MainApp:
             return False
         else:
             raise argparse.ArgumentTypeError('Boolean value expected.')
+
+    @staticmethod
+    def parse_graph_url(value):
+        if value is None or value is False:
+            return None
+        if value is True:
+            value = "http://127.0.0.1:8050"
+        value = str(value).strip()
+        if value.lower() in ('no', 'false', 'f', 'n', '0', ''):
+            return None
+        if value.lower() in ('yes', 'true', 't', 'y', '1'):
+            value = "http://127.0.0.1:8050"
+
+        if "://" not in value:
+            value = "http://%s" % value
+        parsed = urlparse(value)
+        if parsed.scheme != "http" or not parsed.hostname:
+            raise argparse.ArgumentTypeError("Graph URL must be an HTTP URL, for example http://127.0.0.1:8051")
+        port = parsed.port or 8050
+        path = parsed.path or "/"
+        if path != "/":
+            path = "/"
+        normalized_url = "%s://%s:%s%s" % (parsed.scheme, parsed.hostname, port, path)
+        return {
+            "url": normalized_url,
+            "host": parsed.hostname,
+            "port": port,
+        }
 
     def load_data(self, ext=''):
         try:
@@ -384,10 +414,14 @@ class MainApp:
             return False
         for tn in graph_data:
             gd = graph_data[tn]['graph_data']
+            chart_replay = graph_data[tn].get('chart_replay', {})
+            metadata = chart_replay.get('metadata') if isinstance(chart_replay, dict) else None
             print(f"gd={gd['name'], len(gd['ticks'])}")
-            for tick in gd['ticks']:
+            for index, tick in enumerate(gd['ticks']):
                 data = dict(cmd='update_data', name=gd['name'], symbol=gd['symbol'], group=gd['group'],
                             data=dict(price=tick))
+                if index == 0 and isinstance(metadata, dict):
+                    data['data']['metadata'] = metadata
                 graph_server.send_message(json.dumps(data))
         return True
 
@@ -446,7 +480,8 @@ def main(*args, **kwargs):
     parser_test.add_argument('-t', '--tag', type=str, help='Tag')
     parser_test.add_argument('-l', '--datafile', type=str, default='_pixiu_data.json', help='Data file name')
     parser_test.add_argument('-r', '--compare', nargs='+', help='Compare with the tags list')
-    parser_test.add_argument('-g', '--graph', type=MainApp.str2bool, default=False, help='Display tester graph')
+    parser_test.add_argument('-g', '--graph', type=str, default=None,
+                             help='Display tester live chart at the given URL, for example http://127.0.0.1:8051')
     parser_test.add_argument('--chart-report', dest='chartreport', type=str, required=False,
                              help='Write browser chart report HTML. Use a file path for one test or a directory for multiple tests.')
     parser_test.add_argument('-x', '--exec', type=str, required=False, help='Exec command')
@@ -470,14 +505,18 @@ def main(*args, **kwargs):
         MainApp(args).optimize_ea(args.optimizeconfig, args.output, args.mode)
     else:
         manager = Manager()
+        graph_config = MainApp.parse_graph_url(args.graph)
+        args.graph = graph_config["url"] if graph_config else None
 
         graph_server = None
         message_queue = None
 
-        if args.graph:
+        if graph_config:
             message_queue = manager.Queue()
-            graph_server = EATesterGraphServer(message_queue)
+            graph_server = EATesterGraphServer(message_queue, host=graph_config["host"], port=graph_config["port"])
             graph_server.start()
+            print("Opening Pixiu live chart: %s" % graph_config["url"])
+            webbrowser.open(graph_config["url"])
 
         if args.scriptpath:
             if args.multiprocessing:

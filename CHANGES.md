@@ -9,19 +9,77 @@
         1) Fix chart replay frame timestamps to use the raw feed epoch from current_time()
         2) Avoid converting Time() naive UTC datetimes with timestamp(), which shifts graph frames in local time zones such as Asia/Shanghai
         3) Keep generated chart_replay in test_graph_data for downstream browser/report validation
+        4) Send final report data to the live chart server when tester graph mode is enabled
+        5) Add throttled live report updates during tester execution to avoid per-tick report serialization overhead
+        6) Attach throttled live report snapshots to update_data messages so the browser report panel can refresh during fast backtests
+        7) Serialize live graph messages as strict JSON and convert NaN/Infinity report values to null
+        8) Attach sanitized test configuration and final EA script settings metadata to the first live chart update
     2.chart protocol / chart viewer:
         1) Verify the time-fixed report file /private/tmp/pixiu_gf109_chart_protocol_timefix_20260620.html
         2) Confirm order markers and graph frames now use the same UTC time base
         3) Confirm #36 CLOSE at 2026-05-11 18:25:00 UTC matches the same-minute frame range
         4) Confirm #37 OPEN at 2026-05-11 20:20:00 UTC is within spread tolerance against the same-minute frame
         5) Record remaining small price mismatches as bid/ask or stop-loss execution display semantics, not graph timestamp drift
+        6) Add live chart mode using the same browser chart protocol and EventSource updates
+        7) Support snapshot replacement and append-only live deltas for frames, account points, orders, logs, and reports
+        8) Sanitize embedded chart replay JSON so invalid floating-point values do not break browser parsing
+        9) Make report number formatting more consistent with tabular numerals, stable decimals, and percentage formatting
+        10) Display report time metrics as UTC time strings and trade/tick count metrics as integers
+        11) Make chart time formatting safe for epoch seconds, epoch milliseconds, and date strings
+        12) Display browser report metric keys as readable titles such as Sortino Ratio instead of sortino_ratio
+        13) Keep preformatted report datetime strings unchanged in the browser to avoid local timezone shifts
+        14) Use report desc/type/precision metadata so browser report values follow terminal formatting
+        15) Remove the browser report metric grid height cap so report rows can expand without inner scrolling
+        16) Improve browser order row spacing and wrap long order text within the highlighted row area
+        17) Render negative browser report values in red while preserving terminal-compatible value formatting
+        18) Use a professional DIN/Helvetica-style numeric font stack with tabular numerals for browser chart numbers
+        19) Add a Settings panel that shows sanitized test configuration and final EA script settings
+        20) Redact sensitive chart metadata fields and collapse local file paths to file names before embedding HTML
+        21) Populate the Settings panel from live chart metadata as soon as the first live update arrives
+        22) Add an Orders panel native details/summary collapse control that matches the Test Config folding style
+        23) Lazy-render formatted Settings JSON so large test_config/script_settings payloads do not block the first chart render
+        24) Add English chart protocol documentation mirroring docs/chart-protocol.zh.md
     3.test_pixiu.py:
         1) Add regression coverage that PXTester graph ticks preserve the raw epoch timestamp
         2) Verify full test suite passes after the timestamp fix
-    4.Validation:
+        3) Add live chart HTML regression coverage
+        4) Add live chart state conversion coverage from PXTester update_data messages
+        5) Add regression coverage for throttled PXTester live report pushes
+        6) Add regression coverage for NaN/Infinity report values in live and browser chart JSON
+        7) Add regression coverage for Sharpe/Sortino calculation from the account equity curve
+    4.ea_tester_graph.py:
+        1) Replace the legacy Dash/Plotly graph server with a lightweight standard-library HTTP server
+        2) Serve the new browser live chart at http://127.0.0.1:8050 when tester graph mode is enabled
+        3) Add /snapshot JSON endpoint for the current chart protocol state
+        4) Add /events Server-Sent Events endpoint for live protocol deltas
+        5) Support update_report messages and merge report summary into the live chart protocol snapshot
+        6) Merge report summaries carried by update_data messages into the live chart protocol snapshot
+        7) Write /snapshot and /events payloads as strict JSON to keep EventSource updates browser-safe
+        8) Preserve lightweight report item metadata for terminal-compatible browser formatting
+        9) Merge and sanitize metadata carried by update_data messages for live Settings display
+    5.main.py:
+        1) Change -g/--graph from a boolean flag to a live chart URL such as http://127.0.0.1:8051
+        2) Bind the live chart server to the host and port parsed from the graph URL
+        3) Automatically open the live chart URL when graph mode is enabled
+        4) Keep -g true as a compatibility alias for http://127.0.0.1:8050
+        5) Preserve chart replay metadata when replaying saved graph_data into the live chart server
+    6.setup.py:
+        1) Remove dash and plotly runtime dependencies
+        2) Bump package version to 0.179.0
+    7.Validation:
         1) Same-minute order/frame match with spread tolerance: 214 / 218
         2) Old minus-8-hour matching behavior after the fix: 1 / 218
         3) Runtime JavaScript syntax check for the generated chart HTML passes
+        4) Live chart HTTP server smoke test passes
+        5) Live chart report smoke test passes
+        6) Live chart realtime report smoke test passes
+    8.ea_tester.py:
+        1) Calculate Sharpe and Sortino ratios from the full account equity curve when available
+        2) Use log returns for the account equity curve
+        3) Calculate Sortino with downside deviation from negative excess returns
+        4) Clear return_logs during init_data to avoid reusing stale return samples
+        5) Anchor Sharpe/Sortino return samples at init_balance so the first account log cannot become the implicit baseline
+        6) Anchor Sharpe/Sortino return samples at final realized balance and clear stale floating profit after close_all_orders
 
 ### [2026-05-27]
 #### Version:

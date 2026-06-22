@@ -1,6 +1,8 @@
 # env
 import csv
+import copy
 import json
+import math
 import pyjson5 as json5
 import time
 import pytz
@@ -19,6 +21,7 @@ import os
 #
 from pixiu.api import (TimeFrame, )
 from pixiu.tester import (EATester, EATesterGraphServer)
+from pixiu.tester.chart_protocol import sanitize_chart_config
 
 np.set_printoptions(legacy="1.25")
 
@@ -32,6 +35,11 @@ class PXTester(EATester):
         super(PXTester, self).__init__(self.eat_params)
         self.tester_graph_server = tester_graph_server
         self.tick_order_logs = []
+        self.live_report_interval_seconds = float(os.environ.get("PIXIU_GRAPH_REPORT_INTERVAL_SECONDS", "2"))
+        self.live_report_interval_ticks = int(os.environ.get("PIXIU_GRAPH_REPORT_INTERVAL_TICKS", "100"))
+        self.live_report_last_time = 0
+        self.live_report_last_tick_index = None
+        self.live_metadata_sent = False
         name = f"{self.test_name} ({self.eat_params['script_path']})"
         self.graph_data = dict(ticks=[], name=name, symbol=self.symbol, group=self.test_name)
 
@@ -122,6 +130,47 @@ class PXTester(EATester):
                     else:
                         self.eat_params['tick_start_index'] = index + 1
                         break
+        self.eat_params['chart_metadata'] = {
+            "test_config": self.__build_chart_test_config_metadata__(
+                test_config_path=test_config_path,
+                test_name=test_name,
+                test_params=self.eat_params,
+                account=account,
+            )
+        }
+
+    def __build_chart_test_config_metadata__(self, test_config_path, test_name, test_params, account):
+        safe_account_keys = (
+            "currency",
+            "balance",
+            "credit",
+            "leverage",
+            "margin_so_call",
+            "margin_so_so",
+            "free_margin_mode",
+            "stop_out_level",
+            "stop_out_mode",
+        )
+        safe_account = {}
+        if isinstance(account, dict):
+            for key in safe_account_keys:
+                if key in account:
+                    safe_account[key] = copy.deepcopy(account[key])
+        return {
+            "config_file": test_config_path,
+            "test_name": test_name,
+            "symbol": test_params.get("symbol"),
+            "timeframe": test_params.get("tick_timeframe", test_params.get("timeframe", TimeFrame.M1)),
+            "start_time": test_params.get("start_time"),
+            "end_time": test_params.get("end_time"),
+            "test_period": test_params.get("test_period"),
+            "tick_start_index": test_params.get("tick_start_index"),
+            "tick_max_index": test_params.get("tick_max_index"),
+            "tick_source": copy.deepcopy(test_params.get("tick_data")),
+            "account": safe_account,
+            "scenario": copy.deepcopy(test_params.get("scenario")),
+            "currency_conversion_settings": copy.deepcopy(test_params.get("currency_conversion_settings")),
+        }
 
     def get_url_data(self, url, timeout=90):
         try:
@@ -344,8 +393,14 @@ class PXTester(EATester):
                 data = dict(cmd='update_data', name=self.graph_data['name'],
                             symbol=self.graph_data['symbol'], group=self.graph_data['group'],
                                                 data=dict(price=tick))
+                if not self.live_metadata_sent:
+                    data['data']['metadata'] = self.__build_live_graph_metadata__()
+                    self.live_metadata_sent = True
+                report = self.__build_live_graph_report__(force=False)
+                if report is not None:
+                    data['data']['report'] = report
                 # self.tester_graph_server.send_message(json5.dumps(data, quote_keys=True))
-                self.tester_graph_server.send_message(json.dumps(data))
+                self.tester_graph_server.send_message(self.__json_dumps__(data))
             self.tick_order_logs = []
         except:
             traceback.print_exc()
@@ -373,6 +428,7 @@ class PXTester(EATester):
 
             idx += 1
         self.write_log(f"{report_str}", type='report')
+        self.__send_graph_report__(force=True, message=report_str)
         if self.test_result is not None:
             # self.test_result.value = json5.dumps(dict(report=self.context.report), quote_keys=True)
             self.test_result.value = json.dumps(dict(report=self.context.report))
@@ -384,6 +440,130 @@ class PXTester(EATester):
             ))
 
         return 0
+
+    def __send_graph_report__(self, force=False, message=None):
+        if self.tester_graph_server is None:
+            return False
+        report = self.__build_live_graph_report__(force=force)
+        if report is None:
+            return False
+        try:
+            data = dict(cmd='update_report', name=self.graph_data['name'],
+                        symbol=self.graph_data['symbol'], group=self.graph_data['group'],
+                        data=dict(report=report, time=float(self.current_time())))
+            if message:
+                data['data']['message'] = message
+            self.tester_graph_server.send_message(self.__json_dumps__(data))
+            return True
+        except:
+            traceback.print_exc()
+        return False
+
+    def __build_live_graph_report__(self, force=False):
+        if not force and not self.__should_send_live_graph_report__():
+            return None
+        report = self.__live_graph_report_snapshot__()
+        self.__mark_live_graph_report_sent__()
+        return report
+
+    def __should_send_live_graph_report__(self):
+        tick_index = getattr(self.context, "tick_current_index", None)
+        if self.live_report_last_tick_index is None:
+            return True
+        if self.live_report_interval_ticks > 0 and tick_index is not None:
+            if tick_index - self.live_report_last_tick_index >= self.live_report_interval_ticks:
+                return True
+        if self.live_report_interval_seconds > 0:
+            if time.time() - self.live_report_last_time >= self.live_report_interval_seconds:
+                return True
+        return False
+
+    def __mark_live_graph_report_sent__(self):
+        self.live_report_last_time = time.time()
+        self.live_report_last_tick_index = getattr(self.context, "tick_current_index", None)
+
+    def __live_graph_report_snapshot__(self):
+        account = getattr(self.context, "account", {}) or {}
+        tick_index = getattr(self.context, "tick_current_index", None)
+        tick_value = tick_index + 1 if tick_index is not None else None
+        balance = account.get("balance")
+        equity = account.get("equity")
+        margin = account.get("margin")
+        free_margin = account.get("free_margin")
+        live_report = {
+            "live_time": {"value": self.current_time(), "desc": "Live Time"},
+            "live_tick": {"value": tick_value, "desc": "Live Tick"},
+            "live_balance": {"value": balance, "desc": "Live Balance"},
+            "live_equity": {"value": equity, "desc": "Live Equity"},
+            "live_margin": {"value": margin, "desc": "Live Margin"},
+            "live_free_margin": {"value": free_margin, "desc": "Live Free Margin"},
+        }
+        if balance is not None and equity is not None:
+            live_report["live_floating_profit"] = {
+                "value": equity - balance,
+                "desc": "Live Floating Profit",
+            }
+        if margin:
+            live_report["live_margin_level"] = {
+                "value": equity / margin if equity is not None else None,
+                "desc": "Live Margin Level",
+                "type": "%",
+            }
+        report = copy.deepcopy(getattr(self.context, "report", {}) or {})
+        live_report.update(report)
+        return live_report
+
+    def __build_live_graph_metadata__(self):
+        symbol = getattr(self.context, "symbol", None) or self.graph_data.get("symbol")
+        metadata = {
+            "mode": "tester_live",
+            "test_name": self.test_name,
+            "symbol": symbol,
+        }
+        script_metadata = getattr(self.context, "script_metadata", None)
+        if isinstance(script_metadata, dict):
+            for key in ("name", "version", "label"):
+                if script_metadata.get(key) is not None:
+                    metadata[f"script_{key}"] = script_metadata.get(key)
+        ctx = getattr(self.context, "ctx", None)
+        if isinstance(ctx, dict) and isinstance(ctx.get("chart_metadata"), dict):
+            metadata.update(copy.deepcopy(ctx["chart_metadata"]))
+        script_settings = getattr(self.context, "script_settings", None)
+        metadata["script_settings"] = copy.deepcopy(script_settings) if isinstance(script_settings, dict) else {}
+        account = getattr(self.context, "account", None)
+        if isinstance(account, dict):
+            metadata["account"] = {
+                key: copy.deepcopy(account[key])
+                for key in ("currency", "balance", "credit", "leverage")
+                if key in account
+            }
+        return sanitize_chart_config(metadata)
+
+    def __json_default__(self, value):
+        if hasattr(value, "item"):
+            return value.item()
+        return str(value)
+
+    def __json_dumps__(self, value):
+        return json.dumps(self.__json_safe__(value), ensure_ascii=False, allow_nan=False)
+
+    def __json_safe__(self, value):
+        try:
+            if hasattr(value, "item"):
+                value = value.item()
+        except ValueError:
+            pass
+        if isinstance(value, dict):
+            return {key: self.__json_safe__(item) for key, item in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [self.__json_safe__(item) for item in value]
+        if isinstance(value, float) and not math.isfinite(value):
+            return None
+        try:
+            json.dumps(value, allow_nan=False)
+            return value
+        except (TypeError, ValueError):
+            return self.__json_default__(value)
     #
     # def on_end_execute(self, *args, **kwargs):
     #     self.__update_execuate_log__(self.ticket, None, force=True)

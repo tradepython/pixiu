@@ -1,12 +1,14 @@
 import html
 import json
+import math
 from pathlib import Path
 
 
-def render_chart_replay_html(replay, title=None):
+def render_chart_replay_html(replay, title=None, live_config=None):
     """Render a self-contained browser report for a pixiu-chart-v1 replay."""
     title = title or _default_title(replay)
     replay_json = _safe_script_json(replay)
+    live_bootstrap = _live_bootstrap_script(live_config)
     safe_title = html.escape(title)
     return """<!doctype html>
 <html lang="en">
@@ -25,6 +27,7 @@ def render_chart_replay_html(replay, title=None):
       --down: #c24132;
       --accent: #315f72;
       --gold: #b7791f;
+      --number-font: "DIN Alternate", "DIN Condensed", "Helvetica Neue", "Aptos", "Segoe UI", Arial, sans-serif;
     }}
     * {{ box-sizing: border-box; }}
     body {{
@@ -57,18 +60,19 @@ def render_chart_replay_html(replay, title=None):
     .card-body {{ padding: 18px; }}
     .price-card {{ grid-column: span 12; }}
     .side-card {{ grid-column: span 12; }}
+    .settings-card {{ grid-column: span 12; }}
     .orders-card {{ grid-column: span 12; }}
     .logs-card {{ grid-column: span 12; }}
     #price-chart svg, #account-chart svg {{ cursor: crosshair; user-select: none; }}
     #price-chart svg.dragging, #account-chart svg.dragging {{ cursor: grabbing; }}
     .crosshair {{ pointer-events: none; }}
     .crosshair line {{ stroke: #334155; stroke-width: 1; stroke-dasharray: 5 5; opacity: .72; }}
-    .crosshair text {{ fill: #1f2933; font-size: 12px; paint-order: stroke; stroke: #fff7e7; stroke-width: 3px; }}
+    .crosshair text {{ fill: #1f2933; font-size: 12px; paint-order: stroke; stroke: #fff7e7; stroke-width: 3px; font-family: var(--number-font); }}
     .order-marker {{ pointer-events: auto; }}
     .order-marker .stem {{ stroke-width: 1.2; stroke-linecap: round; opacity: .72; }}
     .order-marker .dot {{ stroke: #fff7e7; stroke-width: 1.6; filter: drop-shadow(0 1px 2px rgba(31, 41, 51, .24)); }}
     .order-marker .label-bg {{ fill: rgba(255, 250, 240, .9); stroke: rgba(91, 70, 42, .22); stroke-width: .8; }}
-    .order-marker .label {{ fill: #1f2933; font-size: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; }}
+    .order-marker .label {{ fill: #1f2933; font-size: 10px; font-family: var(--number-font); font-weight: 700; }}
     .order-marker.focused .dot {{ stroke: #111827; stroke-width: 2.4; filter: drop-shadow(0 0 8px rgba(183, 121, 31, .58)); }}
     .order-marker.focused .label-bg {{ stroke: #b7791f; stroke-width: 1.4; fill: rgba(255, 247, 231, .98); }}
     .order-tooltip {{
@@ -81,7 +85,7 @@ def render_chart_replay_html(replay, title=None):
       background: rgba(31, 41, 51, .94);
       color: #fffaf0;
       box-shadow: 0 18px 48px rgba(31, 41, 51, .22);
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-family: var(--number-font);
       font-size: 12px;
       line-height: 1.45;
       pointer-events: none;
@@ -90,6 +94,11 @@ def render_chart_replay_html(replay, title=None):
     .order-tooltip strong {{ color: #f6dca7; }}
     .order-tooltip .muted {{ color: rgba(255, 250, 240, .68); }}
     svg {{ display: block; width: 100%; height: auto; background: linear-gradient(180deg, #fffdf7, #fff7e7); }}
+    svg text {{
+      font-family: var(--number-font);
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1, "lnum" 1;
+    }}
     .metric-row, .order-row, .log-row {{
       display: grid;
       grid-template-columns: 1fr auto;
@@ -98,12 +107,30 @@ def render_chart_replay_html(replay, title=None):
       border-bottom: 1px solid rgba(91, 70, 42, .12);
       font-size: 14px;
     }}
+    .metric-row strong, .metric-card strong, .order-row strong {{
+      font-family: var(--number-font);
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1, "lnum" 1;
+      white-space: nowrap;
+    }}
     .metric-row:last-child, .order-row:last-child, .log-row:last-child {{ border-bottom: 0; }}
     .order-row {{
       cursor: pointer;
       border-radius: 12px;
-      padding-left: 8px;
-      padding-right: 8px;
+      grid-template-columns: minmax(0, 1fr) max-content;
+      padding: 10px 16px 10px 12px;
+      width: 100%;
+    }}
+    .order-row > span {{
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }}
+    .order-row small {{
+      overflow-wrap: anywhere;
+    }}
+    .order-row strong {{
+      justify-self: end;
+      padding-left: 10px;
     }}
     .order-row:hover, .order-row:focus {{
       background: rgba(49, 95, 114, .09);
@@ -135,9 +162,47 @@ def render_chart_replay_html(replay, title=None):
     .metric-card strong {{
       display: block;
       margin-top: 5px;
-      font-size: 18px;
+      font-size: 16px;
       line-height: 1.2;
       overflow-wrap: anywhere;
+    }}
+    .negative-value {{
+      color: var(--down);
+    }}
+    .settings-grid {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }}
+    .settings-item {{
+      padding: 10px 12px;
+      border: 1px solid rgba(91, 70, 42, .12);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, .38);
+    }}
+    .settings-item .label {{
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }}
+    .settings-item strong {{
+      display: block;
+      margin-top: 4px;
+      font-family: var(--number-font);
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1, "lnum" 1;
+      overflow-wrap: anywhere;
+    }}
+    .settings-json {{
+      max-height: 360px;
+      overflow: auto;
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(31, 41, 51, .045);
+      font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      white-space: pre-wrap;
     }}
     details.report-details {{
       border-top: 1px solid rgba(91, 70, 42, .14);
@@ -154,8 +219,8 @@ def render_chart_replay_html(replay, title=None):
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
       gap: 0 18px;
-      max-height: 360px;
-      overflow: auto;
+      max-height: none;
+      overflow: visible;
       padding-right: 6px;
     }}
     .log-list {{
@@ -195,7 +260,9 @@ def render_chart_replay_html(replay, title=None):
       background: #e7dac3;
       color: #563d1d;
       font-size: 12px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-family: var(--number-font);
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1, "lnum" 1;
     }}
     .empty {{ color: var(--muted); font-style: italic; padding: 16px 0; }}
     @media (max-width: 860px) {{
@@ -248,20 +315,28 @@ def render_chart_replay_html(replay, title=None):
           <div id="report"></div>
         </div>
       </aside>
+      <aside class="card settings-card">
+        <div class="card-body">
+          <h2>Settings</h2>
+          <div id="settings"></div>
+        </div>
+      </aside>
       <section class="card orders-card">
         <div class="card-body">
-          <h2>Orders</h2>
-          <div class="toolbar">
-            <select id="orders-scope">
-              <option value="visible">Visible window</option>
-              <option value="all">All orders</option>
-            </select>
-            <label>Page size <input id="orders-page-size" type="number" min="1" max="1000" value="50"></label>
-            <button type="button" id="orders-prev">Prev</button>
-            <button type="button" id="orders-next">Next</button>
-            <span class="badge" id="orders-count"></span>
-          </div>
-          <div id="orders"></div>
+          <details id="orders-panel" class="report-details" open>
+            <summary>Orders</summary>
+            <div class="toolbar">
+              <select id="orders-scope">
+                <option value="visible">Visible window</option>
+                <option value="all">All orders</option>
+              </select>
+              <label>Page size <input id="orders-page-size" type="number" min="1" max="1000" value="50"></label>
+              <button type="button" id="orders-prev">Prev</button>
+              <button type="button" id="orders-next">Next</button>
+              <span class="badge" id="orders-count"></span>
+            </div>
+            <div id="orders"></div>
+          </details>
         </div>
       </section>
       <section class="card logs-card">
@@ -280,20 +355,79 @@ def render_chart_replay_html(replay, title=None):
     let activeFrames = [];
     const account = replay.account || [];
     const orders = replay.orders || [];
+    const logs = replay.logs || [];
     const series = replay.series || [];
     const reports = (replay.reports && replay.reports.summary) || {{}};
+    const reportItems = (replay.reports && replay.reports.items) || {{}};
     const metadata = replay.metadata || {{}};
+    const settingsJsonPayloads = {{}};
 
     const fmtTime = (t) => {{
       if (t === null || t === undefined) return "";
-      return new Date(Number(t) * 1000).toISOString().replace("T", " ").slice(0, 19);
+      if (typeof t === "string" && !/^[-+]?\\d+(\\.\\d+)?$/.test(t.trim())) return t;
+      const numeric = num(t);
+      let date = null;
+      if (numeric !== null) {{
+        date = new Date(numeric > 100000000000 ? numeric : numeric * 1000);
+      }}
+      if (!date || !Number.isFinite(date.getTime())) return String(t);
+      return date.toISOString().replace("T", " ").slice(0, 19);
     }};
     const num = (v) => Number.isFinite(Number(v)) ? Number(v) : null;
     const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}}[c]));
     const compact = (v) => {{
       const n = num(v);
-      if (n === null) return esc(v);
-      return Math.abs(n) >= 100 ? n.toFixed(2) : n.toFixed(5).replace(/0+$/, "").replace(/\\.$/, "");
+      if (n === null) return v === null || v === undefined ? "-" : esc(v);
+      const abs = Math.abs(n);
+      if (abs >= 1000) return n.toLocaleString(undefined, {{minimumFractionDigits: 2, maximumFractionDigits: 2}});
+      if (abs >= 1) return n.toLocaleString(undefined, {{minimumFractionDigits: 2, maximumFractionDigits: 4}});
+      if (abs >= 0.0001) return n.toLocaleString(undefined, {{minimumFractionDigits: 4, maximumFractionDigits: 4}});
+      if (abs === 0) return "0.00";
+      return n.toExponential(2);
+    }};
+    const isPercentMetric = (k) => /(^|_)rate$/.test(k) || /(^|_)(win_rate|margin_level|margin_so_call|margin_so_so)$/.test(k);
+    const integerMetrics = new Set([
+      "live_tick",
+      "ticks",
+      "total_trades",
+      "profit_trades",
+      "loss_trades",
+      "short_positions",
+      "short_positions_win",
+      "long_positions",
+      "long_positions_win",
+      "max_consecutive_wins",
+      "max_consecutive_losses"
+    ]);
+    const isTimeMetric = (k) => /(^|_)(time)$/.test(k) || /(_time)$/.test(k);
+    const formatInteger = (v) => {{
+      const n = num(v);
+      return n === null ? (v === null || v === undefined ? "0" : esc(v)) : String(Math.round(n));
+    }};
+    const terminalRound = (v, precision = 2) => {{
+      const n = num(v);
+      if (n === null) return v === null || v === undefined ? "0" : esc(v);
+      const p = Number.isFinite(Number(precision)) ? Number(precision) : 2;
+      const factor = 10 ** p;
+      return String(Math.round((n + Number.EPSILON) * factor) / factor);
+    }};
+    const formatMetric = (k, v) => {{
+      const key = String(k);
+      const item = reportItems[key] || {{}};
+      const itemType = item.type || "";
+      if (itemType === "datetime" || itemType === "str") return v === null || v === undefined ? String(v) : esc(v);
+      if (isTimeMetric(key)) return fmtTime(v) || (v === null || v === undefined ? "-" : esc(v));
+      const n = num(v);
+      if (n === null) return v === null || v === undefined ? "0" : esc(v);
+      if (itemType === "%") return `${{terminalRound(n * 100, item.precision ?? 2)}} %`;
+      if (itemType === "value" || Object.prototype.hasOwnProperty.call(item, "precision")) return terminalRound(n, item.precision ?? 2);
+      if (integerMetrics.has(key)) return formatInteger(v);
+      if (isPercentMetric(key)) return `${{terminalRound(n * 100, item.precision ?? 2)}} %`;
+      return terminalRound(n, item.precision ?? 2);
+    }};
+    const metricLabel = (k) => {{
+      const desc = reportItems[String(k)] && reportItems[String(k)].desc;
+      return desc || String(k ?? "").replace(/_/g, " ").replace(/\\b\\w/g, c => c.toUpperCase());
     }};
     const rawFrames = normalizeFrames(rawFrameSource);
     activeFrames = aggregateFramesForTimeframe(rawFrames, activeTimeframe);
@@ -856,6 +990,11 @@ def render_chart_replay_html(replay, title=None):
       return Object.entries(reports).filter(([k]) => k !== undefined && k !== null);
     }}
 
+    function metricValueClass(v) {{
+      const n = num(v);
+      return n !== null && n < 0 ? " negative-value" : "";
+    }}
+
     function renderReport() {{
       const el = document.getElementById("report");
       const entries = reportEntries();
@@ -864,10 +1003,10 @@ def render_chart_replay_html(replay, title=None):
         return;
       }}
       const highlights = entries.slice(0, Math.min(8, entries.length)).map(([k, v]) =>
-        `<div class="metric-card"><div class="label">${{esc(k)}}</div><strong>${{compact(v)}}</strong></div>`
+        `<div class="metric-card"><div class="label">${{esc(metricLabel(k))}}</div><strong class="${{metricValueClass(v).trim()}}">${{formatMetric(k, v)}}</strong></div>`
       ).join("");
       const allRows = entries.map(([k, v]) =>
-        `<div class="metric-row"><span>${{esc(k)}}</span><strong>${{compact(v)}}</strong></div>`
+        `<div class="metric-row"><span>${{esc(metricLabel(k))}}</span><strong class="${{metricValueClass(v).trim()}}">${{formatMetric(k, v)}}</strong></div>`
       ).join("");
       el.innerHTML = `
         <div class="report-overview">${{highlights}}</div>
@@ -878,13 +1017,80 @@ def render_chart_replay_html(replay, title=None):
     }}
 
     function renderLogs() {{
-      const logs = replay.logs || [];
       const rows = logs.slice().reverse().map(l =>
         `<div class="log-row"><span><span class="badge">${{esc(l.level || "info")}}</span> ${{esc(l.message || l.text || "")}}</span><small>${{fmtTime(l.time)}}</small></div>`
       ).join("");
       document.getElementById("logs").innerHTML = logs.length
         ? `<details class="report-details" open><summary>All logs (${{logs.length}})</summary><div class="log-list">${{rows}}</div></details>`
         : '<div class="empty">No logs.</div>';
+    }}
+
+    function settingValue(value) {{
+      if (value === null || value === undefined) return "-";
+      if (typeof value === "object") return JSON.stringify(value);
+      return String(value);
+    }}
+
+    function deferTask(callback) {{
+      if (window.requestIdleCallback) {{
+        window.requestIdleCallback(callback, {{timeout: 800}});
+      }} else {{
+        window.setTimeout(callback, 0);
+      }}
+    }}
+
+    function hydrateSettingsJson(details) {{
+      const pre = details && details.querySelector(".settings-json");
+      if (!pre || pre.dataset.loaded === "true") return;
+      const key = details.dataset.settingsKey;
+      const value = settingsJsonPayloads[key] || {{}};
+      pre.textContent = JSON.stringify(value, null, 2);
+      pre.dataset.loaded = "true";
+    }}
+
+    function bindSettingsJsonDetails() {{
+      document.querySelectorAll("#settings details[data-settings-key]").forEach(details => {{
+        if (details.dataset.bound === "true") return;
+        details.dataset.bound = "true";
+        details.addEventListener("toggle", () => {{
+          if (details.open) deferTask(() => hydrateSettingsJson(details));
+        }});
+        if (details.open) deferTask(() => hydrateSettingsJson(details));
+      }});
+    }}
+
+    function renderSettingsJson(title, key, value, open = false) {{
+      if (!value || (typeof value === "object" && !Object.keys(value).length)) return "";
+      settingsJsonPayloads[key] = value;
+      return `<details class="report-details" data-settings-key="${{esc(key)}}" ${{open ? "open" : ""}}>
+        <summary>${{esc(title)}}</summary>
+        <pre class="settings-json">Expand to load formatted settings JSON.</pre>
+      </details>`;
+    }}
+
+    function renderSettings() {{
+      const el = document.getElementById("settings");
+      const testConfig = metadata.test_config || {{}};
+      const scriptSettings = metadata.script_settings || {{}};
+      const summaryItems = [
+        ["Test Name", testConfig.test_name],
+        ["Symbol", testConfig.symbol],
+        ["Timeframe", testConfig.timeframe],
+        ["Start Time", testConfig.start_time],
+        ["End Time", testConfig.end_time],
+        ["Account Currency", testConfig.account && testConfig.account.currency],
+        ["Initial Balance", testConfig.account && testConfig.account.balance],
+        ["Leverage", testConfig.account && testConfig.account.leverage]
+      ].filter(([, value]) => value !== null && value !== undefined);
+      if (!summaryItems.length && !Object.keys(scriptSettings).length) {{
+        el.innerHTML = '<div class="empty">No settings metadata.</div>';
+        return;
+      }}
+      const summary = summaryItems.length ? `<div class="settings-grid">${{summaryItems.map(([k, v]) =>
+        `<div class="settings-item"><div class="label">${{esc(k)}}</div><strong>${{esc(settingValue(v))}}</strong></div>`
+      ).join("")}}</div>` : "";
+      el.innerHTML = `${{summary}}${{renderSettingsJson("Test Config", "test_config", testConfig, true)}}${{renderSettingsJson("EA Script Settings", "script_settings", scriptSettings, false)}}`;
+      bindSettingsJsonDetails();
     }}
 
     function locateOrder(orderKeyValue) {{
@@ -1149,17 +1355,33 @@ def render_chart_replay_html(replay, title=None):
       view.orderPage += 1;
       renderOrders();
     }});
-
     renderReport();
     renderLogs();
     clampView();
     bindChartMouseControls();
     bindOrdersInteraction();
     renderAll();
+    renderSettings();
+    {live_bootstrap}
   </script>
 </body>
 </html>
-""".format(title=safe_title, replay_json=replay_json)
+""".format(title=safe_title, replay_json=replay_json, live_bootstrap=live_bootstrap)
+
+
+def render_chart_live_html(replay=None, title=None, event_url="/events", snapshot_url="/snapshot"):
+    """Render the browser chart in live mode using the same protocol viewer."""
+    replay = replay or {}
+    replay.setdefault("mode", "live")
+    return render_chart_replay_html(
+        replay,
+        title=title or _default_title(replay) or "Pixiu Live Chart",
+        live_config={
+            "enabled": True,
+            "event_url": event_url,
+            "snapshot_url": snapshot_url,
+        },
+    )
 
 
 def write_chart_replay_html(replay, output_path, title=None):
@@ -1169,10 +1391,140 @@ def write_chart_replay_html(replay, output_path, title=None):
     return str(output)
 
 
+def _live_bootstrap_script(live_config):
+    if not live_config or not live_config.get("enabled"):
+        return ""
+    config_json = _safe_script_json(live_config)
+    return """
+    const liveConfig = JSON.parse('{config_json}');
+
+    function updateLiveMetadata(delta) {{
+      if (delta.metadata) Object.assign(metadata, delta.metadata);
+      if (delta.reports && delta.reports.summary) {{
+        Object.assign(reports, delta.reports.summary);
+        if (delta.reports.items) Object.assign(reportItems, delta.reports.items);
+        renderReport();
+      }}
+      const times = rawFrames.map(f => f.time).filter(t => t !== null && t !== undefined);
+      if (times.length) {{
+        metadata.time = metadata.time || {{}};
+        metadata.time.timezone = metadata.time.timezone || "UTC";
+        metadata.time.start = Math.min(...times);
+        metadata.time.end = Math.max(...times);
+      }}
+      document.getElementById("meta").textContent = [
+        metadata.script_name,
+        metadata.script_version,
+        metadata.account && metadata.account.currency,
+        metadata.time ? `${{fmtTime(metadata.time.start)}} - ${{fmtTime(metadata.time.end)}}` : null
+      ].filter(Boolean).join(" · ");
+      renderSettings();
+    }}
+
+    function appendLiveItems(target, items) {{
+      if (!Array.isArray(items) || !items.length) return false;
+      target.push(...items);
+      return true;
+    }}
+
+    function replaceArray(target, items) {{
+      target.splice(0, target.length, ...(Array.isArray(items) ? items : []));
+    }}
+
+    function applyLiveSnapshot(snapshot) {{
+      if (!snapshot) return;
+      replaceArray(rawFrames, normalizeFrames(snapshot.frames || []));
+      replaceArray(account, snapshot.account || []);
+      replaceArray(orders, snapshot.orders || []);
+      replaceArray(logs, snapshot.logs || []);
+      for (const key of Object.keys(reports)) delete reports[key];
+      for (const key of Object.keys(reportItems)) delete reportItems[key];
+      Object.assign(reports, (snapshot.reports && snapshot.reports.summary) || {{}});
+      Object.assign(reportItems, (snapshot.reports && snapshot.reports.items) || {{}});
+      if (snapshot.metadata) Object.assign(metadata, snapshot.metadata);
+      activeFrames = aggregateFramesForTimeframe(rawFrames, activeTimeframe);
+      setWindow(Math.max(0, activeFrames.length - maxInitialBars), Math.min(maxInitialBars, activeFrames.length || maxInitialBars));
+      renderReport();
+      renderSettings();
+      renderLogs();
+      updateLiveMetadata({{}});
+      scheduleRender();
+    }}
+
+    function applyLiveDelta(delta) {{
+      if (!delta || delta.type === "heartbeat") return;
+      if (delta.type === "snapshot") {{
+        applyLiveSnapshot(delta.snapshot);
+        return;
+      }}
+      const previousLength = activeFrames.length;
+      const windowSize = Math.max(minWindowBars, view.end - view.start || maxInitialBars);
+      const wasPinnedToEnd = view.end >= previousLength - 1;
+      let changed = false;
+      if (Array.isArray(delta.frames) && delta.frames.length) {{
+        rawFrames.push(...normalizeFrames(delta.frames));
+        activeFrames = aggregateFramesForTimeframe(rawFrames, activeTimeframe);
+        changed = true;
+      }}
+      changed = appendLiveItems(account, delta.account) || changed;
+      changed = appendLiveItems(orders, delta.orders) || changed;
+      if (appendLiveItems(logs, delta.logs)) {{
+        renderLogs();
+        changed = true;
+      }}
+      updateLiveMetadata(delta);
+      if (changed) {{
+        if (wasPinnedToEnd) setWindow(Math.max(0, activeFrames.length - windowSize), windowSize);
+        else clampView();
+        scheduleRender();
+      }}
+    }}
+
+    function connectLiveChart() {{
+      if (!liveConfig.event_url || typeof EventSource === "undefined") return;
+      const source = new EventSource(liveConfig.event_url);
+      source.onmessage = (event) => {{
+        try {{
+          applyLiveDelta(JSON.parse(event.data));
+        }} catch (err) {{
+          console.error("Pixiu live chart event error", err);
+        }}
+      }};
+      source.onerror = () => {{
+        document.getElementById("version").textContent = `${{replay.version || "unknown"}} · reconnecting`;
+      }};
+      source.onopen = () => {{
+        document.getElementById("version").textContent = `${{replay.version || "unknown"}} · live`;
+      }};
+    }}
+
+    connectLiveChart();
+""".format(config_json=config_json)
+
+
 def _default_title(replay):
     metadata = replay.get("metadata", {}) if isinstance(replay, dict) else {}
     return metadata.get("test_name") or metadata.get("script_name") or "Pixiu Chart Replay"
 
 
 def _safe_script_json(value):
-    return json.dumps(value, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+    return json.dumps(_json_safe(value), ensure_ascii=False, separators=(",", ":"), allow_nan=False).replace("</", "<\\/")
+
+
+def _json_safe(value):
+    try:
+        if hasattr(value, "item"):
+            value = value.item()
+    except ValueError:
+        pass
+    if isinstance(value, dict):
+        return {key: _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    try:
+        json.dumps(value, allow_nan=False)
+        return value
+    except (TypeError, ValueError):
+        return str(value)

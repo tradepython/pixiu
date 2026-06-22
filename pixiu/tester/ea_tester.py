@@ -622,6 +622,8 @@ class EATester(EABase):
             "script_name": self.context.script_metadata.get("name", None),
             "script_version": self.context.script_metadata.get("version", None),
         }
+        if isinstance(self.context.ctx.get("chart_metadata", None), dict):
+            replay_metadata.update(self.context.ctx.get("chart_metadata", {}))
         if metadata:
             replay_metadata.update(metadata)
         symbols = {}
@@ -2008,6 +2010,7 @@ class EATester(EABase):
         #
         self.context.order_logs = []
         self.context.account_logs = []
+        self.context.return_logs.clear()
         self.context.print_logs = []
         self.context.symbol_properties = {}
         self.context.tick_info = None
@@ -2195,29 +2198,77 @@ class EATester(EABase):
         for order_uid in symbol_orders:
             order_dict = self.get_order(order_uid=order_uid)
             self.close_order(order_uid, order_dict['volume'], price, comment=comment)
+        if not self.get_order_dict(self.context.symbol):
+            self.context.account['profit'] = 0.0
+            self.context.account['margin'] = 0.0
     #
     def calculate_returns(self, ):
-        count = len(self.context.return_logs)
+        source_logs = self.context.account_logs if len(self.context.account_logs) >= 2 else self.context.return_logs
+        samples = self.__build_return_samples__(source_logs)
+        count = len(samples)
         if count < 2:
             return None
         column = 'equity'
-        ret = pd.DataFrame(self.context.return_logs, columns=[column, ])
+        ret = pd.DataFrame(samples, columns=[column, ])
         ret['return'] = 0.0
-        # calculate returns
+        ret['downside_return'] = 0.0
         prev_return = 0.0
         for i, row in ret.iterrows():
             value = row[column]
-            # r = math.log(value / prev_return) if prev_return != 0.0 else 0.0
-            v = value / prev_return if prev_return != 0.0 else 0.0
-            if v <= 0:
-                r = v
+            if prev_return > 0 and value > 0:
+                r = math.log(value / prev_return)
             else:
-                r = math.log(v)
+                r = 0.0
             ret.at[i, 'return'] = r
-            ret.at[i, 'negative_return'] = r if r < 0 else 0.0
-            # ret.at[i, 'return'] = value / prev_return - 1 if prev_return != 0.0 else 0.0
+            ret.at[i, 'downside_return'] = min(r, 0.0)
             prev_return = value
         return ret
+
+    def __build_return_samples__(self, source_logs):
+        samples = []
+        init_equity = self.__return_initial_equity__()
+        if init_equity is not None and init_equity > 0:
+            samples.append({'equity': init_equity})
+        for item in source_logs:
+            if not isinstance(item, dict) or item.get('equity') is None:
+                continue
+            equity = float(item['equity'])
+            if len(samples) == 1 and abs(samples[0]['equity'] - equity) <= 1e-12:
+                continue
+            samples.append({'equity': equity})
+        final_equity = self.__return_final_equity__()
+        if final_equity is not None and final_equity > 0:
+            if not samples or abs(samples[-1]['equity'] - final_equity) > 1e-12:
+                samples.append({'equity': final_equity})
+        return samples
+
+    def __return_initial_equity__(self):
+        try:
+            item = self.context.report.get('init_balance', None)
+            if item is not None and item.get('value') is not None:
+                return float(item['value'])
+        except Exception:
+            pass
+        try:
+            if self.context.account.get('balance') is not None:
+                return float(self.context.account['balance'])
+        except Exception:
+            pass
+        return None
+
+    def __return_final_equity__(self):
+        try:
+            item = self.context.report.get('balance', None)
+            if item is not None and item.get('value') is not None:
+                return float(item['value'])
+        except Exception:
+            pass
+        try:
+            if self.context.account.get('balance') is not None:
+                return float(self.context.account['balance'])
+        except Exception:
+            pass
+        return None
 
     def calculate_return_ratio(self):
         ret = {'sharpe_ratio': 0, 'sortino_ratio': 0}
@@ -2227,14 +2278,17 @@ class EATester(EABase):
         count = returns.shape[0] - 1
         if count < 1:
             return ret
-        #Sharpe
-        mean = returns[1:]['return'].mean()
-        for n in [('sharpe_ratio', 'return'), ('sortino_ratio', 'negative_return')]:
-            std = returns[1:][n[1]].std(ddof=0)
-            risk_free = 0.0
-            ratio = (mean - risk_free) / std if std > 0 else 0.0
-            ratio = math.sqrt(count) * ratio
-            ret[n[0]] = ratio
+        period_returns = returns[1:]['return'].astype(float)
+        mean = period_returns.mean()
+        risk_free = 0.0
+        std = period_returns.std(ddof=0)
+        if std > 0:
+            ret['sharpe_ratio'] = math.sqrt(count) * ((mean - risk_free) / std)
+
+        downside = np.minimum(period_returns - risk_free, 0.0)
+        downside_deviation = math.sqrt(float(np.mean(np.square(downside))))
+        if downside_deviation > 0:
+            ret['sortino_ratio'] = math.sqrt(count) * ((mean - risk_free) / downside_deviation)
         return ret
 
     def update_return_ratio(self,):
