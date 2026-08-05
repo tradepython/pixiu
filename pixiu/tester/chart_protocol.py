@@ -54,7 +54,8 @@ class LegacyChartAdapter(object):
     def __init__(self, script_settings=None, charts_data=None, graph_data=None,
                  order_logs=None, account_logs=None, print_logs=None, report=None,
                  metadata=None, symbols=None, default_symbol=None, timeframe=None,
-                 account=None):
+                 account=None, explain_status=None, explain_events=None,
+                 explain_order_states=None):
         self.script_settings = script_settings or {}
         self.charts_data = charts_data or []
         self.graph_data = graph_data or {}
@@ -67,6 +68,9 @@ class LegacyChartAdapter(object):
         self.default_symbol = default_symbol
         self.timeframe = timeframe
         self.account = account or {}
+        self.explain_status = explain_status
+        self.explain_events = explain_events or []
+        self.explain_order_states = explain_order_states or {}
 
     def build(self):
         panes, series = self._build_panes_and_series()
@@ -75,6 +79,7 @@ class LegacyChartAdapter(object):
         orders = self._build_orders(tick_orders)
         logs = self._build_logs()
         reports = self._build_reports()
+        events = self._build_events()
         self._apply_charts_data(series, frames)
 
         return {
@@ -89,7 +94,7 @@ class LegacyChartAdapter(object):
             "orders": orders,
             "positions": [],
             "account": account,
-            "events": [],
+            "events": events,
             "objects": [],
             "assets": {},
             "logs": logs,
@@ -352,6 +357,32 @@ class LegacyChartAdapter(object):
                 items[key] = {}
         return {"summary": summary, "items": items}
 
+    def _build_events(self):
+        events = []
+        for idx, item in enumerate(self.explain_events):
+            if not isinstance(item, dict):
+                continue
+            payload = self._to_json_safe(copy.deepcopy(item))
+            event_type = payload.get("event_type", "ea_explain")
+            event_id = payload.get("decision_id") or payload.get("id") or "explain-%s" % (idx + 1)
+            event = {
+                "id": str(event_id),
+                "time": self._to_timestamp(payload.get("time_ts", payload.get("time"))),
+                "type": "ea_explain",
+                "name": event_type,
+                "level": payload.get("level", "info"),
+                "symbol": payload.get("symbol", self.default_symbol),
+                "price": self._to_number(payload.get("price")),
+                "text": payload.get("summary"),
+                "payload": payload,
+            }
+            if payload.get("order_uid") is not None:
+                event["order_uid"] = str(payload.get("order_uid"))
+            if payload.get("reason_code") is not None:
+                event["reason_code"] = payload.get("reason_code")
+            events.append({key: value for key, value in event.items() if value is not None})
+        return events
+
     def _apply_charts_data(self, series, frames):
         fallback_time = frames[-1]["time"] if frames else None
         for item in self.charts_data:
@@ -438,3 +469,10 @@ class LegacyChartAdapter(object):
         if isinstance(value, float) and value.is_integer():
             return int(value)
         return value
+
+    def _to_json_safe(self, value):
+        if isinstance(value, dict):
+            return {str(key): self._to_json_safe(item) for key, item in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [self._to_json_safe(item) for item in value]
+        return self._to_json_value(value)

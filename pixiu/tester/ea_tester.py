@@ -1,6 +1,8 @@
 
 import sys
 import math
+import json
+import os
 import pyjson5 as json5
 import threading
 import importlib
@@ -61,6 +63,9 @@ class EATesterPrintCollector(object):
 MAX_DATA_LENGTH = 1048576 #1MB
 class EATester(EABase):
     """EA Tester"""
+    EA_EXPLAIN_SCHEMA = "pixiu-ea-explain-v1"
+    EA_EXPLAIN_MAX_EVENT_BYTES = 16 * 1024
+    EA_EXPLAIN_MAX_BATCH_EVENTS = 200
     FM_MAX_DRAWDOWN_UPDATED           = 0b0000000000000001
     FM_TRADE_MAX_LOSS_UPDATED         = 0b0000000000000010
     FM_TRADE_MAX_PROFIT_UPDATED       = 0b0000000000000100
@@ -604,6 +609,166 @@ class EATester(EABase):
         log_dict['id'] = len(self.context.order_logs) + 1
         self.context.order_logs.append(log_dict)
 
+    def update_ea_explain_status(self, data):
+        status = self._normalize_ea_explain_status(data)
+        if status is None:
+            return False
+        self.context.ctx["explain_status"] = status
+        return True
+
+    def append_ea_explain_event(self, data):
+        if isinstance(data, dict):
+            events = [data]
+        elif isinstance(data, (list, tuple)):
+            events = list(data)
+        else:
+            self._add_ea_explain_warning("PX_AppendEAExplainEvent expects an object or object list.")
+            return False
+
+        accepted = 0
+        for item in events[:self.EA_EXPLAIN_MAX_BATCH_EVENTS]:
+            event = self._normalize_ea_explain_event(item)
+            if event is None:
+                continue
+            self.context.ctx["explain_events"].append(event)
+            self._materialize_ea_explain_order_state(event)
+            accepted += 1
+        if len(events) > self.EA_EXPLAIN_MAX_BATCH_EVENTS:
+            self._add_ea_explain_warning("PX_AppendEAExplainEvent batch exceeded %s events; extra events skipped." %
+                                         self.EA_EXPLAIN_MAX_BATCH_EVENTS)
+        return accepted > 0
+
+    def _normalize_ea_explain_status(self, data):
+        if not isinstance(data, dict):
+            self._add_ea_explain_warning("PX_UpdateEAExplainStatus expects an object.")
+            return None
+        invalid_key = self._first_invalid_object_field(
+            data, ("inventory", "risk", "market", "decision_summary", "data"))
+        if invalid_key is not None:
+            self._add_ea_explain_warning("PX_UpdateEAExplainStatus field %r must be an object." % invalid_key)
+            return None
+        ret = self._json_safe(data)
+        ret.update(self._ea_explain_context("status"))
+        ret.setdefault("status", "running")
+        return ret
+
+    def _normalize_ea_explain_event(self, data):
+        if not isinstance(data, dict):
+            self._add_ea_explain_warning("PX_AppendEAExplainEvent item must be an object.")
+            return None
+        if not data.get("event_type"):
+            self._add_ea_explain_warning("PX_AppendEAExplainEvent item missing event_type.")
+            return None
+        invalid_key = self._first_invalid_object_field(data, ("data", "order_state"))
+        if invalid_key is not None:
+            self._add_ea_explain_warning("PX_AppendEAExplainEvent field %r must be an object." % invalid_key)
+            return None
+        ret = self._json_safe(data)
+        ret.update(self._ea_explain_context("event"))
+        ret.setdefault("level", "info")
+        if not self._ea_explain_payload_allowed(ret):
+            self._add_ea_explain_warning("PX_AppendEAExplainEvent item exceeded %s bytes and was skipped." %
+                                         self.EA_EXPLAIN_MAX_EVENT_BYTES)
+            return None
+        return ret
+
+    def _materialize_ea_explain_order_state(self, event):
+        order_state = event.get("order_state")
+        if not isinstance(order_state, dict):
+            return
+        order_uid = event.get("order_uid") or order_state.get("order_uid")
+        if order_uid is None:
+            return
+        context = self._ea_explain_context("order_state")
+        context["order_uid"] = str(order_uid)
+        state = self._json_safe(order_state)
+        state.update(context)
+        if event.get("root_uid") is not None:
+            state.setdefault("root_uid", str(event.get("root_uid")))
+        if event.get("decision_id") is not None:
+            state.setdefault("last_decision_id", event.get("decision_id"))
+        if event.get("action") is not None:
+            state.setdefault("last_action", event.get("action"))
+        if event.get("reason_code") is not None:
+            state.setdefault("last_reason_code", event.get("reason_code"))
+        self.context.ctx["explain_order_states"][str(order_uid)] = state
+
+    def _ea_explain_context(self, explain_type):
+        time_ts = self._ea_explain_time_ts()
+        ret = {
+            "schema": self.EA_EXPLAIN_SCHEMA,
+            "type": explain_type,
+            "run_mode": "tester",
+            "run_id": self.context.ticket,
+            "test_id": self.context.ctx.get("test_id", None),
+            "sid": self._scalar_or_none(self.context.ctx.get("sid", None)),
+            "symbol": self.context.symbol,
+            "ea_name": self.context.script_metadata.get("name", None),
+            "ea_version": self.context.script_metadata.get("version", None),
+            "time": str(utc_from_timestamp(time_ts)) if time_ts is not None else None,
+            "time_ts": time_ts,
+        }
+        return ret
+
+    def _ea_explain_time_ts(self):
+        try:
+            if self.context.tick_info is not None:
+                return self._json_safe(self.current_time())
+        except Exception:
+            pass
+        return None
+
+    def _first_invalid_object_field(self, data, keys):
+        for key in keys:
+            if key in data and data[key] is not None and not isinstance(data[key], dict):
+                return key
+        return None
+
+    def _ea_explain_payload_allowed(self, data):
+        try:
+            payload = json.dumps(data, ensure_ascii=True, sort_keys=True)
+        except (TypeError, ValueError):
+            payload = json.dumps(self._json_safe(data), ensure_ascii=True, sort_keys=True)
+        return len(payload.encode("utf-8")) <= self.EA_EXPLAIN_MAX_EVENT_BYTES
+
+    def _add_ea_explain_warning(self, message):
+        self.context.ctx.setdefault("explain_warnings", []).append(message)
+        log.warning(message)
+
+    def _json_safe(self, value):
+        if isinstance(value, dict):
+            return {str(k): self._json_safe(v) for k, v in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [self._json_safe(v) for v in value]
+        if isinstance(value, datetime):
+            if value.tzinfo is not None:
+                value = value.astimezone(timezone.utc).replace(tzinfo=None)
+            return str(value)
+        if hasattr(value, "item"):
+            try:
+                value = value.item()
+            except ValueError:
+                pass
+        if isinstance(value, (np.integer,)):
+            return int(value)
+        if isinstance(value, (np.floating,)):
+            return float(value)
+        if isinstance(value, (np.bool_,)):
+            return bool(value)
+        if value is None or isinstance(value, (str, int, float, bool)):
+            return value
+        try:
+            json.dumps(value)
+            return value
+        except (TypeError, ValueError):
+            return str(value)
+
+    def _scalar_or_none(self, value):
+        value = self._json_safe(value)
+        if isinstance(value, (str, int, float, bool)) or value is None:
+            return value
+        return None
+
     def plot(self, chart_name, series):
         try:
             plot_time = self.current_time()
@@ -644,6 +809,9 @@ class EATester(EABase):
             default_symbol=self.context.symbol,
             timeframe=self.context.tick_timeframe,
             account=self.context.account,
+            explain_status=self.context.ctx.get("explain_status", None),
+            explain_events=self.context.ctx.get("explain_events", []),
+            explain_order_states=self.context.ctx.get("explain_order_states", {}),
         )
         return adapter.build()
 
@@ -654,6 +822,32 @@ class EATester(EABase):
     def save_chart_report_html(self, output_path, graph_data=None, metadata=None, title=None):
         replay = self.build_chart_replay(graph_data=graph_data, metadata=metadata)
         return write_chart_replay_html(replay, output_path, title=title)
+
+    def build_ea_explain_export(self):
+        return {
+            "status": self.context.ctx.get("explain_status", None),
+            "events": self.context.ctx.get("explain_events", []),
+            "orders": self.context.ctx.get("explain_order_states", {}),
+            "warnings": self.context.ctx.get("explain_warnings", []),
+        }
+
+    def save_ea_explain_files(self, output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+        export = self.build_ea_explain_export()
+        paths = {
+            "status": os.path.join(output_dir, "explain_status.json"),
+            "events": os.path.join(output_dir, "explain_events.jsonl"),
+            "orders": os.path.join(output_dir, "explain_orders.json"),
+        }
+        with open(paths["status"], "w", encoding="utf-8") as file_obj:
+            json.dump(export["status"] or {}, file_obj, ensure_ascii=False, indent=2, sort_keys=True)
+        with open(paths["events"], "w", encoding="utf-8") as file_obj:
+            for event in export["events"]:
+                file_obj.write(json.dumps(event, ensure_ascii=False, sort_keys=True))
+                file_obj.write("\n")
+        with open(paths["orders"], "w", encoding="utf-8") as file_obj:
+            json.dump(export["orders"] or {}, file_obj, ensure_ascii=False, indent=2, sort_keys=True)
+        return paths
 
     def add_account_log(self, log_dict):
         """Add account log"""
@@ -2012,6 +2206,10 @@ class EATester(EABase):
         self.context.account_logs = []
         self.context.return_logs.clear()
         self.context.print_logs = []
+        self.context.ctx["explain_status"] = None
+        self.context.ctx["explain_events"] = []
+        self.context.ctx["explain_order_states"] = {}
+        self.context.ctx["explain_warnings"] = []
         self.context.symbol_properties = {}
         self.context.tick_info = None
         self.context.orders = self.get_init_data('orders', dict(symbol=self.context.symbol))

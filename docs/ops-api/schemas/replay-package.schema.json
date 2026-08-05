@@ -19,8 +19,8 @@
       "properties": {
         "strategy_id": {"type": "string"},
         "name": {"type": "string"},
-        "provider": {"type": "string"},
-        "provider_ref": {
+        "runtime": {"type": "string"},
+        "runtime_ref": {
           "type": "object",
           "additionalProperties": true
         }
@@ -202,7 +202,7 @@
     "risk_events": {
       "type": "array",
       "default": [],
-      "description": "Provider or replay detected risk events such as defense, lock, forced liquidation, or cooldown.",
+      "description": "Runtime or replay detected risk events such as defense, lock, forced liquidation, or cooldown.",
       "items": {
         "type": "object",
         "required": ["time", "type"],

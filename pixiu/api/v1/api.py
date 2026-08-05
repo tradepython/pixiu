@@ -239,6 +239,33 @@ class APIStub(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
+    def PX_UpdateEAExplainStatus(self, data):
+        '''
+        Update the current EA explain status.
+
+                Parameters:
+                        data (dict): Status payload. Pixiu adds schema, type, time, symbol and run context.
+
+                Returns:
+                        bool: True if accepted.
+        '''
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def PX_AppendEAExplainEvent(self, data):
+        '''
+        Append one or more EA explain events.
+
+                Parameters:
+                        data (dict | list[dict]): One event payload or a list of event payloads.
+                                                  Pixiu adds schema, type, time, symbol and run context.
+
+                Returns:
+                        bool: True if at least one event was accepted.
+        '''
+        raise NotImplementedError
+
+    @abc.abstractmethod
     def GetSymbol(self, symbol=None):
         '''
         Returns the symbol properties.

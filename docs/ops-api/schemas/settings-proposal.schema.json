@@ -42,7 +42,7 @@
         "properties": {
           "path": {
             "type": "string",
-            "description": "Dot path or JSON pointer understood by the provider."
+            "description": "Dot path or JSON pointer understood by the runtime implementation."
           },
           "value": true,
           "old_value": true,
@@ -68,4 +68,3 @@
   },
   "additionalProperties": false
 }
-

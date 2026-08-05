@@ -674,6 +674,16 @@ class PiXiuTests(TestCase):
             default_symbol=self.symbol,
             timeframe=TimeFrame.M1,
             account=self.account,
+            explain_events=[
+                {
+                    "event_type": "decision_no_action",
+                    "reason_code": "condition_blocked",
+                    "summary": "Signal was not strong enough.",
+                    "time_ts": 1615766400,
+                    "symbol": self.symbol,
+                    "data": {"score": 68},
+                }
+            ],
         )
 
         replay = adapter.build()
@@ -690,6 +700,10 @@ class PiXiuTests(TestCase):
         self.assertEqual(replay["reports"]["summary"]["balance"], 10000)
         self.assertEqual(replay["symbols"][self.symbol]["base_currency"], "USD")
         self.assertEqual(replay["symbols"][self.symbol]["profit_currency"], "CHF")
+        self.assertEqual(replay["events"][0]["type"], "ea_explain")
+        self.assertEqual(replay["events"][0]["name"], "decision_no_action")
+        self.assertEqual(replay["events"][0]["reason_code"], "condition_blocked")
+        self.assertEqual(replay["events"][0]["payload"]["data"]["score"], 68)
 
         series = {item["id"]: item for item in replay["series"]}
         self.assertEqual(series["price.top_signal"]["color"], "#89F3DAFF")
@@ -741,6 +755,83 @@ class PiXiuTests(TestCase):
         self.assertIsNotNone(replay["metadata"]["pixiu_version"])
         self.assertIn("script_settings", replay["metadata"])
         self.assertIn("charts", replay["metadata"]["script_settings"])
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_explain_api_records_status_events_and_order_state(self):
+        params = dict(self.eat_params)
+        params['global_values'] = dict(self.eat_params['global_values'])
+        params['script_path'] = None
+        params['script'] = "\n".join([
+            "def PX_InitScriptSettings():",
+            "    return {'charts': {}, 'params': {}}",
+            "def PX_ValidScriptSettings(script_settings=None):",
+            "    return {'success': True, 'errmsg': ''}",
+        ])
+        eatt = EATTester(self, params)
+        eatt.context.ticket = "explain-test-run"
+        eatt.init_data()
+
+        self.assertTrue(eatt.context.safe_globals["PX_UpdateEAExplainStatus"]({
+            "status": "running",
+            "phase": "holding",
+            "summary": "Waiting for the next signal.",
+            "decision_summary": {"last_action": "hold"},
+        }))
+        self.assertTrue(eatt.context.safe_globals["PX_AppendEAExplainEvent"]({
+            "event_type": "decision_open",
+            "action": "open_buy",
+            "reason_code": "score_passed",
+            "summary": "Open conditions passed.",
+            "order_uid": "order-1",
+            "order_state": {"open_reason_code": "score_passed"},
+        }))
+        self.assertTrue(eatt.context.safe_globals["PX_AppendEAExplainEvent"]([
+            {"event_type": "score_update", "summary": "Score refreshed.", "data": {"score": np.float64(72)}},
+            {"event_type": "decision_no_action", "reason_code": "condition_blocked", "summary": "Waiting."},
+        ]))
+        self.assertFalse(eatt.context.safe_globals["PX_AppendEAExplainEvent"]({"summary": "missing event type"}))
+
+        status = eatt.context.ctx["explain_status"]
+        self.assertEqual(status["schema"], "pixiu-ea-explain-v1")
+        self.assertEqual(status["type"], "status")
+        self.assertEqual(status["symbol"], self.symbol)
+        self.assertEqual(status["run_id"], "explain-test-run")
+        self.assertEqual(status["decision_summary"]["last_action"], "hold")
+        self.assertEqual(len(eatt.context.ctx["explain_events"]), 3)
+        self.assertEqual(eatt.context.ctx["explain_events"][0]["type"], "event")
+        self.assertEqual(eatt.context.ctx["explain_events"][1]["data"]["score"], 72)
+        self.assertEqual(eatt.context.ctx["explain_order_states"]["order-1"]["type"], "order_state")
+        self.assertEqual(eatt.context.ctx["explain_order_states"]["order-1"]["open_reason_code"], "score_passed")
+
+        replay = eatt.build_chart_replay(graph_data={
+            "symbol": self.symbol,
+            "ticks": [
+                {
+                    "t": 1615766400,
+                    "o": 0.9300,
+                    "h": 0.9330,
+                    "l": 0.9290,
+                    "c": 0.9320,
+                    "v": 10,
+                    "orders": [],
+                }
+            ],
+        })
+        self.assertEqual(len(replay["events"]), 3)
+        self.assertEqual(replay["events"][0]["order_uid"], "order-1")
+        self.assertEqual(replay["events"][0]["payload"]["order_state"]["open_reason_code"], "score_passed")
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = eatt.save_ea_explain_files(tmp_dir)
+            with open(paths["status"], "r", encoding="utf-8") as file_obj:
+                status_data = json.load(file_obj)
+            with open(paths["events"], "r", encoding="utf-8") as file_obj:
+                event_lines = [json.loads(line) for line in file_obj if line.strip()]
+            with open(paths["orders"], "r", encoding="utf-8") as file_obj:
+                order_data = json.load(file_obj)
+            self.assertEqual(status_data["type"], "status")
+            self.assertEqual(len(event_lines), 3)
+            self.assertEqual(order_data["order-1"]["open_reason_code"], "score_passed")
 
     @skipIf(debug_some_tests, "debug some tests")
     def test_px_tester_graph_tick_time_uses_raw_epoch(self):

@@ -125,7 +125,7 @@ Pixiu tester / runner
     "run_id": "20260618-001",
     "mode": "tester",
     "pixiu_version": "0.178.0",
-    "script_name": "GridFire",
+    "script_name": "ExampleStrategy",
     "script_version": "1.2.3",
     "account": {
       "currency": "USD",
@@ -467,7 +467,7 @@ PlotSeries("ma_fast", value, chart="price", color="#f59e0b")
       "comment": "grid stage 1",
       "magic_number": 10001,
       "tags": {
-        "group": "gridfire",
+        "group": "sample_group",
         "stage": 1
       }
     },

@@ -1,4 +1,41 @@
 
+### [2026-08-04]
+#### Version:
+#####   Package:
+#####    pixiu: 0.180.*.20260804
+#####
+#### **Descriptions：**
+    1.docs/ea-explain-protocol.zh.md:
+        1) Add Pixiu EA Explain protocol design for the open-source standalone project
+        2) Define the two EA-facing Explain APIs: PX_UpdateEAExplainStatus and PX_AppendEAExplainEvent
+        3) Define status, event, and materialized order_state data models
+        4) Define object/list input validation, context normalization, payload limits, and chart protocol mapping
+        5) Keep the protocol independent from external runtimes and specific EA implementations
+    2.api.py / tester_api_v1.py:
+        1) Add PX_UpdateEAExplainStatus API declaration and tester forwarding
+        2) Add PX_AppendEAExplainEvent API declaration and tester forwarding
+        3) Allow PX_AppendEAExplainEvent to accept one event object or a list of event objects
+    3.ea_tester.py / ea_tester_context.py:
+        1) Add tester-side EA Explain status, event, order_state, and warning buffers
+        2) Normalize Explain payloads with schema, type, run mode, run id, symbol, script metadata, and UTC tick time
+        3) Validate Explain input object shapes and skip invalid batch items without interrupting the tester
+        4) Enforce per-event and batch limits for low-overhead Explain collection
+        5) Materialize order_state from event order_state payloads
+        6) Add build_ea_explain_export and save_ea_explain_files for explain_status.json, explain_events.jsonl, and explain_orders.json
+    4.chart_protocol.py:
+        1) Map normalized Explain events into Pixiu chart protocol events
+        2) Preserve original Explain payloads for future viewer tooltips and timeline display
+    5.test_pixiu.py:
+        1) Add regression coverage for Explain event mapping in LegacyChartAdapter
+        2) Add regression coverage for tester Explain API injection, status/event normalization, batch events, invalid event handling, order_state materialization, chart replay, and JSON/JSONL export
+    6.setup.py:
+        1) Bump package version to 0.180.0
+    7.Validation:
+        1) Full test_pixiu.py suite passes: 38 passed
+    8.docs/ops-api:
+        1) Replace project-specific wording with runtime-neutral terminology for public release
+        2) Remove concrete external project identifiers from the Ops API resource model
+
 ### [2026-06-20]
 #### Version:
 #####   Package:
@@ -15,7 +52,7 @@
         7) Serialize live graph messages as strict JSON and convert NaN/Infinity report values to null
         8) Attach sanitized test configuration and final EA script settings metadata to the first live chart update
     2.chart protocol / chart viewer:
-        1) Verify the time-fixed chart protocol report fixture pixiu_gf109_chart_protocol_timefix_20260620.html
+        1) Verify the time-fixed chart protocol report fixture with anonymized sample replay data
         2) Confirm order markers and graph frames now use the same UTC time base
         3) Confirm #36 CLOSE at 2026-05-11 18:25:00 UTC matches the same-minute frame range
         4) Confirm #37 OPEN at 2026-05-11 20:20:00 UTC is within spread tolerance against the same-minute frame

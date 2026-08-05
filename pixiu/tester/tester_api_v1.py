@@ -236,6 +236,12 @@ class TesterAPI_V1(API_V1_Base):
     def StopTester(self, code: int=0, message: str=None):
         return self.tester.stop_tester(code, message)
 
+    def PX_UpdateEAExplainStatus(self, data):
+        return self.tester.update_ea_explain_status(data)
+
+    def PX_AppendEAExplainEvent(self, data):
+        return self.tester.append_ea_explain_event(data)
+
     def __calculate_indicator__(self, indicator_id, price_data, *args, **kwargs):
         #indicator_id, price_data, period, ma_type
         if not isinstance(price_data, SymbolPrice) and not isinstance(price_data, SymbolData):
