@@ -34,15 +34,15 @@ pip install pixiu
 
     比较多个策略：
 
-    pixiu -c pixiu.json -n testAUDUSD_TP_Demo1 testGBPUSD_TP_Demo1 testNZDUSD_TP_Demo1 testEURUSD_TP_Demo1 testUSDCHF_TP_Demo1 testUSDJPY_TP_Demo1 testUSDCAD_TP_Demo1 -s ../EA/EA_V2.10.0.py -p report -t 2.10.0 -l ea2_7.json
-    pixiu -c pixiu.json -n testAUDUSD_TP_Demo1 testGBPUSD_TP_Demo1 testNZDUSD_TP_Demo1 testEURUSD_TP_Demo1 testUSDCHF_TP_Demo1 testUSDJPY_TP_Demo1 testUSDCAD_TP_Demo1 -s ../EA/EA_V2.10.1.py -p report -t 2.10.1 -l ea2_7.json
-    pixiu -c pixiu.json -n testAUDUSD_TP_Demo1 testGBPUSD_TP_Demo1 testNZDUSD_TP_Demo1 testEURUSD_TP_Demo1 testUSDCHF_TP_Demo1 testUSDJPY_TP_Demo1 testUSDCAD_TP_Demo1 -s ../EA/EA_V2.10.2.py -p report -t 2.10.2 -l ea2_7.json
+    pixiu -c pixiu.json -n testAUDUSD_A testGBPUSD_A testNZDUSD_A testEURUSD_A testUSDCHF_A testUSDJPY_A testUSDCAD_A -s ../strategies/strategy_v1.py -p report -t strategy-v1 -l strategy_compare.json
+    pixiu -c pixiu.json -n testAUDUSD_A testGBPUSD_A testNZDUSD_A testEURUSD_A testUSDCHF_A testUSDJPY_A testUSDCAD_A -s ../strategies/strategy_v2.py -p report -t strategy-v2 -l strategy_compare.json
+    pixiu -c pixiu.json -n testAUDUSD_A testGBPUSD_A testNZDUSD_A testEURUSD_A testUSDCHF_A testUSDJPY_A testUSDCAD_A -s ../strategies/strategy_v3.py -p report -t strategy-v3 -l strategy_compare.json
 
-    pixiu -c pixiu.json -n testAUDUSD_TP_Demo1 testGBPUSD_TP_Demo1 testNZDUSD_TP_Demo1 testEURUSD_TP_Demo1 testUSDCHF_TP_Demo1 testUSDJPY_TP_Demo1 testUSDCAD_TP_Demo1 -t 2.10.0 -r 2.10.1 2.10.2 -l ea2_7.json
+    pixiu -c pixiu.json -n testAUDUSD_A testGBPUSD_A testNZDUSD_A testEURUSD_A testUSDCHF_A testUSDJPY_A testUSDCAD_A -t strategy-v1 -r strategy-v2 strategy-v3 -l strategy_compare.json
 
     Output:
     +----+--------------------------------------+---------------------+---------------------+---------------------+---------------------+---------------------+---------------------+---------------------+--------------------+
-    |    |                                      | testAUDUSD_TP_Demo1 | testGBPUSD_TP_Demo1 | testNZDUSD_TP_Demo1 | testEURUSD_TP_Demo1 | testUSDCHF_TP_Demo1 | testUSDJPY_TP_Demo1 | testUSDCAD_TP_Demo1 | Total/Avg          |
+    |    |                                      | testAUDUSD_A | testGBPUSD_A | testNZDUSD_A | testEURUSD_A | testUSDCHF_A | testUSDJPY_A | testUSDCAD_A | Total/Avg          |
     +----+--------------------------------------+---------------------+---------------------+---------------------+---------------------+---------------------+---------------------+---------------------+--------------------+
     | 1  | Init Balance(2.10.0)                 | 5000.0              | 5000.0              | 5000.0              | 5000.0              | 5000.0              | 5000.0              | 5000.0              | 35000.0 / 5000.0   |
     | 1  | Init Balance(2.10.1)                 | 5000.0              | 5000.0              | 5000.0              | 5000.0              | 5000.0              | 5000.0              | 5000.0              | 35000.0 / 5000.0   |
@@ -59,10 +59,10 @@ pip install pixiu
     | 9  | Total Net Profit Rate(2.10.2)        | -0.37 % ↓           | 1.53 % ↑            | 0.01 % ↓            | -0.3 % ↓            | 0.46 % ↑            | 0.59 % ↑            | -0.69 % ↓           | 1.23 % / 0.18 %    |
     ...
 
-    pixiu -c pixiu.json -n testUSDCAD_TP_Demo1 -t 2.10.0 -r 2.10.1 2.10.2 -l ea2_7.json
+    pixiu -c pixiu.json -n testUSDCAD_A -t strategy-v1 -r strategy-v2 strategy-v3 -l strategy_compare.json
     Output:
     +----+--------------------------------------+---------------------+-------------------+
-    |    |                                      | testUSDCAD_TP_Demo1 | Total/Avg         |
+    |    |                                      | testUSDCAD_A | Total/Avg         |
     +----+--------------------------------------+---------------------+-------------------+
     | 1  | Init Balance(2.10.0)                 | 5000.0              | 5000.0 / 5000.0   |
     | 1  | Init Balance(2.10.1)                 | 5000.0              | 5000.0 / 5000.0   |
@@ -163,7 +163,7 @@ json 格式:
       "tick_data": {
          "channel": "tradepython.com",
          "api_token": "YOUR-API-TOKEN",
-         "source": {"type": "public", "name": "Demo1"},
+         "source": {"type": "public", "name": "sample-public-feed"},
          "format": "json",
          "period": 30,
          "start_time": "2021-03-15",
@@ -214,7 +214,7 @@ source: 数据账号
   account@account-server
   例如:
       12345678@PixiuServer01
-  或: {"type": "public", "name": "Demo1"}
+  或: {"type": "public", "name": "sample-public-feed"}
   type: public 或者 private
   name: 账号名称
 
@@ -265,7 +265,7 @@ timeframe: 时间帧，以下值
       "tick_data": {
         "channel": "tradepython.com",
         "api_token": "YOUR-API-TOKEN",
-        "source": {"type": "public", "name": "Demo1"},
+        "source": {"type": "public", "name": "sample-public-feed"},
         "format": "json",
         "period": 30,
         "timeframe": "m1"

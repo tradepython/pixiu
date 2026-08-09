@@ -139,7 +139,7 @@ Order fields:
 
 Seeds tester persistent runtime data before the main tick loop starts.
 
-This is useful when an EA needs existing runtime state, such as a GridFire `open_info_<SYMBOL>` record, in addition to existing orders.
+This is useful when an EA needs existing strategy-specific runtime state, such as an `open_info_<SYMBOL>` record, in addition to existing orders.
 
 Example:
 

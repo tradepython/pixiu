@@ -84,12 +84,12 @@
       "account": "default",
       "spread_point": 15
     },
-    "testUSDCHF_TP_Demo1": {
+    "testUSDCHF_TP_PublicSample": {
       "symbol": "USDCHF",
       "tick_data": {
          "channel": "tradepython.com",
          "api_token": "Your-API-Token",
-         "source": {"type": "public", "name": "Demo1"},
+         "source": {"type": "public", "name": "sample-public-feed"},
          "format": "json",
          "period": 30,
          "timeframe": "m1"

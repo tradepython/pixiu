@@ -28,13 +28,13 @@ original_volume = order.volume
 original_stop_loss = order.stop_loss
 original_take_profit = order.take_profit
 original_open_price = order.open_price
-errid, result = UpdateOrderTags(order.uid, patch={'tag_ver': 1, 'manager_owner': 'gridfire', 'remove_me': True})
+errid, result = UpdateOrderTags(order.uid, patch={'tag_ver': 1, 'manager_owner': 'sample_manager', 'remove_me': True})
 assertEqual(errid, 0)
 assertEqual(result['order_uid'], order.uid)
 order = GetOrder(order.uid)
 assertEqual(order.tags['score'], score)
 assertEqual(order.tags['tag_ver'], 1)
-assertEqual(order.tags['manager_owner'], 'gridfire')
+assertEqual(order.tags['manager_owner'], 'sample_manager')
 assertEqual(order.volume, original_volume)
 assertEqual(order.stop_loss, original_stop_loss)
 assertEqual(order.take_profit, original_take_profit)

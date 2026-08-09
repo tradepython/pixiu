@@ -610,6 +610,8 @@ class EATester(EABase):
         self.context.order_logs.append(log_dict)
 
     def update_ea_explain_status(self, data):
+        if not self.context.ctx.get("explain_enabled", True):
+            return True
         status = self._normalize_ea_explain_status(data)
         if status is None:
             return False
@@ -617,6 +619,8 @@ class EATester(EABase):
         return True
 
     def append_ea_explain_event(self, data):
+        if not self.context.ctx.get("explain_enabled", True):
+            return True
         if isinstance(data, dict):
             events = [data]
         elif isinstance(data, (list, tuple)):

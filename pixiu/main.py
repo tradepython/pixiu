@@ -65,6 +65,24 @@ class MainApp:
             "port": port,
         }
 
+    @staticmethod
+    def build_test_runtime_options(args):
+        fast = bool(getattr(args, "fast", False))
+        explain_mode = getattr(args, "explain", "auto")
+        chart_report = bool(getattr(args, "chartreport", None))
+        explain_enabled = explain_mode == "on" or (explain_mode == "auto" and not fast)
+        runtime_options = {
+            "profile": "fast" if fast else "default",
+            "explain_enabled": explain_enabled,
+            "collect_graph_data": (not fast) or chart_report,
+            "collect_chart_replay": (not fast) or chart_report,
+            "graph_sample_ticks": 100 if fast else 1,
+        }
+        max_tick = getattr(args, "max_tick", None)
+        if max_tick is not None:
+            runtime_options["tick_max_index"] = max_tick
+        return runtime_options
+
     def load_data(self, ext=''):
         try:
             # with open(f"pxdata/{self.data_file}", "r") as f:
@@ -236,14 +254,15 @@ class MainApp:
 
 
     def run_tester(self, test_config_path, test_name, script_path, log_path, print_log_type, result_value, graph,
-                   message_queue, graph_data, exec):
+                   message_queue, graph_data, exec, runtime_options=None):
         graph_server = None
         try:
             if graph:
                 graph_server = EATesterGraphServer(message_queue)
             pxt = PXTester(test_config_path=test_config_path, test_name=test_name, script_path=script_path,
                            log_path=log_path, print_log_type=print_log_type, test_result=result_value,
-                           tester_graph_server=graph_server, test_graph_data=graph_data)
+                           tester_graph_server=graph_server, test_graph_data=graph_data,
+                           runtime_options=runtime_options)
             if exec:
                 # pxt.execute("", sync=True)
                 pxt.execute_script("", sync=True)
@@ -308,7 +327,7 @@ class MainApp:
             gd = manager.Value(c_wchar_p, '')
             graph_data = manager.Value(c_wchar_p, '')
             pool_args.append((args.testconfig, test_name, script_path, args.logpath, args.printlogtype, tr,
-                              args.graph, message_queue, gd, args.exec))
+                              args.graph, message_queue, gd, args.exec, args.runtime_options))
             # results[test_name] = tr
             results[test_name] = dict(result=tr, graph_data=gd)
         #
@@ -369,7 +388,7 @@ class MainApp:
             tr = manager.Value(c_wchar_p, '')
             gd = manager.Value(c_wchar_p, '')
             pool_args.append((args.testconfig, test_name, script_path, args.logpath, args.printlogtype, tr,
-                              args.graph, message_queue, gd, args.exec))
+                              args.graph, message_queue, gd, args.exec, args.runtime_options))
             # results[test_name] = tr
             results[test_name] = dict(result=tr, graph_data=gd)
 
@@ -474,7 +493,7 @@ def main(*args, **kwargs):
     parser_test.add_argument('-n', '--testname',  nargs='+', required=True, help='Test name')
     parser_test.add_argument('-s', '--scriptpath', type=str, required=False, help='Script path')
     parser_test.add_argument('-o', '--logpath', type=str, help='Log path')
-    parser_test.add_argument('-p', '--printlogtype', nargs='+', default=['ea', 'report'], required=False,
+    parser_test.add_argument('-p', '--printlogtype', nargs='+', default=None, required=False,
                         help='Print log type,  account order ea report')
     parser_test.add_argument('-m', '--multiprocessing', type=MainApp.str2bool, default=True, help='Multiprocessing mode')
     parser_test.add_argument('-t', '--tag', type=str, help='Tag')
@@ -484,6 +503,12 @@ def main(*args, **kwargs):
                              help='Display tester live chart at the given URL, for example http://127.0.0.1:8051')
     parser_test.add_argument('--chart-report', dest='chartreport', type=str, required=False,
                              help='Write browser chart report HTML. Use a file path for one test or a directory for multiple tests.')
+    parser_test.add_argument('--fast', action='store_true',
+                             help='Use a fast local test profile: report-only logs, sampled/disabled chart data, and explain off by default.')
+    parser_test.add_argument('--explain', choices=('auto', 'on', 'off'), default='auto',
+                             help='Control EA Explain collection. auto keeps explain on normally and off in --fast mode.')
+    parser_test.add_argument('--max-tick', dest='max_tick', type=int, required=False,
+                             help='Override tick_max_index for quick smoke tests.')
     parser_test.add_argument('-x', '--exec', type=str, required=False, help='Exec command')
     #
     parser_build = subparsers.add_parser('build', help='Build EA')
@@ -505,6 +530,9 @@ def main(*args, **kwargs):
         MainApp(args).optimize_ea(args.optimizeconfig, args.output, args.mode)
     else:
         manager = Manager()
+        if args.printlogtype is None:
+            args.printlogtype = ['report'] if args.fast else ['ea', 'report']
+        args.runtime_options = MainApp.build_test_runtime_options(args)
         graph_config = MainApp.parse_graph_url(args.graph)
         args.graph = graph_config["url"] if graph_config else None
 

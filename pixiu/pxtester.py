@@ -27,10 +27,11 @@ np.set_printoptions(legacy="1.25")
 
 class PXTester(EATester):
     def __init__(self, test_config_path, test_name, script_path, log_path=None, print_log_type=None, test_result=None,
-                 tester_graph_server=None, test_graph_data=None):
+                 tester_graph_server=None, test_graph_data=None, runtime_options=None):
         self.test_name = test_name
         self.test_result = test_result
         self.test_graph_data = test_graph_data
+        self.runtime_options = copy.deepcopy(runtime_options or {})
         self.parse_test_config(test_config_path, test_name, script_path, log_path, print_log_type)
         super(PXTester, self).__init__(self.eat_params)
         self.tester_graph_server = tester_graph_server
@@ -110,6 +111,7 @@ class PXTester(EATester):
         self.eat_params['log_path'] = log_path
         if print_log_type is not None:
             self.eat_params['print_log_type'] = print_log_type
+        self.apply_runtime_options()
         #
         if "start_time" not in self.eat_params.keys():
             # self.eat_params['start_time'] = str(datetime.utcfromtimestamp(self.new_a[0]['t']))
@@ -138,6 +140,16 @@ class PXTester(EATester):
                 account=account,
             )
         }
+
+    def apply_runtime_options(self):
+        runtime_options = copy.deepcopy(self.runtime_options)
+        for key in ("explain_enabled", "collect_graph_data", "collect_chart_replay", "graph_sample_ticks"):
+            if key in runtime_options:
+                self.eat_params[key] = runtime_options[key]
+        if runtime_options.get("tick_max_index") is not None:
+            self.eat_params["tick_max_index"] = runtime_options["tick_max_index"]
+        if runtime_options:
+            self.eat_params["runtime_options"] = runtime_options
 
     def __build_chart_test_config_metadata__(self, test_config_path, test_name, test_params, account):
         safe_account_keys = (
@@ -352,7 +364,6 @@ class PXTester(EATester):
             else:
                 eidx = None
             logs = self.context.print_logs[self.context.last_update_print_log_index:eidx]
-            # OEOEHuiEATester.add_logs(self.ticket, 'print', logs)
             for l in logs:
                 self.write_log(l, type='ea')
             self.context.last_update_print_log_index += len(logs)
@@ -367,7 +378,6 @@ class PXTester(EATester):
     #         else:
     #             eidx = None
     #         logs = self.context.print_logs[self.context.last_update_print_log_index:eidx]
-    #         # OEOEHuiEATester.add_logs(self.ticket, 'print', logs)
     #         for l in logs:
     #             self.write_log(l, type='ea')
     #         self.context.last_update_print_log_index += len(logs)
@@ -380,6 +390,9 @@ class PXTester(EATester):
     def on_end_tick(self, *args, **kwargs):
         try:
             self.__update_execuate_log__(self.ticket, count=20, force=False)
+            if not self.__should_emit_graph_tick__():
+                self.tick_order_logs = []
+                return 0
             # Keep chart replay on the raw feed epoch; Time() returns a naive UTC datetime.
             tick_time = float(self.current_time())
             tick = dict(t=tick_time, o=self.Open(), c=self.Close(),
@@ -388,7 +401,8 @@ class PXTester(EATester):
                                                                     balance=self.context.account['balance'],
                                                                     margin=self.context.account['margin'],
                                                                     orders=self.tick_order_logs)
-            self.graph_data['ticks'].append(tick)
+            if self.__should_collect_graph_data__():
+                self.graph_data['ticks'].append(tick)
             if self.tester_graph_server is not None:
                 data = dict(cmd='update_data', name=self.graph_data['name'],
                             symbol=self.graph_data['symbol'], group=self.graph_data['group'],
@@ -405,6 +419,32 @@ class PXTester(EATester):
         except:
             traceback.print_exc()
         return 0
+
+    def __should_collect_graph_data__(self):
+        return bool(self.context.ctx.get("collect_graph_data", True))
+
+    def __should_collect_chart_replay__(self):
+        return bool(self.context.ctx.get("collect_chart_replay", True))
+
+    def __graph_sample_ticks__(self):
+        try:
+            return max(1, int(self.context.ctx.get("graph_sample_ticks", 1) or 1))
+        except (TypeError, ValueError):
+            return 1
+
+    def __should_emit_graph_tick__(self):
+        if not self.__should_collect_graph_data__() and self.tester_graph_server is None:
+            return False
+        tick_index = getattr(self.context, "tick_current_index", 0) or 0
+        tick_start_index = getattr(self.context, "tick_start_index", 0) or 0
+        if self.tester_graph_server is not None and not self.live_metadata_sent:
+            return True
+        if self.tick_order_logs:
+            return True
+        sample_ticks = self.__graph_sample_ticks__()
+        if sample_ticks <= 1:
+            return True
+        return (tick_index - tick_start_index) % sample_ticks == 0
 
     def on_end_execute(self, *args, **kwargs):
         self.__update_execuate_log__(self.ticket, None, force=True)
@@ -434,10 +474,16 @@ class PXTester(EATester):
             self.test_result.value = json.dumps(dict(report=self.context.report))
         if self.test_graph_data is not None:
             # self.test_graph_data.value = json5.dumps(dict(graph_data=self.graph_data), quote_keys=True)
-            self.test_graph_data.value = json.dumps(dict(
-                graph_data=self.graph_data,
-                chart_replay=self.build_chart_replay(graph_data=self.graph_data),
-            ))
+            graph_data = self.graph_data if self.__should_collect_graph_data__() else dict(
+                ticks=[],
+                name=self.graph_data.get("name"),
+                symbol=self.graph_data.get("symbol"),
+                group=self.graph_data.get("group"),
+            )
+            result = dict(graph_data=graph_data)
+            if self.__should_collect_chart_replay__():
+                result["chart_replay"] = self.build_chart_replay(graph_data=graph_data)
+            self.test_graph_data.value = json.dumps(result)
 
         return 0
 

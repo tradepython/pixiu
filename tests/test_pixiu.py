@@ -14,6 +14,7 @@ from unittest import (TestCase, TestLoader, TestSuite, TextTestRunner, skip, ski
 
 from pixiu.api import utc_from_timestamp, OrderCommand
 from pixiu.api.v1 import (TimeFrame, SymbolData, DataScope)
+from pixiu.main import MainApp
 from pixiu.tester import (EATester, LegacyChartAdapter, render_chart_replay_html, render_chart_live_html)
 from pixiu.optimizer import (EAOptimizer, )
 import numpy as np
@@ -832,6 +833,52 @@ class PiXiuTests(TestCase):
             self.assertEqual(status_data["type"], "status")
             self.assertEqual(len(event_lines), 3)
             self.assertEqual(order_data["order-1"]["open_reason_code"], "score_passed")
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_explain_api_can_be_disabled_for_fast_tests(self):
+        params = dict(self.eat_params)
+        params['global_values'] = dict(self.eat_params['global_values'])
+        params['explain_enabled'] = False
+        params['script_path'] = None
+        params['script'] = "\n".join([
+            "def PX_InitScriptSettings():",
+            "    return {'charts': {}, 'params': {}}",
+            "def PX_ValidScriptSettings(script_settings=None):",
+            "    return {'success': True, 'errmsg': ''}",
+        ])
+        eatt = EATTester(self, params)
+        eatt.context.ticket = "explain-disabled-test-run"
+        eatt.init_data()
+
+        self.assertTrue(eatt.context.safe_globals["PX_UpdateEAExplainStatus"]({"status": "running"}))
+        self.assertTrue(eatt.context.safe_globals["PX_AppendEAExplainEvent"]({"summary": "ignored invalid event"}))
+        self.assertIsNone(eatt.context.ctx["explain_status"])
+        self.assertEqual(eatt.context.ctx["explain_events"], [])
+        self.assertEqual(eatt.context.ctx["explain_order_states"], {})
+        self.assertEqual(eatt.context.ctx["explain_warnings"], [])
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_main_fast_runtime_options_disable_explain_by_default(self):
+        fast_args = SimpleNamespace(fast=True, explain="auto", chartreport=None, max_tick=500)
+        fast_options = MainApp.build_test_runtime_options(fast_args)
+        self.assertEqual(fast_options["profile"], "fast")
+        self.assertFalse(fast_options["explain_enabled"])
+        self.assertFalse(fast_options["collect_graph_data"])
+        self.assertFalse(fast_options["collect_chart_replay"])
+        self.assertEqual(fast_options["graph_sample_ticks"], 100)
+        self.assertEqual(fast_options["tick_max_index"], 500)
+
+        explain_args = SimpleNamespace(fast=True, explain="on", chartreport="report.html", max_tick=None)
+        explain_options = MainApp.build_test_runtime_options(explain_args)
+        self.assertTrue(explain_options["explain_enabled"])
+        self.assertTrue(explain_options["collect_graph_data"])
+        self.assertTrue(explain_options["collect_chart_replay"])
+
+        normal_args = SimpleNamespace(fast=False, explain="auto", chartreport=None, max_tick=None)
+        normal_options = MainApp.build_test_runtime_options(normal_args)
+        self.assertEqual(normal_options["profile"], "default")
+        self.assertTrue(normal_options["explain_enabled"])
+        self.assertTrue(normal_options["collect_graph_data"])
 
     @skipIf(debug_some_tests, "debug some tests")
     def test_px_tester_graph_tick_time_uses_raw_epoch(self):

@@ -1,4 +1,30 @@
 
+### [2026-08-09]
+#### Version:
+#####   Package:
+#####    pixiu: 0.181.*.20260809
+#####
+#### **Descriptions：**
+    1.main.py / pxtester.py / ea_tester.py:
+        1) Add --fast tester profile for local smoke tests
+        2) Disable Explain collection by default in --fast mode, with --explain on/off/auto override
+        3) Skip heavy graph tick collection and chart replay generation in --fast mode unless chart output is requested
+        4) Add --max-tick CLI override for quick bounded test runs
+    2.README.md:
+        1) Document --fast, --explain, --max-tick, --graph, and --chart-report tester options
+    3.README.zh.md / SCENARIO.md / SCENARIO.zh.md / samples:
+        1) Replace project-specific example strategy names and paths with generic sample terminology
+    4.test_pixiu.py:
+        1) Add regression coverage for disabled Explain collection
+        2) Add regression coverage for fast runtime option defaults and --explain on override
+    5.setup.py:
+        1) Bump package version to 0.181.0
+    6.Validation:
+        1) Full test_pixiu.py suite passes: 40 passed
+        2) Sample fast-vs-normal report comparison keeps core report values identical
+        3) setup.py --version reports 0.181.0 and strict metadata check passes
+        4) Temporary sdist/wheel build succeeds and release artifacts do not include cache, backup, local path, or private key files
+
 ### [2026-08-04]
 #### Version:
 #####   Package:
@@ -1421,9 +1447,9 @@
 #####
 #### **Descriptions：**
     1.Support auto loading script from tag
-        pixiu -c pixiu.json -n testAUDUSD_TP_Demo1 -s ../Test/Test_V2.11.18-3x.py -p report -t 2.11.18-3x -l ea2_7_211209.json
+        pixiu -c pixiu.json -n testAUDUSD_A -s ../strategies/strategy_variant.py -p report -t strategy-variant -l strategy_compare.json
         or
-        pixiu -c pixiu.json -n testAUDUSD_TP_Demo1 -s ../Test -p report -t 2.11.18-3x -l ea2_7_211209.json
+        pixiu -c pixiu.json -n testAUDUSD_A -s ../strategies -p report -t strategy-variant -l strategy_compare.json
 
 
 ### [2021-11-26]
@@ -1501,13 +1527,13 @@
         --compare-wit-tag/-r, --tag/-t, --datafile/-l
       sample:
             1)  
-               pixiu -c pixiu.json -n testAUDUSD_TP_Demo1 testGBPUSD_TP_Demo1 testNZDUSD_TP_Demo1 testEURUSD_TP_Demo1 testUSDCHF_TP_Demo1 testUSDJPY_TP_Demo1 testUSDCAD_TP_Demo1 -s ../EA/EA_V2.10.0.py -p report -t 2.10.0 -l ea2_7.json
-               pixiu -c pixiu.json -n testAUDUSD_TP_Demo1 testGBPUSD_TP_Demo1 testNZDUSD_TP_Demo1 testEURUSD_TP_Demo1 testUSDCHF_TP_Demo1 testUSDJPY_TP_Demo1 testUSDCAD_TP_Demo1 -s ../EA/EA_V2.10.1.py -p report -t 2.10.1 -l ea2_7.json
-               pixiu -c pixiu.json -n testAUDUSD_TP_Demo1 testGBPUSD_TP_Demo1 testNZDUSD_TP_Demo1 testEURUSD_TP_Demo1 testUSDCHF_TP_Demo1 testUSDJPY_TP_Demo1 testUSDCAD_TP_Demo1 -s ../EA/EA_V2.10.2.py -p report -t 2.10.2 -l ea2_7.json
+               pixiu -c pixiu.json -n testAUDUSD_A testGBPUSD_A testNZDUSD_A testEURUSD_A testUSDCHF_A testUSDJPY_A testUSDCAD_A -s ../strategies/strategy_v1.py -p report -t strategy-v1 -l strategy_compare.json
+               pixiu -c pixiu.json -n testAUDUSD_A testGBPUSD_A testNZDUSD_A testEURUSD_A testUSDCHF_A testUSDJPY_A testUSDCAD_A -s ../strategies/strategy_v2.py -p report -t strategy-v2 -l strategy_compare.json
+               pixiu -c pixiu.json -n testAUDUSD_A testGBPUSD_A testNZDUSD_A testEURUSD_A testUSDCHF_A testUSDJPY_A testUSDCAD_A -s ../strategies/strategy_v3.py -p report -t strategy-v3 -l strategy_compare.json
                
-               pixiu -c pixiu.json -n testAUDUSD_TP_Demo1 testGBPUSD_TP_Demo1 testNZDUSD_TP_Demo1 testEURUSD_TP_Demo1 testUSDCHF_TP_Demo1 testUSDJPY_TP_Demo1 testUSDCAD_TP_Demo1 -t 2.10.0 -r 2.10.1 2.10.2 -l ea2_7.json
+               pixiu -c pixiu.json -n testAUDUSD_A testGBPUSD_A testNZDUSD_A testEURUSD_A testUSDCHF_A testUSDJPY_A testUSDCAD_A -t strategy-v1 -r strategy-v2 strategy-v3 -l strategy_compare.json
                 +----+--------------------------------------+---------------------+---------------------+---------------------+---------------------+---------------------+---------------------+---------------------+--------------------+
-                |    |                                      | testAUDUSD_TP_Demo1 | testGBPUSD_TP_Demo1 | testNZDUSD_TP_Demo1 | testEURUSD_TP_Demo1 | testUSDCHF_TP_Demo1 | testUSDJPY_TP_Demo1 | testUSDCAD_TP_Demo1 | Total/Avg          |
+                |    |                                      | testAUDUSD_A | testGBPUSD_A | testNZDUSD_A | testEURUSD_A | testUSDCHF_A | testUSDJPY_A | testUSDCAD_A | Total/Avg          |
                 +----+--------------------------------------+---------------------+---------------------+---------------------+---------------------+---------------------+---------------------+---------------------+--------------------+
                 | 1  | Init Balance(2.10.0)                 | 5000.0              | 5000.0              | 5000.0              | 5000.0              | 5000.0              | 5000.0              | 5000.0              | 35000.0 / 5000.0   |
                 | 1  | Init Balance(2.10.1)                 | 5000.0              | 5000.0              | 5000.0              | 5000.0              | 5000.0              | 5000.0              | 5000.0              | 35000.0 / 5000.0   |
@@ -1524,9 +1550,9 @@
                 | 9  | Total Net Profit Rate(2.10.2)        | -0.37 % ↓           | 1.53 % ↑            | 0.01 % ↓            | -0.3 % ↓            | 0.46 % ↑            | 0.59 % ↑            | -0.69 % ↓           | 1.23 % / 0.18 %    |
                 ...
 
-               pixiu -c pixiu.json -n testUSDCAD_TP_Demo1 -t 2.10.0 -r 2.10.1 2.10.2 -l ea2_7.json
+               pixiu -c pixiu.json -n testUSDCAD_A -t strategy-v1 -r strategy-v2 strategy-v3 -l strategy_compare.json
                 +----+--------------------------------------+---------------------+-------------------+
-                |    |                                      | testUSDCAD_TP_Demo1 | Total/Avg         |
+                |    |                                      | testUSDCAD_A | Total/Avg         |
                 +----+--------------------------------------+---------------------+-------------------+
                 | 1  | Init Balance(2.10.0)                 | 5000.0              | 5000.0 / 5000.0   |
                 | 1  | Init Balance(2.10.1)                 | 5000.0              | 5000.0 / 5000.0   |
@@ -1582,7 +1608,7 @@
 #####
 #### **Descriptions：**
     1.Add support multiple test names:
-     pixiu -c pixiu.json -n testAUDUSD_TP_Demo1 testGBPUSD_TP_Demo1 testNZDUSD_TP_Demo1 testEURUSD_TP_Demo1 testUSDCHF_TP_Demo1 testUSDJPY_TP_Demo1 testUSDCAD_TP_Demo1 ...
+     pixiu -c pixiu.json -n testAUDUSD_A testGBPUSD_A testNZDUSD_A testEURUSD_A testUSDCHF_A testUSDJPY_A testUSDCAD_A ...
 
 
 ### [2021-10-19]

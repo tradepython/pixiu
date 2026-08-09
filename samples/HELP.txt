@@ -1,4 +1,4 @@
 pixiu -c pixiu_sample.json -n testUSDCHF -s pixiu_sample.py
-pixiu -c pixiu_sample.json -n testUSDCHF_TP_Demo1 -s pixiu_sample.py
+pixiu -c pixiu_sample.json -n testUSDCHF_TP_PublicSample -s pixiu_sample.py
 pixiu -c pixiu_sample.json -n testUSDCHF_TP_YourAccount -s pixiu_sample.py
 pixiu -c pixiu_sample.json -n testUSDCHF -s pixiu_sample2.py -o log.txt
