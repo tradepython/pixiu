@@ -78,6 +78,8 @@ class EATesterContext:
             account=params.get("account", None),
             currency_conversion_settings=params.get("currency_conversion_settings", None),
             currency_conversions=params.get("currency_conversions", None),
+            market_events=params.get("market_events", None),
+            market_event_store=None,
             chart_metadata=params.get("chart_metadata", {}),
             #
             log_file=None,

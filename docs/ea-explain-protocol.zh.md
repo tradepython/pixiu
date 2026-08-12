@@ -241,6 +241,646 @@ EA 可以通过 Explain 输出轻量状态和关键事件，用于后续查询�
 
 这些内容应继续使用价格日志、EA 日志、EA Data、tester report 或专门的数据存储。
 
+### 2.5 按需 Explain Chart API
+
+除持续输出的 status/event 之外，EA 可以选择实现按需 Explain Chart 能力。
+
+该能力用于外部程序主动请求 EA 根据当前运行态生成一份结构化图表说明。例如某个策略可以在被请求时，根据当前持仓状态、支撑阻力、确认价格、期望开仓价格、买卖候选价格、风险指标等数据，临时返回一份 chart JSON。外部程序负责把 chart JSON 渲染为图片、HTML 或报告片段。
+
+按需 Explain Chart 的关键边界：
+
+- 外部程序主动调用，EA 不定时保存 chart 数据。
+- EA 只返回结构化 chart data，不生成图片，不依赖浏览器或绘图库。
+- 不支持该能力的 EA 不受影响，交易逻辑照常运行。
+- Explain Chart 失败不得影响交易主流程。
+- Pixiu 不绑定任何具体策略图表，只定义能力发现、请求和返回格式。
+
+建议 API：
+
+```python
+PX_GetEAExplainChartTypes()
+PX_GetEAExplainChart(request)
+```
+
+`PX_GetEAExplainChartTypes()` 是能力发现接口。外部程序先调用它，了解当前 EA 支持哪些 chart type、每种 chart 的用途和可选参数，再决定是否调用 `PX_GetEAExplainChart(request)`。
+
+示例返回：
+
+```json
+{
+  "success": true,
+  "schema": "pixiu-ea-explain-chart-types-v1",
+  "chart_types": [
+    {
+      "type": "open_context",
+      "title": "Open Context",
+      "description": "Show decision context for opening orders.",
+      "symbols": ["EURUSD"],
+      "params": {
+        "include_orders": {"type": "bool", "default": true},
+        "include_levels": {"type": "bool", "default": true},
+        "include_expected_prices": {"type": "bool", "default": true}
+      }
+    },
+    {
+      "type": "risk_context",
+      "title": "Risk Context",
+      "description": "Show current inventory, risk pressure and defense levels."
+    }
+  ]
+}
+```
+
+如果 EA 不支持 Explain Chart，可以返回：
+
+```json
+{
+  "success": true,
+  "schema": "pixiu-ea-explain-chart-types-v1",
+  "chart_types": []
+}
+```
+
+或在运行环境不支持该 API 时由 Pixiu 返回标准 unsupported 结果。
+
+`PX_GetEAExplainChart(request)` 用于请求某一类图表。
+
+请求示例：
+
+```json
+{
+  "chart_type": "open_context",
+  "symbol": "EURUSD",
+  "time": "current",
+  "format": "pixiu-explain-chart-v1",
+  "params": {
+    "include_orders": true,
+    "include_levels": true,
+    "include_expected_prices": true
+  }
+}
+```
+
+EA 返回示例：
+
+```json
+{
+  "success": true,
+  "schema": "pixiu-explain-chart-v1",
+  "chart_type": "open_context",
+  "symbol": "EURUSD",
+  "timeframe": "m1",
+  "time": "2026-05-11 10:25:00",
+  "title": "Open Context",
+  "description": "Current open decision context.",
+  "price": 1.36491,
+  "compat": {
+    "tradingview": {
+      "target": "lightweight-charts",
+      "time_type": "unix",
+      "price_scale_id": "right"
+    }
+  },
+  "axis": {
+    "time": {
+      "format": "YYYY-MM-DD HH:mm",
+      "timezone": "UTC"
+    },
+    "price": {
+      "precision": 5,
+      "mode": "normal",
+      "side": "right"
+    }
+  },
+  "panes": [
+    {
+      "id": "price",
+      "type": "price",
+      "title": "EURUSD",
+      "height": 0.78,
+      "symbol": "EURUSD"
+    },
+    {
+      "id": "risk",
+      "type": "indicator",
+      "title": "Risk",
+      "height": 0.22
+    }
+  ],
+  "frames": [
+    {
+      "id": "bar-1",
+      "type": "bar",
+      "symbol": "EURUSD",
+      "timeframe": "m1",
+      "time": 1778494800,
+      "open": 1.36504,
+      "high": 1.36514,
+      "low": 1.36491,
+      "close": 1.36491,
+      "volume": 123
+    }
+  ],
+  "series": [
+    {
+      "id": "ma_fast",
+      "pane": "price",
+      "type": "line",
+      "name": "Fast MA",
+      "color": "#0f766e",
+      "line_width": 2,
+      "data": [
+        {"time": 1778494800, "value": 1.36501}
+      ]
+    },
+    {
+      "id": "risk_score",
+      "pane": "risk",
+      "type": "histogram",
+      "name": "Risk Score",
+      "color": "#f97316",
+      "data": [
+        {"time": 1778494800, "value": 31}
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "id": "expected-buy",
+      "pane": "price",
+      "type": "marker",
+      "series_id": "main",
+      "time": 1778494800,
+      "price": 1.3635,
+      "position": "below_bar",
+      "shape": "arrow_up",
+      "color": "#22c55e",
+      "text": "Expected Buy",
+      "tooltip": "Expected buy level from EA open context."
+    },
+    {
+      "id": "support",
+      "pane": "price",
+      "type": "price_line",
+      "symbol": "EURUSD",
+      "price": 1.362,
+      "title": "Support",
+      "color": "#22c55e",
+      "line_width": 1,
+      "line_style": "solid",
+      "axis_label_visible": true
+    },
+    {
+      "id": "confirm-price",
+      "pane": "price",
+      "type": "price_line",
+      "price": 1.3654,
+      "title": "Confirm Price",
+      "color": "#f59e0b",
+      "line_width": 1,
+      "line_style": "dashed"
+    },
+    {
+      "id": "support-zone",
+      "pane": "price",
+      "type": "rectangle",
+      "points": [
+        {"time": 1778491200, "price": 1.3615},
+        {"time": 1778498400, "price": 1.3625}
+      ],
+      "text": "Support Zone",
+      "style": {
+        "fill_color": "rgba(34, 197, 94, 0.14)",
+        "border_color": "#22c55e",
+        "line_width": 1
+      }
+    },
+    {
+      "id": "trend-1",
+      "pane": "price",
+      "type": "trend_line",
+      "points": [
+        {"time": 1778491200, "price": 1.3618},
+        {"time": 1778498400, "price": 1.3658}
+      ],
+      "style": {
+        "color": "#2563eb",
+        "line_width": 1
+      }
+    },
+    {
+      "id": "stage-note",
+      "pane": "price",
+      "type": "text",
+      "time": 1778494800,
+      "price": 1.3654,
+      "text": "Stage 5: wait for confirmation",
+      "level": "info"
+    }
+  ],
+  "legend": {
+    "enabled": true,
+    "mode": "ohlc"
+  },
+  "tooltip": {
+    "enabled": true,
+    "fields": ["ohlc", "series", "objects"]
+  },
+  "crosshair": {
+    "enabled": true,
+    "mode": "normal"
+  },
+  "metrics": {
+    "stage": 5,
+    "direction_score": 72,
+    "risk_score": 31
+  },
+  "payload": {}
+}
+```
+
+返回失败示例：
+
+```json
+{
+  "success": false,
+  "error": "unsupported_chart_type",
+  "message": "This EA does not support chart_type=open_context."
+}
+```
+
+#### Explain Chart 数据结构
+
+`pixiu-explain-chart-v1` 是声明式图表结构，不要求 EA 输出完整 chart protocol replay。它必须优先复用 `pixiu-chart-v1` 的字段语义，并保持与 TradingView `lightweight-charts` / Charting Library 的核心图表概念可映射。
+
+设计原则：
+
+- Pixiu 字段是主协议，TradingView 只是兼容目标。
+- 不直接要求 EA 输出 TradingView 私有对象。
+- 字段命名保持 Pixiu 风格，renderer 负责映射到 TradingView camelCase API。
+- K 线、series、object、pane、axis 等概念应能无损转换。
+- EA 返回的是“当前解释快照”，不是完整 replay 包。
+- 不支持的高级绘图对象可以降级为 `objects[type=text]`、`objects[type=trend_line]` 或 `objects[type=rectangle]`。
+
+推荐字段：
+
+- `success`：是否成功。
+- `schema`：固定为 `pixiu-explain-chart-v1`。
+- `chart_type`：图表类型。
+- `symbol`：交易品种。
+- `timeframe`：主图周期，例如 `tick`、`m1`、`m5`、`h1`、`d1`。
+- `time`：图表对应的 EA 当前时间或请求时间。
+- `title`：图表标题。
+- `description`：说明。
+- `price`：当前参考价格。
+- `compat`：兼容目标声明，例如 TradingView 渲染目标。
+- `axis`：时间轴、价格轴、精度、显示格式。
+- `panes`：图表分区，例如主价格图、成交量、风险、指标图。
+- `frames`：主 K 线或 tick 数据。
+- `series`：指标线、面积图、柱状图、散点、辅助曲线。
+- `objects`：所有图形对象，包括 marker、price line、趋势线、矩形区间、文本等。
+- `legend`：图例和 OHLC 显示规则。
+- `tooltip`：悬停提示显示规则。
+- `crosshair`：十字光标配置。
+- `metrics`：适合显示在图旁的关键数值。
+- `payload`：EA 自定义扩展数据。
+
+为了兼容旧草案，第一版 renderer 可以继续接受：
+
+```text
+markers -> objects[type=marker]
+price_lines -> objects[type=price_line]
+drawings -> objects[]
+annotations -> objects[type=text]
+zones -> objects[type=rectangle]
+candles / ohlc -> frames
+```
+
+但新 EA 应优先使用 `frames`、`series`、`objects`、`panes`，不要把 TradingView 的结构直接作为 Pixiu 主结构。
+
+##### TradingView 兼容关系
+
+`compat.tradingview` 用于声明期望的 TradingView 渲染目标：
+
+```json
+{
+  "compat": {
+    "tradingview": {
+      "target": "lightweight-charts",
+      "version": "5.x",
+      "time_type": "unix",
+      "price_scale_id": "right"
+    }
+  }
+}
+```
+
+建议值：
+
+- `target=lightweight-charts`：优先映射到开源 lightweight-charts。
+- `target=charting-library`：允许使用 TradingView Charting Library drawings / studies 概念。
+- `time_type=unix`：`time` 使用秒级 Unix timestamp。
+- `time_type=iso`：`time` 使用 `YYYY-MM-DD HH:mm:ss` 或 ISO 字符串。
+
+映射关系：
+
+| Pixiu Explain Chart | TradingView / lightweight-charts |
+| --- | --- |
+| `frames` | `CandlestickSeries.setData()` |
+| `series[type=line]` | `LineSeries.setData()` |
+| `series[type=area]` | `AreaSeries.setData()` |
+| `series[type=histogram]` | `HistogramSeries.setData()` |
+| `series[type=bar]` | `BarSeries.setData()` |
+| `objects[type=marker]` | `createSeriesMarkers()` / series markers |
+| `objects[type=price_line]` | `series.createPriceLine()` |
+| `objects[type=horizontal_line]` | price line 或 Charting Library shape |
+| `objects[type=vertical_line]` | custom overlay 或 Charting Library shape |
+| `objects[type=trend_line]` | custom overlay 或 `createMultipointShape()` |
+| `objects[type=rectangle]` | custom overlay 或 `createMultipointShape()` |
+| `panes` | 多 chart / pane layout |
+| `axis.time` | time scale options / tick formatter |
+| `axis.price` | price scale options / price formatter |
+| `crosshair` | crosshair options |
+| `legend` / `tooltip` | renderer 层 UI |
+
+##### frames
+
+`frames` 是 Explain Chart 的主价格数据。为了兼容 TradingView candlestick series，推荐字段为：
+
+```json
+{
+  "frames": [
+    {
+      "id": "bar-1",
+      "type": "bar",
+      "symbol": "EURUSD",
+      "timeframe": "m1",
+      "time": 1778494800,
+      "open": 1.36504,
+      "high": 1.36514,
+      "low": 1.36491,
+      "close": 1.36491,
+      "volume": 123,
+      "color": "#22c55e"
+    }
+  ]
+}
+```
+
+要求：
+
+- `time` 推荐使用 Unix 秒，兼容 lightweight-charts 的 `Time`。
+- 如果使用字符串时间，应由 renderer 转换成 Unix 秒或业务日期。
+- `open/high/low/close` 对 bar 必填。
+- `volume` 可选，但建议提供，方便画 volume pane。
+- `color` 可选，用于单根 K 线特殊高亮。
+
+##### series
+
+`series` 表达指标、EA 自定义曲线和辅助图。类型应对齐 lightweight-charts 常用 series：
+
+```text
+line
+area
+baseline
+histogram
+bar
+candlestick
+scatter
+```
+
+示例：
+
+```json
+{
+  "id": "ma_fast",
+  "pane": "price",
+  "type": "line",
+  "name": "Fast MA",
+  "color": "#0f766e",
+  "line_width": 2,
+  "price_scale_id": "right",
+  "data": [
+    {"time": 1778494800, "value": 1.36501}
+  ]
+}
+```
+
+要求：
+
+- `id` 在 chart 内唯一。
+- `pane` 默认 `price`。
+- `data[].time` 应与 `frames[].time` 使用同一时间基准。
+- `line_width`、`line_style`、`color` 由 renderer 映射为 TradingView series options。
+
+##### objects[type=marker]
+
+`objects[type=marker]` 表达订单、信号、事件点。它沿用 Pixiu `objects` 容器，但字段设计接近 TradingView series marker，方便 renderer 映射。
+
+```json
+{
+  "objects": [
+    {
+      "id": "open-1001",
+      "pane": "price",
+      "type": "marker",
+      "series_id": "main",
+      "time": 1778494800,
+      "price": 1.36491,
+      "position": "below_bar",
+      "shape": "arrow_up",
+      "color": "#22c55e",
+      "text": "BUY #1001",
+      "tooltip": "Open BUY 0.10 lot at 1.36491",
+      "payload": {
+        "order_uid": "1001"
+      }
+    }
+  ]
+}
+```
+
+推荐 `position`：
+
+- `above_bar`
+- `below_bar`
+- `in_bar`
+- `at_price`
+
+推荐 `shape`：
+
+- `arrow_up`
+- `arrow_down`
+- `circle`
+- `square`
+- `diamond`
+- `flag`
+- `text`
+- `icon`
+
+TradingView 映射时：
+
+- `above_bar` -> `aboveBar`
+- `below_bar` -> `belowBar`
+- `in_bar` -> `inBar`
+- `arrow_up` -> `arrowUp`
+- `arrow_down` -> `arrowDown`
+
+##### objects[type=price_line]
+
+`objects[type=price_line]` 表达可绑定到价格轴的水平价位。用于当前价、支撑阻力、止损止盈、确认价、均价等。
+
+```json
+{
+  "objects": [
+    {
+      "id": "avg-entry",
+      "pane": "price",
+      "type": "price_line",
+      "symbol": "EURUSD",
+      "price": 1.3652,
+      "title": "Avg Entry",
+      "color": "#2563eb",
+      "line_width": 1,
+      "line_style": "dashed",
+      "axis_label_visible": true,
+      "tooltip": "Average entry price for the active group."
+    }
+  ]
+}
+```
+
+推荐 `line_style`：
+
+- `solid`
+- `dashed`
+- `dotted`
+- `large_dashed`
+
+##### objects drawing types
+
+除 `marker` 和 `price_line` 外，其他绘图对象仍放在 `objects` 中。结构参考 TradingView drawing shapes，但保持 Pixiu 中立表示。
+
+```json
+{
+  "objects": [
+    {
+      "id": "trend-1",
+      "pane": "price",
+      "type": "trend_line",
+      "points": [
+        {"time": 1778491200, "price": 1.3618},
+        {"time": 1778498400, "price": 1.3658}
+      ],
+      "text": "Trend",
+      "style": {
+        "color": "#2563eb",
+        "line_width": 1,
+        "line_style": "solid"
+      }
+    }
+  ]
+}
+```
+
+第一版建议支持：
+
+```text
+horizontal_line
+vertical_line
+trend_line
+ray
+extended_line
+rectangle
+price_range
+time_range
+channel
+text
+path
+```
+
+`points` 规则：
+
+- 单点对象：`text`、部分 `marker`。
+- 两点对象：`trend_line`、`ray`、`rectangle`、`price_range`。
+- 多点对象：`path`、`channel`。
+
+##### panes
+
+`panes` 用于表达 TradingView 类多面板布局。
+
+```json
+{
+  "panes": [
+    {"id": "price", "type": "price", "title": "EURUSD", "height": 0.75, "symbol": "EURUSD"},
+    {"id": "volume", "type": "volume", "title": "Volume", "height": 0.12},
+    {"id": "risk", "type": "indicator", "title": "Risk", "height": 0.13}
+  ]
+}
+```
+
+要求：
+
+- `height` 是相对权重，renderer 可归一化。
+- `price` pane 是默认主图。
+- 不支持多 pane 的 PNG renderer 可以只渲染 `price` pane，并把其他 pane 降级为 metrics。
+
+##### axis / legend / tooltip / crosshair
+
+```json
+{
+  "axis": {
+    "time": {
+      "format": "YYYY-MM-DD HH:mm",
+      "timezone": "UTC",
+      "visible": true
+    },
+    "price": {
+      "precision": 5,
+      "mode": "normal",
+      "side": "right",
+      "visible": true
+    }
+  },
+  "legend": {
+    "enabled": true,
+    "mode": "ohlc",
+    "position": "top_left"
+  },
+  "tooltip": {
+    "enabled": true,
+    "fields": ["ohlc", "series", "objects"]
+  },
+  "crosshair": {
+    "enabled": true,
+    "mode": "normal",
+    "sync_panes": true
+  }
+}
+```
+
+说明：
+
+- PNG renderer 可以忽略 `crosshair`。
+- HTML / browser renderer 应使用 `crosshair` 同步所有 panes。
+- `axis.time.format` 由 renderer 映射到 tick formatter。
+- `axis.price.precision` 应优先从 symbol digits 推断，EA 可覆盖。
+
+Explain Chart 与持续事件流的区别：
+
+- `PX_AppendEAExplainEvent` 用于记录已经发生的解释事件。
+- `PX_GetEAExplainChart` 用于外部按需拉取当前分析图。
+- Explain Chart 不应被 EA 每 tick 主动写入 explain event。
+- 外部程序可以选择把返回的 chart data 渲染为图片并保存到报告，但这属于调用方行为，不是 EA 责任。
+
+Pixiu 可以提供 renderer 工具或 viewer 能力，例如：
+
+```text
+pixiu explain-chart render chart.json --out chart.png
+```
+
+但 renderer 不属于 EA Explain 底层 API。EA 只负责返回结构化 chart data。
+
 ## 3. 协议版本
 
 所有 Explain 数据必须包含 schema 版本。
@@ -752,6 +1392,7 @@ order by event_time
 6. Runner 批量 flush 到本地输出或调用方自定义 transport，失败不阻塞交易主流程。
 7. EAExplainLogger 通用库，封装高层 `record_decision`、`record_risk`、`record_score`、`update_order_state`。
 8. Explain 输出文件生命周期跟随 tester report 或调用方运行目录管理。
+9. 可选按需 Explain Chart API：`PX_GetEAExplainChartTypes`、`PX_GetEAExplainChart`，用于外部主动请求 EA 返回结构化 chart data。
 
 ## 15. Pixiu 内部建议落地顺序
 
@@ -765,6 +1406,7 @@ order by event_time
 6. 在 HTML viewer 中增加 Explain 事件展示和订单 tooltip 摘要。
 7. 接入 live chart transport，只推送增量。
 8. 接入 runner 本地输出和可插拔 transport。
+9. 增加按需 Explain Chart 能力发现和请求 API，先只返回 chart JSON，不要求 Pixiu 立即实现图片 renderer。
 
 ## 16. 结论
 

@@ -884,7 +884,7 @@ tester.save_chart_report_html("reports/eurusd.html", graph_data=graph_data)
 直接使用 renderer：
 
 ```python
-from pixiu.tester import render_chart_replay_html, write_chart_replay_html
+from pixiu.chart import render_chart_replay_html, write_chart_replay_html
 
 html = render_chart_replay_html(replay, title="EURUSD Replay")
 write_chart_replay_html(replay, "reports/eurusd.html")
@@ -918,7 +918,7 @@ pixiu test -c pixiu.json -n testEURUSD -s EA.py --chart-report reports/eurusd.ht
 - `order_logs`
 - `account_logs`
 - `PXTester.graph_data`
-- `EATesterGraphServer`
+- `PixiuChartLiveServer`
 
 建议映射：
 

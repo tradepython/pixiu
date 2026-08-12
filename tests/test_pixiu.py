@@ -15,7 +15,9 @@ from unittest import (TestCase, TestLoader, TestSuite, TextTestRunner, skip, ski
 from pixiu.api import utc_from_timestamp, OrderCommand
 from pixiu.api.v1 import (TimeFrame, SymbolData, DataScope)
 from pixiu.main import MainApp
-from pixiu.tester import (EATester, LegacyChartAdapter, render_chart_replay_html, render_chart_live_html)
+from pixiu.tester import EATester
+from pixiu.chart import (LegacyChartAdapter, render_chart_replay_html, render_chart_live_html,
+                         render_ea_explain_chart_png)
 from pixiu.optimizer import (EAOptimizer, )
 import numpy as np
 import time
@@ -858,6 +860,116 @@ class PiXiuTests(TestCase):
         self.assertEqual(eatt.context.ctx["explain_warnings"], [])
 
     @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_explain_chart_api_returns_on_demand_chart(self):
+        """Test optional EA-exported explain chart API"""
+        params = dict(self.eat_params)
+        params['global_values'] = dict(self.eat_params['global_values'])
+        params['tick_max_index'] = 1
+        params['script_path'] = os.path.abspath("scripts/v1/ts_explain_chart.py")
+        eatt = EATTester(self, params)
+        eatt.execute("explain-chart-test-run", sync=True)
+
+        chart_types = eatt.get_ea_explain_chart_types()
+        self.assertTrue(chart_types["success"])
+        self.assertEqual(chart_types["schema"], "pixiu-ea-explain-chart-types-v1")
+        self.assertEqual(chart_types["chart_types"][0]["type"], "open_context")
+        self.assertEqual(chart_types["chart_types"][0]["symbols"], [self.symbol])
+
+        chart = eatt.get_ea_explain_chart({
+            "chart_type": "open_context",
+            "params": {"include_orders": True},
+        })
+        self.assertTrue(chart["success"])
+        self.assertEqual(chart["schema"], "pixiu-explain-chart-v1")
+        self.assertEqual(chart["chart_type"], "open_context")
+        self.assertEqual(chart["symbol"], self.symbol)
+        self.assertEqual(chart["run_id"], "explain-chart-test-run")
+        self.assertEqual(chart["objects"][0]["type"], "horizontal_line")
+        self.assertEqual(chart["metrics"]["stage"], 5)
+        self.assertEqual(chart["payload"]["request"]["chart_type"], "open_context")
+
+        unsupported_chart = eatt.get_ea_explain_chart({"chart_type": "unknown"})
+        self.assertFalse(unsupported_chart["success"])
+        self.assertEqual(unsupported_chart["error"], "unsupported_chart_type")
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_explain_chart_api_unsupported_when_ea_does_not_export(self):
+        """Test explain chart API is optional for EAs"""
+        params = dict(self.eat_params)
+        params['global_values'] = dict(self.eat_params['global_values'])
+        params['tick_max_index'] = 1
+        params['script_path'] = None
+        params['script'] = "pass"
+        eatt = EATTester(self, params)
+        eatt.execute("explain-chart-unsupported-run", sync=True)
+
+        chart_types = eatt.get_ea_explain_chart_types()
+        self.assertFalse(chart_types["success"])
+        self.assertEqual(chart_types["error"], "unsupported")
+        self.assertEqual(chart_types["chart_types"], [])
+
+        chart = eatt.get_ea_explain_chart({"chart_type": "open_context"})
+        self.assertFalse(chart["success"])
+        self.assertEqual(chart["error"], "unsupported")
+        self.assertEqual(chart["symbol"], self.symbol)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_render_ea_explain_chart_png_writes_standalone_png(self):
+        """Test rendering a single on-demand explain chart payload to PNG"""
+        try:
+            import PIL  # noqa: F401
+        except ImportError:
+            self.skipTest("Pillow is not installed")
+        chart = {
+            "success": True,
+            "schema": "pixiu-explain-chart-v1",
+            "chart_type": "open_context",
+            "symbol": self.symbol,
+            "time": "2021-03-15 00:01:00",
+            "title": "Open Context",
+            "price": 0.9302,
+            "frames": [
+                {"time": "2021-03-15 00:00:00", "open": 0.9298, "high": 0.9304, "low": 0.9295, "close": 0.9302},
+                {"time": "2021-03-15 00:01:00", "open": 0.9302, "high": 0.9305, "low": 0.9299, "close": 0.9300},
+                {"time": "2021-03-15 00:02:00", "open": 0.9300, "high": 0.9308, "low": 0.9298, "close": 0.9306},
+            ],
+            "series": [
+                {"id": "ma_fast", "type": "line", "color": "#0f766e",
+                 "data": [{"value": 0.9298}, {"value": 0.9300}, {"value": 0.9302}]},
+                {"id": "risk_score", "type": "histogram", "color": "#f97316",
+                 "data": [{"time": "2021-03-15 00:00:00", "value": 0.9297},
+                          {"time": "2021-03-15 00:01:00", "value": 0.9301}]},
+            ],
+            "objects": [
+                {"id": "support", "type": "price_line", "price": 0.9295, "title": "Support",
+                 "color": "#2563eb"},
+                {"id": "resistance", "type": "horizontal_line", "price": 0.9310, "label": "Resistance",
+                 "line_style": "dashed"},
+                {"id": "open_marker", "type": "marker", "time": "2021-03-15 00:01:00",
+                 "price": 0.9300, "position": "below_bar", "shape": "arrow_up", "text": "BUY"},
+                {"id": "support_zone", "type": "rectangle",
+                 "points": [{"time": "2021-03-15 00:00:00", "price": 0.9293},
+                            {"time": "2021-03-15 00:02:00", "price": 0.9297}],
+                 "style": {"fill_color": "rgba(37, 99, 235, 0.12)", "border_color": "#2563eb"}},
+                {"id": "trend", "type": "trend_line",
+                 "points": [{"time": "2021-03-15 00:00:00", "price": 0.9298},
+                            {"time": "2021-03-15 00:02:00", "price": 0.9306}],
+                 "style": {"color": "#7c3aed", "line_width": 1}},
+                {"id": "event_time", "type": "vertical_line", "time": "2021-03-15 00:01:00",
+                 "text": "Event"},
+                {"id": "note", "type": "text", "time": "2021-03-15 00:02:00",
+                 "price": 0.9307, "text": "Note"},
+            ],
+            "metrics": {"stage": 5, "risk_score": 31},
+        }
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_path = os.path.join(tmp_dir, "explain_chart.png")
+            saved_path = render_ea_explain_chart_png(chart, output_path)
+            self.assertEqual(saved_path, output_path)
+            with open(saved_path, "rb") as file_obj:
+                self.assertEqual(file_obj.read(8), b"\x89PNG\r\n\x1a\n")
+
+    @skipIf(debug_some_tests, "debug some tests")
     def test_main_fast_runtime_options_disable_explain_by_default(self):
         fast_args = SimpleNamespace(fast=True, explain="auto", chartreport=None, max_tick=500)
         fast_options = MainApp.build_test_runtime_options(fast_args)
@@ -989,7 +1101,7 @@ class PiXiuTests(TestCase):
 
     @skipIf(debug_some_tests, "debug some tests")
     def test_chart_live_state_converts_update_data_to_protocol_snapshot(self):
-        from pixiu.tester.ea_tester_graph import PixiuChartLiveState
+        from pixiu.chart.live_server import PixiuChartLiveState
 
         state = PixiuChartLiveState()
         update = {
@@ -1026,14 +1138,14 @@ class PiXiuTests(TestCase):
                         "test_name": "live-group",
                         "tick_source": {
                             "channel": "tradepython.com",
-                            "api_token": "super-secret-token",
-                            "file_path": "/home/example/private/ticks.csv",
+                            "api_token": "redacted_value_a",
+                            "file_path": "/example/data/ticks.csv",
                         },
                     },
                     "script_settings": {
                         "params": {
                             "grid_pips": {"value": 8},
-                            "password": {"value": "secret-password"},
+                            "password": {"value": "redacted_value_b"},
                         },
                     },
                 },
@@ -1056,13 +1168,13 @@ class PiXiuTests(TestCase):
         metadata_json = json.dumps(snapshot["metadata"], ensure_ascii=False)
         self.assertIn("[REDACTED]", metadata_json)
         self.assertIn("<file: ticks.csv>", metadata_json)
-        self.assertNotIn("super-secret-token", metadata_json)
-        self.assertNotIn("secret-password", metadata_json)
-        self.assertNotIn("/home/example/private", metadata_json)
+        self.assertNotIn("redacted_value_a", metadata_json)
+        self.assertNotIn("redacted_value_b", metadata_json)
+        self.assertNotIn("/example/data", metadata_json)
 
     @skipIf(debug_some_tests, "debug some tests")
     def test_chart_live_state_converts_update_report_to_protocol_snapshot(self):
-        from pixiu.tester.ea_tester_graph import PixiuChartLiveState, _json_dumps
+        from pixiu.chart.live_server import PixiuChartLiveState, _json_dumps
 
         state = PixiuChartLiveState()
         delta = state.append_message({
@@ -1128,7 +1240,7 @@ class PiXiuTests(TestCase):
                 "charts": {"price": {"series": [{"name": "top_signal", "color": "#89F3DAFF"}]}},
                 "params": {
                     "grid_pips": {"value": 8},
-                    "api_token": {"value": "script-secret-token"},
+                    "api_token": {"value": "redacted_value_c"},
                 },
             },
             charts_data=[{"cn": "price", "time": 1615766400, "data": {"top_signal": 0.9321}}],
@@ -1162,15 +1274,15 @@ class PiXiuTests(TestCase):
                     "end_time": "2026-02-02 18:06:00",
                     "tick_source": {
                         "channel": "tradepython.com",
-                        "api_token": "super-secret-token",
-                        "file_path": "/home/example/private/ticks.csv",
+                        "api_token": "redacted_value_a",
+                        "file_path": "/example/data/ticks.csv",
                     },
                     "account": {
                         "currency": "USD",
                         "balance": 10000,
                         "leverage": 100,
-                        "server": "secret-server",
-                        "password": "secret-password",
+                        "server": "redacted_value_d",
+                        "password": "redacted_value_b",
                     },
                 }
             },
@@ -1268,11 +1380,11 @@ class PiXiuTests(TestCase):
         self.assertIn("[REDACTED]", html_report)
         self.assertIn("<file: ticks.csv>", html_report)
         self.assertIn('"grid_pips"', html_report)
-        self.assertNotIn("super-secret-token", html_report)
-        self.assertNotIn("script-secret-token", html_report)
-        self.assertNotIn("secret-password", html_report)
-        self.assertNotIn("secret-server", html_report)
-        self.assertNotIn("/home/example/private", html_report)
+        self.assertNotIn("redacted_value_a", html_report)
+        self.assertNotIn("redacted_value_b", html_report)
+        self.assertNotIn("redacted_value_c", html_report)
+        self.assertNotIn("redacted_value_d", html_report)
+        self.assertNotIn("/example/data", html_report)
         self.assertIn("const metricLabel", html_report)
         self.assertIn('replace(/_/g, " ")', html_report)
         self.assertIn('"sortino_ratio":1.25', html_report)
@@ -2037,6 +2149,163 @@ class PiXiuTests(TestCase):
         eatt = EATTester(self, self.eat_params)
         eatt.execute("123456", sync=True)
         self.assertEqual(self.test_result, "OK")
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_market_events_field_visibility(self):
+        """Test market event upcoming/latest queries and field visibility"""
+        visible_index = 1
+        release_index = 3
+        visible_before_time = utc_from_timestamp(new_a[visible_index]['t'])
+        release_time = utc_from_timestamp(new_a[release_index]['t'])
+        event = {
+            'id': 'us-nfp-20210315',
+            'type': 'economic_calendar',
+            'event_time': str(release_time),
+            'available_time': str(release_time),
+            'title': 'Nonfarm Payrolls',
+            'symbols': ['USDCHF'],
+            'currencies': ['USD'],
+            'countries': ['US'],
+            'asset_classes': ['forex'],
+            'impact': 'high',
+            'field_visibility': {
+                'title': str(visible_before_time),
+                'impact': str(visible_before_time),
+                'forecast': str(visible_before_time),
+                'previous': str(visible_before_time),
+                'actual': str(release_time),
+            },
+            'payload': {
+                'forecast': '180K',
+                'previous': '175K',
+                'actual': '220K',
+            },
+        }
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False) as fp:
+            fp.write(json.dumps(event) + "\n")
+            events_path = fp.name
+        try:
+            self.eat_params['tick_max_index'] = 5
+            self.eat_params['script_path'] = os.path.abspath("scripts/v1/ts_market_events.py")
+            self.eat_params['market_events'] = {
+                'enabled': True,
+                'sources': [
+                    {
+                        'id': 'calendar_file',
+                        'type': 'economic_calendar',
+                        'channel': 'file',
+                        'format': 'jsonl',
+                        'path': events_path,
+                    }
+                ],
+            }
+            self.eat_params['global_values'].update(dict(
+                market_event_case='field_visibility',
+                visible_before_time=visible_before_time,
+                release_time=release_time,
+            ))
+            eatt = EATTester(self, self.eat_params)
+            eatt.execute("123456", sync=True)
+            self.assertEqual(self.test_result, "OK")
+        finally:
+            os.unlink(events_path)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_market_events_instrument_filter(self):
+        """Test market event multi-asset instrument and venue filters"""
+        event_time = utc_from_timestamp(new_a[0]['t'])
+        event = {
+            'id': 'aapl-earnings-20210315',
+            'type': 'earnings',
+            'event_time': str(event_time),
+            'available_time': str(event_time),
+            'title': 'AAPL Earnings',
+            'instrument_ids': ['stock:NASDAQ:AAPL'],
+            'symbols': ['AAPL'],
+            'venues': ['NASDAQ'],
+            'issuer_ids': ['issuer:apple'],
+            'sectors': ['technology'],
+            'currencies': ['USD'],
+            'countries': ['US'],
+            'asset_classes': ['stock'],
+            'impact': 'high',
+            'payload': {
+                'fiscal_period': '2021-Q1',
+                'eps_actual': '2.24',
+            },
+        }
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as fp:
+            json.dump([event], fp)
+            events_path = fp.name
+        try:
+            self.eat_params['tick_max_index'] = 2
+            self.eat_params['script_path'] = os.path.abspath("scripts/v1/ts_market_events.py")
+            self.eat_params['market_events'] = {
+                'enabled': True,
+                'sources': [
+                    {
+                        'id': 'earnings_file',
+                        'type': 'earnings',
+                        'channel': 'file',
+                        'format': 'json',
+                        'path': events_path,
+                    }
+                ],
+            }
+            self.eat_params['global_values'].update(dict(
+                market_event_case='instrument_filter',
+                instrument_event_time=event_time,
+            ))
+            eatt = EATTester(self, self.eat_params)
+            eatt.execute("123456", sync=True)
+            self.assertEqual(self.test_result, "OK")
+        finally:
+            os.unlink(events_path)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_market_events_chart_replay(self):
+        """Test market events are exported to chart replay packages"""
+        event_time = utc_from_timestamp(new_a[0]['t'])
+        event = {
+            'id': 'market-message-1',
+            'type': 'market_message',
+            'event_time': str(event_time),
+            'available_time': str(event_time),
+            'title': 'Spread warning',
+            'symbols': ['USDCHF'],
+            'asset_classes': ['forex'],
+            'impact': 'medium',
+            'payload': {'message_code': 'spread_widening'},
+        }
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False) as fp:
+            fp.write(json.dumps(event) + "\n")
+            events_path = fp.name
+        try:
+            self.eat_params['tick_max_index'] = 1
+            self.eat_params['script'] = 'pass'
+            self.eat_params['script_path'] = None
+            self.eat_params['market_events'] = {
+                'enabled': True,
+                'sources': [
+                    {
+                        'id': 'message_file',
+                        'type': 'market_message',
+                        'channel': 'file',
+                        'format': 'jsonl',
+                        'path': events_path,
+                    }
+                ],
+            }
+            eatt = EATTester(self, self.eat_params)
+            eatt.execute("123456", sync=True)
+            replay = eatt.build_chart_replay()
+            self.assertEqual(len(replay['market_events']), 1)
+            self.assertEqual(replay['market_events'][0]['id'], 'market-message-1')
+            self.assertEqual(replay['market_event_manifest']['sources'][0]['path'], os.path.basename(events_path))
+            chart_events = [item for item in replay['events'] if item.get('name') == 'market_message']
+            self.assertEqual(len(chart_events), 1)
+        finally:
+            os.unlink(events_path)
 
     @skipIf(debug_some_tests, "debug some tests")
     def test_ea_optimizer_config(self):

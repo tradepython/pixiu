@@ -1,4 +1,56 @@
 
+### [2026-08-12]
+#### Version:
+#####   Package:
+#####    pixiu: 0.182.*.20260812
+#####
+#### **Descriptions：**
+    1.docs/market-events-protocol.zh.md:
+        1) Add standalone third-party market event protocol for news, calendar events, market messages, exchange notices, holidays, corporate actions, and macro releases
+        2) Define MarketEvent, event_time, available_time, source_snapshot_time, and instrument_id models
+        3) Document deterministic backtest replay, no-future visibility rules, price alignment, cache layout, replay package fields, and security guidance
+        4) Include future extension notes for stocks, bonds, futures, options, crypto, funds, and multi-asset portfolios
+    2.pixiu/events/market_events.py:
+        1) Add reusable MarketEventStore outside tester
+        2) Support normalized event loading from JSON, JSONL, and CSV files
+        3) Add query, upcoming, and latest event filters by instrument, symbol, venue, asset class, event type, impact, time range, and visible fields
+        4) Build replay-safe event payloads and source manifests for chart/report export
+        5) Redact sensitive provider fields before events are exposed to EA scripts or replay packages
+    3.api.py / tester_api_v1.py / ea_tester.py / ea_tester_context.py:
+        1) Add GetMarketEvents, GetUpcomingMarketEvents, and GetLatestMarketEvents API declarations and tester forwarding
+        2) Initialize market event stores from tester config and attach replay market events to chart replay metadata
+        3) Add optional on-demand EA Explain Chart support through PX_GetEAExplainChartTypes and PX_GetEAExplainChart exported EA functions
+        4) Normalize unsupported, invalid, oversized, and failed Explain Chart responses without interrupting normal EA execution
+    4.docs/ea-explain-protocol.zh.md:
+        1) Extend the open-source EA Explain protocol with optional on-demand Explain Chart capability
+        2) Define chart type discovery, chart request/response schemas, failure responses, limits, and compatibility behavior for EAs that do not support charts
+        3) Add Pixiu-native chart payload fields with TradingView-compatible drawing terminology for lines, markers, rectangles, text, and price/time annotations
+    5.pixiu/chart package:
+        1) Move chart protocol, browser viewer, and live chart server into the reusable pixiu.chart package
+        2) Add PixiuChartLiveServer as the neutral live chart server name while keeping EATesterGraphServer as a compatibility alias
+        3) Remove old tester wrapper modules for moved chart/event code and keep pixiu.tester package-level re-exports for common imports
+        4) Add render_ea_explain_chart_png for standalone on-demand Explain Chart image rendering
+    6.docs/chart-protocol.md / docs/chart-protocol.zh.md:
+        1) Update public chart protocol documentation to reference pixiu.chart renderer APIs
+        2) Document PixiuChartLiveServer as the shared live chart server entry point
+    7.samples:
+        1) Add chart_demo config, EA script, runner, and usage notes for browser chart replay and on-demand Explain Chart PNG generation
+        2) Use cross-platform temporary output paths and avoid local machine-specific paths in release samples
+    8.test_pixiu.py / tests/scripts:
+        1) Add regression coverage for market event visibility, instrument filtering, and chart replay event export
+        2) Add regression coverage for on-demand Explain Chart discovery, chart payload retrieval, unsupported EA behavior, and standalone PNG rendering
+        3) Update chart/live server tests to import shared APIs from pixiu.chart while preserving pixiu.tester package-level compatibility imports
+        4) Replace fake secret-looking test strings with neutral redaction sentinels to reduce release scanner false positives
+    9..gitignore:
+        1) Ignore local pxcache, samples/pxcache, build outputs, private files, Python bytecode, and common backup artifacts
+    10.setup.py:
+        1) Bump package version to 0.182.0
+    11.Validation:
+        1) Full test_pixiu.py suite passes: 46 passed
+        2) Focused chart/live/explain/market-events regression tests pass
+        3) Temporary sdist and wheel build succeeds
+        4) Release artifact scan finds no local paths, private account cache filenames, pxcache data, secret-looking test strings, private key files, or environment files
+
 ### [2026-08-09]
 #### Version:
 #####   Package:

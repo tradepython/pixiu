@@ -1,0 +1,69 @@
+{
+  "accounts": {
+    "default": {
+      "balance": 10000.0,
+      "equity": 10000.0,
+      "margin": 0,
+      "free_margin": 10000.0,
+      "credit": 0.0,
+      "profit": 0.0,
+      "margin_level": 0,
+      "leverage": 100,
+      "currency": "USD",
+      "free_margin_mode": 0,
+      "stop_out_level": 0,
+      "stop_out_mode": 0,
+      "company": "PXTester",
+      "name": "Chart Demo",
+      "number": "000",
+      "server": "PXTester",
+      "trade_mode": 0,
+      "limit_orders": 500,
+      "margin_so_mode": 0,
+      "trade_allowed": true,
+      "trade_expert": 1,
+      "margin_so_call": 0.0,
+      "margin_so_so": 0.0,
+      "commission": 0.0
+    }
+  },
+  "symbols": {
+    "USDCHF": {
+      "symbol": "USDCHF",
+      "spread": 15,
+      "digits": 5,
+      "stop_level": 0,
+      "volume_min": 0.01,
+      "trade_contract_size": 100000,
+      "point": 0.00001,
+      "currency_profit": "CHF",
+      "currency_base": "USD",
+      "currency_margin": "USD"
+    }
+  },
+  "tests": {
+    "chartDemoUSDCHF": {
+      "symbol": "USDCHF",
+      "tick_data": "../tests/usdchf_m1_20210315-0415.csv",
+      "start_time": "2021-03-15",
+      "end_time": "2021-03-18",
+      "tick_max_index": 180,
+      "balance": 10000,
+      "leverage": 100,
+      "currency": "USD",
+      "account": "default",
+      "spread_point": 15,
+      "script_settings": {
+        "params": {
+          "fast_ma_period": 8,
+          "slow_ma_period": 24,
+          "atr_period": 14,
+          "support_points": 70,
+          "resistance_points": 95,
+          "demo_volume": 0.01,
+          "trade_demo_orders": true
+        }
+      }
+    }
+  }
+}

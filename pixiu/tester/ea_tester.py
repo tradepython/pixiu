@@ -22,8 +22,8 @@ from pixiu.api.v1 import (DataScope, )
 import traceback
 import logging
 from .scenario import ScenarioEngine, resolve_order_command
-from .chart_protocol import LegacyChartAdapter
-from .chart_viewer import render_chart_replay_html, write_chart_replay_html
+from pixiu.chart import LegacyChartAdapter, render_chart_replay_html, write_chart_replay_html
+from pixiu.events import MarketEventStore
 from pixiu import __version__ as pixiu_version
 log = logging.getLogger(__name__)
 
@@ -64,7 +64,10 @@ MAX_DATA_LENGTH = 1048576 #1MB
 class EATester(EABase):
     """EA Tester"""
     EA_EXPLAIN_SCHEMA = "pixiu-ea-explain-v1"
+    EA_EXPLAIN_CHART_SCHEMA = "pixiu-explain-chart-v1"
+    EA_EXPLAIN_CHART_TYPES_SCHEMA = "pixiu-ea-explain-chart-types-v1"
     EA_EXPLAIN_MAX_EVENT_BYTES = 16 * 1024
+    EA_EXPLAIN_MAX_CHART_BYTES = 256 * 1024
     EA_EXPLAIN_MAX_BATCH_EVENTS = 200
     FM_MAX_DRAWDOWN_UPDATED           = 0b0000000000000001
     FM_TRADE_MAX_LOSS_UPDATED         = 0b0000000000000010
@@ -83,6 +86,9 @@ class EATester(EABase):
         self.currency_conversions = params.get("currency_conversions", {}) or {}
         self.currency_conversion_paths = {}
         self.currency_conversion_symbol_data = {}
+        self.market_events_config = params.get("market_events", {}) or {}
+        config_path = params.get("config_file_path", None)
+        self.config_base_path = os.path.dirname(os.path.abspath(config_path)) if config_path else os.getcwd()
         #
         # self.errid = None
         # self.errmsg = None
@@ -642,6 +648,174 @@ class EATester(EABase):
                                          self.EA_EXPLAIN_MAX_BATCH_EVENTS)
         return accepted > 0
 
+    def get_market_event_store(self):
+        store = self.context.ctx.get("market_event_store")
+        if store is None:
+            store = MarketEventStore(
+                self.market_events_config,
+                base_path=self.config_base_path,
+                default_symbol=self.context.symbol,
+            )
+            self.context.ctx["market_event_store"] = store
+        return store
+
+    def get_market_events(self, instrument_id=None, instrument_ids=None, symbol=None, symbols=None,
+                          venue=None, issuer_id=None, sector=None, currency=None, country=None,
+                          asset_class=None, event_type=None, min_impact=None, from_time=None,
+                          to_time=None, include_future=False, include_hidden_fields=False):
+        return self.get_market_event_store().query(
+            current_time=self.current_time(),
+            instrument_id=instrument_id,
+            instrument_ids=instrument_ids,
+            symbol=symbol,
+            symbols=symbols,
+            venue=venue,
+            issuer_id=issuer_id,
+            sector=sector,
+            currency=currency,
+            country=country,
+            asset_class=asset_class,
+            event_type=event_type,
+            min_impact=min_impact,
+            from_time=from_time,
+            to_time=to_time,
+            include_future=include_future,
+            include_hidden_fields=include_hidden_fields,
+        )
+
+    def get_upcoming_market_events(self, instrument_id=None, symbol=None, venue=None,
+                                   issuer_id=None, sector=None, currency=None, country=None,
+                                   asset_class=None, event_type=None, within_seconds=3600,
+                                   min_impact=None):
+        return self.get_market_event_store().upcoming(
+            current_time=self.current_time(),
+            instrument_id=instrument_id,
+            symbol=symbol,
+            venue=venue,
+            issuer_id=issuer_id,
+            sector=sector,
+            currency=currency,
+            country=country,
+            asset_class=asset_class,
+            event_type=event_type,
+            within_seconds=within_seconds,
+            min_impact=min_impact,
+        )
+
+    def get_latest_market_events(self, instrument_id=None, symbol=None, venue=None,
+                                 issuer_id=None, sector=None, currency=None, country=None,
+                                 asset_class=None, event_type=None, lookback_seconds=3600,
+                                 min_impact=None):
+        return self.get_market_event_store().latest(
+            current_time=self.current_time(),
+            instrument_id=instrument_id,
+            symbol=symbol,
+            venue=venue,
+            issuer_id=issuer_id,
+            sector=sector,
+            currency=currency,
+            country=country,
+            asset_class=asset_class,
+            event_type=event_type,
+            lookback_seconds=lookback_seconds,
+            min_impact=min_impact,
+        )
+
+    def get_ea_explain_chart_types(self):
+        func = self._get_ea_exported_function("PX_GetEAExplainChartTypes")
+        if func is None:
+            return self._ea_explain_chart_error(
+                "unsupported",
+                "EA does not support PX_GetEAExplainChartTypes.",
+                schema=self.EA_EXPLAIN_CHART_TYPES_SCHEMA,
+                chart_types=[],
+            )
+        try:
+            result = func()
+        except Exception as exc:
+            self._add_ea_explain_warning("PX_GetEAExplainChartTypes failed: %s" % exc)
+            return self._ea_explain_chart_error(
+                "ea_explain_chart_error",
+                str(exc),
+                schema=self.EA_EXPLAIN_CHART_TYPES_SCHEMA,
+                chart_types=[],
+            )
+        if isinstance(result, (list, tuple)):
+            result = {"chart_types": list(result)}
+        if not isinstance(result, dict):
+            return self._ea_explain_chart_error(
+                "invalid_response",
+                "PX_GetEAExplainChartTypes must return object or object list.",
+                schema=self.EA_EXPLAIN_CHART_TYPES_SCHEMA,
+                chart_types=[],
+            )
+        result = self._json_safe(result)
+        result.setdefault("success", True)
+        result.setdefault("schema", self.EA_EXPLAIN_CHART_TYPES_SCHEMA)
+        result.setdefault("chart_types", [])
+        return result
+
+    def get_ea_explain_chart(self, request=None):
+        if request is None:
+            request = {}
+        if not isinstance(request, dict):
+            return self._ea_explain_chart_error("invalid_request", "request must be an object.")
+        func = self._get_ea_exported_function("PX_GetEAExplainChart")
+        if func is None:
+            return self._ea_explain_chart_error("unsupported", "EA does not support PX_GetEAExplainChart.")
+        safe_request = self._json_safe(request)
+        try:
+            result = func(safe_request)
+        except Exception as exc:
+            self._add_ea_explain_warning("PX_GetEAExplainChart failed: %s" % exc)
+            return self._ea_explain_chart_error("ea_explain_chart_error", str(exc))
+        if not isinstance(result, dict):
+            return self._ea_explain_chart_error("invalid_response", "PX_GetEAExplainChart must return an object.")
+        result = self._json_safe(result)
+        result.setdefault("success", True)
+        result.setdefault("schema", self.EA_EXPLAIN_CHART_SCHEMA)
+        if safe_request.get("chart_type") is not None:
+            result.setdefault("chart_type", safe_request.get("chart_type"))
+        result.setdefault("symbol", self.context.symbol)
+        result.setdefault("run_mode", "tester")
+        result.setdefault("run_id", self.context.ticket)
+        time_ts = self._ea_explain_time_ts()
+        result.setdefault("time_ts", time_ts)
+        result.setdefault("time", str(utc_from_timestamp(time_ts)) if time_ts is not None else None)
+        if not self._ea_explain_chart_payload_allowed(result):
+            return self._ea_explain_chart_error(
+                "payload_too_large",
+                "PX_GetEAExplainChart response exceeded %s bytes." % self.EA_EXPLAIN_MAX_CHART_BYTES,
+            )
+        return result
+
+    def _get_ea_exported_function(self, name):
+        env = self.context.safe_globals if isinstance(self.context.safe_globals, dict) else {}
+        func = env.get(name)
+        if callable(func):
+            return func
+        return None
+
+    def _ea_explain_chart_error(self, error, message, schema=None, **extra):
+        ret = {
+            "success": False,
+            "schema": schema or self.EA_EXPLAIN_CHART_SCHEMA,
+            "error": error,
+            "message": message,
+            "run_mode": "tester",
+            "run_id": self.context.ticket,
+            "symbol": self.context.symbol,
+        }
+        ret.update(extra)
+        return ret
+
+    def _ea_explain_chart_payload_allowed(self, data):
+        try:
+            payload = json.dumps(data, ensure_ascii=True, sort_keys=True)
+        except (TypeError, ValueError):
+            payload = json.dumps(self._json_safe(data), ensure_ascii=True, sort_keys=True)
+        return len(payload.encode("utf-8")) <= self.EA_EXPLAIN_MAX_CHART_BYTES
+
     def _normalize_ea_explain_status(self, data):
         if not isinstance(data, dict):
             self._add_ea_explain_warning("PX_UpdateEAExplainStatus expects an object.")
@@ -800,6 +974,14 @@ class EATester(EABase):
             symbols.update(self.context.ctx.get("default_symbol_properties", {}))
         if isinstance(self.context.ctx.get("symbol_properties", None), dict):
             symbols.update(self.context.ctx.get("symbol_properties", {}))
+        market_event_store = self.get_market_event_store()
+        market_events = market_event_store.replay_events()
+        market_event_manifest = market_event_store.replay_manifest()
+        if market_event_manifest:
+            replay_metadata.setdefault("market_events", {})
+            replay_metadata["market_events"]["enabled"] = bool(self.market_events_config.get("enabled", False))
+            replay_metadata["market_events"]["count"] = len(market_events)
+            replay_metadata["market_events"]["manifest"] = market_event_manifest
         adapter = LegacyChartAdapter(
             script_settings=script_settings,
             charts_data=self.context.ctx.get("charts_data", []),
@@ -816,6 +998,8 @@ class EATester(EABase):
             explain_status=self.context.ctx.get("explain_status", None),
             explain_events=self.context.ctx.get("explain_events", []),
             explain_order_states=self.context.ctx.get("explain_order_states", {}),
+            market_events=market_events,
+            market_event_manifest=market_event_manifest,
         )
         return adapter.build()
 
@@ -2214,6 +2398,11 @@ class EATester(EABase):
         self.context.ctx["explain_events"] = []
         self.context.ctx["explain_order_states"] = {}
         self.context.ctx["explain_warnings"] = []
+        self.context.ctx["market_event_store"] = MarketEventStore(
+            self.market_events_config,
+            base_path=self.config_base_path,
+            default_symbol=self.context.symbol,
+        )
         self.context.symbol_properties = {}
         self.context.tick_info = None
         self.context.orders = self.get_init_data('orders', dict(symbol=self.context.symbol))

@@ -1,8 +1,8 @@
 import argparse
 from multiprocessing import (Pool, Process, Manager, Queue, Value)
-from pixiu.tester.ea_tester_graph import EATesterGraphServer
+from pixiu.chart.live_server import PixiuChartLiveServer
 from pixiu.pxtester import PXTester
-from pixiu.tester.chart_viewer import write_chart_replay_html
+from pixiu.chart.viewer import write_chart_replay_html
 from pixiu.builder import EABuilder
 from pixiu.optimizer import EAOptimizer
 from tabulate import tabulate
@@ -258,7 +258,7 @@ class MainApp:
         graph_server = None
         try:
             if graph:
-                graph_server = EATesterGraphServer(message_queue)
+                graph_server = PixiuChartLiveServer(message_queue)
             pxt = PXTester(test_config_path=test_config_path, test_name=test_name, script_path=script_path,
                            log_path=log_path, print_log_type=print_log_type, test_result=result_value,
                            tester_graph_server=graph_server, test_graph_data=graph_data,
@@ -278,7 +278,7 @@ class MainApp:
     #                message_queue, graph_data, exec):
     #     graph_server = None
     #     if graph:
-    #         graph_server = EATesterGraphServer(message_queue)
+    #         graph_server = PixiuChartLiveServer(message_queue)
     #     pxt = PXTester(test_config_path=test_config_path, test_name=test_name, script_path=script_path,
     #                    log_path=log_path, print_log_type=print_log_type, test_result=result_value,
     #                    tester_graph_server=graph_server, test_graph_data=graph_data)
@@ -541,7 +541,7 @@ def main(*args, **kwargs):
 
         if graph_config:
             message_queue = manager.Queue()
-            graph_server = EATesterGraphServer(message_queue, host=graph_config["host"], port=graph_config["port"])
+            graph_server = PixiuChartLiveServer(message_queue, host=graph_config["host"], port=graph_config["port"])
             graph_server.start()
             print("Opening Pixiu live chart: %s" % graph_config["url"])
             webbrowser.open(graph_config["url"])

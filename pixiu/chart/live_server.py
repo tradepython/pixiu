@@ -11,8 +11,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from multiprocessing import Process, Value
 from urllib.parse import urlparse
 
-from .chart_protocol import CHART_PROTOCOL_VERSION, LegacyChartAdapter, sanitize_chart_config
-from .chart_viewer import render_chart_live_html
+from .protocol import CHART_PROTOCOL_VERSION, LegacyChartAdapter, sanitize_chart_config
+from .viewer import render_chart_live_html
 
 
 class PixiuChartLiveState(object):
@@ -310,7 +310,7 @@ class _PixiuChartHTTPServer(ThreadingHTTPServer):
         self.running = running
 
 
-class EATesterGraphServer:
+class PixiuChartLiveServer:
     def __init__(self, message_queue, host=None, port=None):
         self.running = Value("b", False)
         self.message_queue = message_queue
@@ -393,6 +393,9 @@ class EATesterGraphServer:
 
     def send_message(self, message):
         self.message_queue.put(message)
+
+
+EATesterGraphServer = PixiuChartLiveServer
 
 
 def _json_dumps(value):

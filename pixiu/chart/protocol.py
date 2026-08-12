@@ -55,7 +55,7 @@ class LegacyChartAdapter(object):
                  order_logs=None, account_logs=None, print_logs=None, report=None,
                  metadata=None, symbols=None, default_symbol=None, timeframe=None,
                  account=None, explain_status=None, explain_events=None,
-                 explain_order_states=None):
+                 explain_order_states=None, market_events=None, market_event_manifest=None):
         self.script_settings = script_settings or {}
         self.charts_data = charts_data or []
         self.graph_data = graph_data or {}
@@ -71,6 +71,8 @@ class LegacyChartAdapter(object):
         self.explain_status = explain_status
         self.explain_events = explain_events or []
         self.explain_order_states = explain_order_states or {}
+        self.market_events = market_events or []
+        self.market_event_manifest = market_event_manifest or {}
 
     def build(self):
         panes, series = self._build_panes_and_series()
@@ -95,6 +97,8 @@ class LegacyChartAdapter(object):
             "positions": [],
             "account": account,
             "events": events,
+            "market_events": self._to_json_safe(copy.deepcopy(self.market_events)),
+            "market_event_manifest": self._to_json_safe(copy.deepcopy(self.market_event_manifest)),
             "objects": [],
             "assets": {},
             "logs": logs,
@@ -359,6 +363,28 @@ class LegacyChartAdapter(object):
 
     def _build_events(self):
         events = []
+        for idx, item in enumerate(self.market_events):
+            if not isinstance(item, dict):
+                continue
+            payload = self._to_json_safe(copy.deepcopy(item))
+            event_time = payload.get("event_time_ts", payload.get("event_time", payload.get("time")))
+            impact = payload.get("impact")
+            level = "info"
+            if impact == "high":
+                level = "warning"
+            elif impact == "critical":
+                level = "critical"
+            event = {
+                "id": str(payload.get("id") or "market-event-%s" % (idx + 1)),
+                "time": self._to_timestamp(event_time),
+                "type": "data",
+                "name": payload.get("type", "market_event"),
+                "level": level,
+                "symbol": (payload.get("symbols") or [self.default_symbol or None])[0],
+                "text": payload.get("title"),
+                "payload": payload,
+            }
+            events.append({key: value for key, value in event.items() if value is not None})
         for idx, item in enumerate(self.explain_events):
             if not isinstance(item, dict):
                 continue

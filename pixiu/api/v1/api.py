@@ -266,6 +266,39 @@ class APIStub(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
+    def GetMarketEvents(self, instrument_id=None, instrument_ids=None, symbol=None, symbols=None,
+                        venue=None, issuer_id=None, sector=None, currency=None, country=None,
+                        asset_class=None, event_type=None, min_impact=None, from_time=None,
+                        to_time=None, include_future=False, include_hidden_fields=False):
+        '''
+        Query market events visible to the current tester or runner time.
+
+                Returns:
+                        list[dict]: Market events with hidden future fields removed.
+        '''
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def GetUpcomingMarketEvents(self, instrument_id=None, symbol=None, venue=None,
+                                issuer_id=None, sector=None, currency=None, country=None,
+                                asset_class=None, event_type=None, within_seconds=3600,
+                                min_impact=None):
+        '''
+        Query future scheduled market events whose known fields are visible now.
+        '''
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def GetLatestMarketEvents(self, instrument_id=None, symbol=None, venue=None,
+                              issuer_id=None, sector=None, currency=None, country=None,
+                              asset_class=None, event_type=None, lookback_seconds=3600,
+                              min_impact=None):
+        '''
+        Query recent market events visible to the current tester or runner time.
+        '''
+        raise NotImplementedError
+
+    @abc.abstractmethod
     def GetSymbol(self, symbol=None):
         '''
         Returns the symbol properties.

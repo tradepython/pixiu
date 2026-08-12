@@ -20,8 +20,8 @@ import os
 
 #
 from pixiu.api import (TimeFrame, )
-from pixiu.tester import (EATester, EATesterGraphServer)
-from pixiu.tester.chart_protocol import sanitize_chart_config
+from pixiu.chart.protocol import sanitize_chart_config
+from pixiu.tester import EATester
 
 np.set_printoptions(legacy="1.25")
 
@@ -105,6 +105,7 @@ class PXTester(EATester):
         self.symbol_tick_data[symbol] = self.new_a
         #
         self.eat_params = test_params
+        self.eat_params['config_file_path'] = test_config_path
         self.eat_params['symbol_properties'] = symbol_properties
         self.eat_params['account'] = account
         self.eat_params['script_path'] = script_path
@@ -181,6 +182,7 @@ class PXTester(EATester):
             "tick_source": copy.deepcopy(test_params.get("tick_data")),
             "account": safe_account,
             "scenario": copy.deepcopy(test_params.get("scenario")),
+            "market_events": copy.deepcopy(test_params.get("market_events")),
             "currency_conversion_settings": copy.deepcopy(test_params.get("currency_conversion_settings")),
         }
 

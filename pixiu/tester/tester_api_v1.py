@@ -242,6 +242,65 @@ class TesterAPI_V1(API_V1_Base):
     def PX_AppendEAExplainEvent(self, data):
         return self.tester.append_ea_explain_event(data)
 
+    def GetMarketEvents(self, instrument_id=None, instrument_ids=None, symbol=None, symbols=None,
+                        venue=None, issuer_id=None, sector=None, currency=None, country=None,
+                        asset_class=None, event_type=None, min_impact=None, from_time=None,
+                        to_time=None, include_future=False, include_hidden_fields=False):
+        return self.tester.get_market_events(
+            instrument_id=instrument_id,
+            instrument_ids=instrument_ids,
+            symbol=symbol,
+            symbols=symbols,
+            venue=venue,
+            issuer_id=issuer_id,
+            sector=sector,
+            currency=currency,
+            country=country,
+            asset_class=asset_class,
+            event_type=event_type,
+            min_impact=min_impact,
+            from_time=from_time,
+            to_time=to_time,
+            include_future=include_future,
+            include_hidden_fields=include_hidden_fields,
+        )
+
+    def GetUpcomingMarketEvents(self, instrument_id=None, symbol=None, venue=None,
+                                issuer_id=None, sector=None, currency=None, country=None,
+                                asset_class=None, event_type=None, within_seconds=3600,
+                                min_impact=None):
+        return self.tester.get_upcoming_market_events(
+            instrument_id=instrument_id,
+            symbol=symbol,
+            venue=venue,
+            issuer_id=issuer_id,
+            sector=sector,
+            currency=currency,
+            country=country,
+            asset_class=asset_class,
+            event_type=event_type,
+            within_seconds=within_seconds,
+            min_impact=min_impact,
+        )
+
+    def GetLatestMarketEvents(self, instrument_id=None, symbol=None, venue=None,
+                              issuer_id=None, sector=None, currency=None, country=None,
+                              asset_class=None, event_type=None, lookback_seconds=3600,
+                              min_impact=None):
+        return self.tester.get_latest_market_events(
+            instrument_id=instrument_id,
+            symbol=symbol,
+            venue=venue,
+            issuer_id=issuer_id,
+            sector=sector,
+            currency=currency,
+            country=country,
+            asset_class=asset_class,
+            event_type=event_type,
+            lookback_seconds=lookback_seconds,
+            min_impact=min_impact,
+        )
+
     def __calculate_indicator__(self, indicator_id, price_data, *args, **kwargs):
         #indicator_id, price_data, period, ma_type
         if not isinstance(price_data, SymbolPrice) and not isinstance(price_data, SymbolData):
