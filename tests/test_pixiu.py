@@ -1448,6 +1448,109 @@ class PiXiuTests(TestCase):
         self.assertNotIn("NaN", html_with_nan)
 
     @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_drawdown_uses_every_account_equity_sample(self):
+        cases = [
+            ([3000, 4000, 3500], -500, -500 / 4000, 1, 2),
+            ([3000, 3100, 2700, 3050], -400, -400 / 3100, 1, 2),
+            ([3000, 2900], -100, -100 / 3000, 0, 1),
+            ([3000, 3200, 3100, 3300, 3000], -300, -300 / 3300, 3, 4),
+            ([3000, 3000, 3000], 0, 0, None, None),
+            ([3000, 2900, 2800], -200, -200 / 3000, 0, 2),
+            ([3000, 4000, 3500, 10000, 9400], -600, -600 / 10000, 3, 4),
+            ([3000, 3370.11, 3004.35], -365.76, -365.76 / 3370.11, 1, 2),
+        ]
+        for equities, expected_dd, expected_rate, peak_index, trough_index in cases:
+            with self.subTest(equities=equities):
+                params = dict(self.eat_params, script='', balance=3000)
+                tester = EATTester(self, params)
+                tester.init_data()
+                tester.context.tick_info = self.make_tick_data(self.symbol, [1.0] * len(equities))
+                peak = 3000
+                max_dd = max_dd_rate = 0
+                for index, equity in enumerate(equities):
+                    tester.context.tick_current_index = index
+                    tester.context.reset_flags()
+                    tester.context.account['profit'] = equity - 3000
+                    tester._EATester__update_account_log('drawdown')
+                    peak = max(peak, equity)
+                    drawdown = equity - peak
+                    updated = drawdown < max_dd
+                    if updated:
+                        max_dd, max_dd_rate = drawdown, drawdown / peak
+                    self.assertEqual(tester.context.report['max_drawdown']['value'], max_dd)
+                    self.assertAlmostEqual(tester.context.report['max_drawdown_rate']['value'], max_dd_rate)
+                    self.assertEqual(bool(tester.context.flags & EATester.FM_MAX_DRAWDOWN_UPDATED), updated)
+
+                self.assertAlmostEqual(tester.context.report['max_drawdown']['value'], expected_dd)
+                self.assertAlmostEqual(tester.context.report['max_drawdown_rate']['value'], expected_rate)
+                self.assertEqual(tester.context.report['total_trades']['value'], 0)
+                self.assertEqual(tester.context.report['absolute_drawdown']['value'], 0)
+                if peak_index is not None:
+                    self.assertEqual(tester.context.temp['max_drawdown_peak_time'],
+                                     tester.context.tick_info['t'][peak_index])
+                    self.assertEqual(tester.context.temp['max_drawdown_trough_time'],
+                                     tester.context.tick_info['t'][trough_index])
+                    self.assertEqual(tester.context.temp['max_drawdown_peak_equity'], equities[peak_index])
+                    self.assertEqual(tester.context.temp['max_drawdown_trough_equity'], equities[trough_index])
+
+                # Recompute independently from the emitted account logs, including initial equity.
+                logged_equities = np.array([3000] + [item['equity'] for item in tester.context.account_logs])
+                peaks = np.maximum.accumulate(logged_equities)
+                drawdowns = logged_equities - peaks
+                worst_index = int(np.argmin(drawdowns))
+                self.assertEqual(tester.context.report['max_drawdown']['value'], drawdowns[worst_index])
+                self.assertAlmostEqual(tester.context.report['max_drawdown_rate']['value'],
+                                       drawdowns[worst_index] / peaks[worst_index])
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_trade_report_does_not_update_drawdown_from_stale_equity(self):
+        tester = EATTester(self, dict(self.eat_params, script='', balance=3000))
+        tester.init_data()
+        tester.context.account['equity'] = 2000
+        tester.__update_report__(True, 10)
+        self.assertEqual(tester.context.report['max_drawdown']['value'], 0)
+        tester.context.account['equity'] = 1500
+        tester.__update_report__(True, 10)
+        self.assertEqual(tester.context.report['max_drawdown']['value'], 0)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_drawdown_tracks_open_position_during_execution(self):
+        class DrawdownTester(CrossCurrencyEATTester):
+            def on_end_tick(self, *args, **kwargs):
+                self.tick_reports.append((
+                    self.context.account['equity'],
+                    self.context.report['max_drawdown']['value'],
+                    self.context.report['max_drawdown_rate']['value'],
+                    len(self.get_order_dict(self.context.symbol, 'closed')),
+                ))
+
+        for collect_graph_data in (True, False):
+            with self.subTest(collect_graph_data=collect_graph_data):
+                ticks = self.make_tick_data(self.symbol, [1.0, 1.01, 0.97, 1.005])
+                params = dict(self.eat_params, script='', balance=3000, currency='CHF',
+                              spread_point=0, tick_max_index=len(ticks),
+                              collect_graph_data=collect_graph_data, collect_chart_replay=collect_graph_data,
+                              scenario={'initial_state': {'orders': [
+                                  {'ticket': 7001, 'side': 'buy', 'volume': 0.1, 'open_price': 1.0},
+                              ]}})
+                tester = DrawdownTester(params, {self.symbol: ticks})
+                tester.tick_reports = []
+                tester.execute('drawdown', sync=True)
+                self.assertEqual(tester.context.get_error()[0], 0)
+                self.assertEqual(len(tester.tick_reports), 4)
+                self.assertEqual([item[0] for item in tester.tick_reports], [3000, 3100, 2700, 3050])
+                self.assertEqual([item[1] for item in tester.tick_reports], [0, 0, -400, -400])
+                self.assertAlmostEqual(tester.tick_reports[2][2], -400 / 3100)
+                self.assertEqual([item[3] for item in tester.tick_reports], [0, 0, 0, 0])
+                equities = np.array([3000] + [item['equity'] for item in tester.context.account_logs])
+                peaks = np.maximum.accumulate(equities)
+                drawdowns = equities - peaks
+                worst_index = int(np.argmin(drawdowns))
+                self.assertEqual(tester.context.report['max_drawdown']['value'], drawdowns[worst_index])
+                self.assertAlmostEqual(tester.context.report['max_drawdown_rate']['value'],
+                                       drawdowns[worst_index] / peaks[worst_index])
+
+    @skipIf(debug_some_tests, "debug some tests")
     def test_ea_tester_return_ratio_uses_account_equity_curve(self):
         params = dict(self.eat_params)
         params['script'] = ""

@@ -1,3 +1,15 @@
+### [2026-10-26]
+#### **Descriptions：**
+    1.ea_tester.py:
+        1) Fix Max Drawdown to track every completed tick's equity valuation, including floating profit/loss and final settlement
+        2) Remove the initial-balance restriction and stale equity updates from the trade report path
+        3) Use an O(1) running equity peak and preserve existing negative amount/rate report fields for the same peak/trough pair
+        4) Keep peak/trough times and equity values in temporary diagnostic state
+    2.test_pixiu.py:
+        1) Cover drawdowns above initial balance, open-position losses, final-tick lows, new peaks, unchanged equity, and paired amount/rate behavior
+        2) Compare report values against independent account-log recalculation with graph collection enabled and disabled
+    3.docs/report-drawdown.zh.md:
+        1) Document Equity Max Drawdown semantics, calculation, diagnostic fields, and historical report migration
 
 ### [2026-08-12]
 #### Version:

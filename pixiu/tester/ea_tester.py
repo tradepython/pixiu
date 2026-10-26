@@ -330,7 +330,12 @@ class EATester(EABase):
                 'max_drawdown': 0,
                 'max_drawdown_rate': 0,
                 'account_max_equity': values['equity'],
+                'account_max_equity_time': None,
                 'account_min_equity': values['equity'],
+                'max_drawdown_peak_time': None,
+                'max_drawdown_trough_time': None,
+                'max_drawdown_peak_equity': None,
+                'max_drawdown_trough_equity': None,
                 'account_min_balance': values['balance'],
             }
         elif name == 'persistent_data':
@@ -1854,19 +1859,32 @@ class EATester(EABase):
             return None
         return self.context.tick_info['v'][self.context.tick_current_index - shift]
     #
-    def __update_report_max_dd__(self):
-        #calculate maxdd: https://www.investopedia.com/terms/m/maximum-drawdown-mdd.asp
-        if self.context.temp['account_min_equity'] < self.context.report['init_balance']['value']:
-            self.context.temp['max_drawdown'] = self.context.temp['account_min_equity'] - self.context.temp['account_max_equity']
-        if self.context.temp['account_max_equity'] > 0:
-            self.context.temp['max_drawdown_rate'] = self.context.temp['max_drawdown'] / self.context.temp['account_max_equity']
+    def __update_equity_drawdown__(self, equity, time):
+        """Track peak-to-current equity drawdown after each account valuation."""
+        temp = self.context.temp
+        report = self.context.report
+        if temp['account_max_equity_time'] is None:
+            temp['account_max_equity_time'] = time
+        if equity > temp['account_max_equity']:
+            temp['account_max_equity'] = equity
+            temp['account_max_equity_time'] = time
+            temp['account_min_equity'] = equity
         else:
-            self.context.temp['max_drawdown_rate'] = 0
-        #
-        if self.context.report['max_drawdown']['value'] > self.context.temp['max_drawdown']:
-            self.context.report['max_drawdown']['value'] = self.context.temp['max_drawdown']
-            self.context.report['max_drawdown_rate']['value'] = self.context.temp['max_drawdown_rate']
-            # self.context.flags['max_drawdown_updated'] = True
+            temp['account_min_equity'] = min(temp['account_min_equity'], equity)
+
+        peak = temp['account_max_equity']
+        drawdown = equity - peak
+        drawdown_rate = drawdown / peak if peak > 0 else 0
+        temp['max_drawdown'] = drawdown
+        temp['max_drawdown_rate'] = drawdown_rate
+        if drawdown < report['max_drawdown']['value']:
+            report['max_drawdown']['value'] = drawdown
+            # Keep amount and percentage tied to the same peak/trough pair.
+            report['max_drawdown_rate']['value'] = drawdown_rate
+            temp['max_drawdown_peak_time'] = temp['account_max_equity_time']
+            temp['max_drawdown_trough_time'] = time
+            temp['max_drawdown_peak_equity'] = peak
+            temp['max_drawdown_trough_equity'] = equity
             self.context.flags |= EATester.FM_MAX_DRAWDOWN_UPDATED
 
     def __update_report__(self, is_long, profit, trades=1):
@@ -1912,30 +1930,10 @@ class EATester(EABase):
             self.context.temp['consecutive_wins_money'] = 0
             #
         #
-        #max dd
-        if self.context.temp['account_max_equity'] < self.context.account['equity']:
-            # #calculate maxdd: https://www.investopedia.com/terms/m/maximum-drawdown-mdd.asp
-            ret = self.__update_report_max_dd__()
-            #
-            self.context.temp['account_max_equity'] = self.context.account['equity']
-            self.context.temp['account_min_equity'] = self.context.account['equity']
-        else:
-            if self.context.temp['account_min_equity'] > self.context.account['equity']:
-                ret = self.__update_report_max_dd__()
-                self.context.temp['account_min_equity'] = self.context.account['equity']
-        #
-
-        #
         if self.context.temp['account_min_balance'] > self.context.account['balance']:
             self.context.temp['account_min_balance'] = self.context.account['balance']
             self.context.report['absolute_drawdown']['value'] = self.context.temp['account_min_balance'] - self.context.report['init_balance']['value']
 
-        #
-        # self.context.report['max_drawdown']['value'] = self.context.temp['account_max_equity'] - self.context.temp['account_min_equity']
-        # if self.context.temp['account_max_equity'] > 0:
-        #     self.context.report['max_drawdown_rate']['value'] = self.context.report['max_drawdown']['value'] / self.context.temp['account_max_equity']
-        # else:
-        #     self.context.report['max_drawdown_rate']['value'] = 0
         if self.context.report['max_consecutive_wins']['value'] < self.context.temp['consecutive_wins']:
             self.context.report['max_consecutive_wins']['value'] = self.context.temp['consecutive_wins']
             # self.context.flags['max_consecutive_wins_updated'] = True
@@ -2697,6 +2695,7 @@ class EATester(EABase):
         profit = self.context.account['profit']
         equity = round(balance + profit, self.context.default_digits)
         self.context.account['equity'] = equity
+        self.__update_equity_drawdown__(equity, time)
         free_margin = round(equity - margin, self.context.default_digits)
         self.context.account['free_margin'] = free_margin
         # see: https://www.mql5.com/en/forum/46654
