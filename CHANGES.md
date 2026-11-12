@@ -1,4 +1,119 @@
+### [2026-11-12]
+#### Version:
+#####   Package:
+#####    pixiu: 0.187.*.20261112
+#####
+#### **Descriptions：**
+    1.ea_base.py / base package:
+        1) Add optional requires_pixiu source-header metadata without changing legacy EA settings or library declarations
+        2) Validate PEP 440 version constraints before EA initialization, and reject invalid, duplicate, empty, incompatible, or unverifiable requirements with EACompatibilityError
+        3) Check source requirements for loaded and injected script libraries before execution, without adding checks to normal per-tick execution
+        4) Keep prerelease admission explicit and preserve undeclared legacy EA behavior even when the runtime version is unknown
+    2.ea_tester.py / setup.py:
+        1) Preserve compatibility-error propagation through settings initialization and declare packaging>=20.0 as a runtime dependency
+    3.test_pixiu.py:
+        1) Cover metadata parsing, version ranges, unknown versions, prereleases, local versions, pre-execution rejection, library checks, legacy execution, and unchanged settings
+        2) Verify that compiled scripts do not repeat version validation on subsequent ticks
+    4.README / docs:
+        1) Add English and Chinese EA runtime requirement documentation, examples, error handling, and older-runtime compatibility boundaries
+        2) Add a standalone pixiu-control-v1 manual intervention design draft for local/server controls, guarded takeover, command deduplication, immutable plans, optional EA hooks, and deterministic replay
+        3) Document a generic hedged-position walkthrough, transient exposure and partial-fill failure handling, old-EA recovery limits, security requirements, and phased implementation acceptance tests; no runtime implementation is added by this draft
+        4) Extend the manual intervention draft with optional EA command_specs/UI declarations, shared forms, read-only proposal phases, definition versioning, and legacy fallback without adding EA callbacks
+        5) Specify legacy/strict audit profiles, trusted origin and requester/decision/executor attribution, durable evidence, retention/integrity policies, and audit/replay coverage without treating Explain as the authoritative ledger
+    5.Validation:
+        1) Full test_pixiu.py suite passes: 94 passed, 60 subtests passed, with 7 existing warnings
+        2) Focused runtime requirement tests pass: 7 passed, 34 subtests passed; Python compilation and git diff whitespace checks pass
+        3) Manual intervention draft JSON examples, local document links, and fixed-quote hedge accounting examples are checked independently; this documentation-only addition does not add runtime functionality
+        4) Recheck declarative UI references, normalized parameters, audit role/plan links, and all 8 protocol JSON examples; this UI/audit extension remains documentation-only
+
+### [2026-11-11]
+#### Version:
+#####   Package:
+#####    pixiu: 0.186.*.20261111
+#####
+#### **Descriptions：**
+    1.higher_timeframe.py / tester_api_v1.py / symbol.py:
+        1) Incrementally aggregate arrived records for static primary-symbol higher timeframes instead of scanning the full M1 prefix on each refresh
+        2) Reuse per-version snapshots and indicator computations across fresh and retained market objects
+        3) Handle cursor jumps, rewinds and run resets while keeping scenario and foreign-symbol reads on the conservative path
+        4) Keep bounded run-local caches and structural counters without changing size, trading or account calculation semantics
+        5) Reuse bounded per-version primary-symbol scalar indexes and read price/time scalars after a single refresh without public timestamp copies
+        6) Preserve missing-bucket, cursor, source replacement, scenario, foreign-feed and non-tester callback behavior
+    2.tests / benchmarks / docs:
+        1) Add prefix/reference, rollover, sequence, weekend, invalidation and financial-event parity coverage
+        2) Add sequential external-workload measurements with source hashes, full logs and reference-event comparison
+        3) Add independent account-equity and drawdown audit tooling and document the first-batch scope
+        4) Add scalar-path reference, invalidation, boundary, isolation, cache-limit and normal/Fast financial-event regressions
+        5) Document post-scalar profiling, anonymous state-access metrics, real-sample codec/copy costs and safe opt-in follow-up proposals without changing EA or engine execution
+    3.Validation:
+        1) Full test_pixiu.py suite passes: 73 passed, 12 subtests passed, with 7 existing warnings
+        2) Three sequential 90,784-record full-log runs take 2944.38 / 2995.13 / 2898.79 seconds; median 2944.38 seconds versus the existing correct-baseline log at 4315.94 seconds
+        3) All 902 order events, 90,785 account events and 38 printed report rows match the correct baseline in every run
+        4) Independent account identities, final settlement and equity drawdown audits pass; no account/DD sampling is removed
+        5) Record the first-stage 50-minute result and its original 40-minute follow-up target
+        6) Scalar-path follow-up full suite passes: 79 passed, 12 subtests passed, with 7 existing warnings
+        7) Scalar-path full runs take 2049.16 / 2048.42 / 2099.49 seconds; median 2049.16 seconds, down 30.40% from the previous 2944.38-second median, with all three below 40 minutes
+        8) Preserve exact full reports, all order/account events, independent account identities and DD; keep complete input sampling and file logs
+        9) Document the approved no-parallel-backtest measurement policy, recorded desktop/system CPU load, and unchanged timing/logs for the reused first full run
+        10) Post-scalar diagnostic replay preserves full reports and every order/account event; independent DD audit and the 79-test suite pass, while profiled/contended timing is excluded from speed acceptance
+    4.data_projection.py / LoadData / API docs:
+        1) Add opt-in LoadData(..., path=None) projections while preserving legacy full-read decoding, exceptions and three-argument backend forwarding
+        2) Reuse bounded per-tester JSON5 decode trees only after checking current storage namespace and immutable raw version; return independent copies of selected subtrees
+        3) Invalidate on successful writes, deletes, shared/external replacements and run initialization without concealing malformed data or changing failed-save behavior
+        4) Document strict path errors, unchanged scope rules, cache limits and opt-in performance tradeoffs in both API references
+        5) Add path, sandbox, cache invalidation, scope isolation, copy independence, scenario-phase visibility and normal/Fast financial-event parity regressions
+        6) Full test_pixiu.py suite passes: 87 passed, 26 subtests passed, with 7 existing warnings; account identities, full tick sampling and independently recomputed DD pass in all six comparison modes
+        7) Add a reproducible synthetic LoadData diagnostic with alternating three-run CPU/wall medians, recorded host load, full replay logs and independent financial audits
+        8) Measure 7.27x local small-subtree speedup at 97.5% reuse and 5.78x in the state-heavy write-every-five-ticks replay; document cold-version/whole-root slowdowns and keep these results separate from private-EA full-run acceptance
+
+### [2026-11-10]
+#### Version:
+#####   Package:
+#####    pixiu: 0.185.*.20261110
+#####
+#### **Descriptions：**
+    1.tester_api_v1.py / symbol.py / pxtester.py:
+        1) Reuse bounded run-local SMA/ATR computation caches for immutable base-timeframe inputs
+        2) Limit EA-visible arrays to processed history and aggregate forming higher-timeframe bars without future sub-bars
+        3) Preserve retained market/indicator object refresh, reject negative shifts, and prevent insufficient-history index wraparound
+        4) Replace linear timestamp lookup with bounded binary search and reset caches between runs
+    2.ea_tester.py:
+        1) Reuse non-FX account valuations only after conservative quote, position, account and policy content checks
+        2) Keep dynamic FX on full revaluation and synchronize base-timeframe account history on valuation reads
+        3) Vectorize return calculations without changing sample selection or nonpositive-equity handling
+    3.tests / benchmarks / docs:
+        1) Add future-tail, prefix, same-timestamp, forming-bar, scenario mutation, retained-view, account-cache and return-ratio regressions
+        2) Update the higher-timeframe test oracle to use only arrived observations
+        3) Validate unchanged public benchmark financial fingerprints and document measured speedups and remaining scope
+
+### [2026-11-09]
+#### Version:
+#####   Package:
+#####    pixiu: 0.184.*.20261109
+#####
+#### **Descriptions：**
+    1.ea_tester.py:
+        1) Revalue remaining positions before account logging and drawdown updates to prevent double-counting realized losses as floating losses
+        2) Refresh equity, margin, free margin, and margin level after EA trades and before margin checks
+        3) Calculate realized P/L from the actual close fill and book it at account currency precision
+        4) Preserve residual position margin, tags, commission, and swap fields during partial closes without charging opening commission again
+        5) Follow residual UIDs during close-all, check close errors, and stop explicitly on no progress or the retry safety limit
+        6) Liquidate at executable Bid/Ask quotes on the last executed tick, and expose failures with remaining positions instead of silently succeeding
+    2.pxtester.py:
+        1) Include errid, errmsg, and liquidation diagnostics in serialized results while preserving the report field
+        2) Display final liquidation failures in terminal and live report messages
+    3.test_pixiu.py:
+        1) Cover hedge close ordering, batch closes, same-tick fills, partial-close UID continuation, cost-field preservation, SL/TP, and dynamic currency conversion
+        2) Cover failed or non-progressing liquidation, result serialization, and max_tick settlement without future prices
+        3) Drive drawdown tests with actual seeded positions and price paths instead of manually injecting cached floating P/L
+    4.docs/report-drawdown.zh.md:
+        1) Document account valuation, liquidation diagnostics, and the scope of existing commission and swap handling
+
 ### [2026-10-26]
+#### Version:
+#####   Package:
+#####    pixiu: 0.183.*.20261026
+#####
 #### **Descriptions：**
     1.ea_tester.py:
         1) Fix Max Drawdown to track every completed tick's equity valuation, including floating profit/loss and final settlement

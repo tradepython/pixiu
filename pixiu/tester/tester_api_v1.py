@@ -4,6 +4,9 @@ import numpy as np
 import talib
 import logging
 from datetime import datetime
+from collections import OrderedDict
+from .higher_timeframe import HigherTimeframeCache
+from pixiu.api.utils import timeframe_to_seconds
 from pixiu.api import RunModeValue
 from pixiu.api.v1 import (OrderCommand, OrderType, IndicatiorID, SymbolIndicator, SymbolPrice, SymbolData,
                       Order, Account, Symbol, AccountData, ErrorID, OrderResult, DataScope)
@@ -17,6 +20,27 @@ class TesterAPI_V1(API_V1_Base):
     def __init__(self, tester, data_source, default_symbol):
         super(TesterAPI_V1, self).__init__(data_source, default_symbol)
         self.tester = tester
+        self._batch_indicators = OrderedDict()
+        self._higher_timeframes = OrderedDict()
+        self._shared_indicators = OrderedDict()
+        self._scalar_indices = OrderedDict()
+        self._use_higher_timeframe_cache = True
+        self._use_shared_indicators = True
+        self._use_scalar_index_cache = True
+        self._scalar_index_lookups = 0
+        self._scalar_index_hits = 0
+        self._shared_indicator_hits = 0
+        self._market_run_revision = 0
+
+    def reset_performance_cache(self):
+        self._market_run_revision += 1
+        self._batch_indicators.clear()
+        self._higher_timeframes.clear()
+        self._shared_indicators.clear()
+        self._scalar_indices.clear()
+        self._scalar_index_lookups = 0
+        self._scalar_index_hits = 0
+        self._shared_indicator_hits = 0
 
     def _print_(self, *args, **kwargs):
         """"""
@@ -100,10 +124,111 @@ class TesterAPI_V1(API_V1_Base):
     def DefaultTimeFrame(self):
         return self.tester.tick_timeframe
 
+    def _get_scalar_index(self, source, symbol, timeframe, seconds, data):
+        context = self.tester.context
+        key = (id(source), symbol, context.tick_timeframe, timeframe, seconds)
+        entry = self._scalar_indices.get(key)
+        cursor = context.tick_current_index
+        if entry is not None and entry[0] is source and entry[1] == cursor:
+            self._scalar_index_hits += 1
+        else:
+            # Resolve against the visible timestamps, not the full source or an
+            # assumed last bar: unaligned timestamps must retain missing values.
+            index = int(self.tester.symbol_datagetitem_index(data['t'], timeframe, seconds, 0)) if len(data) else -1
+            entry = (source, cursor, index)
+            self._scalar_indices[key] = entry
+            self._scalar_index_lookups += 1
+            if len(self._scalar_indices) > 128:
+                self._scalar_indices.popitem(last=False)
+        self._scalar_indices.move_to_end(key)
+        return entry[2]
+
     def GetSymbolData(self, symbol: str, timeframe: str, size: int):
-        data = self.tester.get_data_info(symbol, timeframe)
-        return SymbolData(data, timeframe, getitem_callback=self.tester.symbol_datagetitem_callback,
-                          getitem_index=self.tester.symbol_datagetitem_index)
+        context = self.tester.context
+        symbol = context.symbol if symbol is None else symbol
+        timeframe = context.tick_timeframe if timeframe is None else timeframe
+        primary = symbol == context.symbol
+        source = context.tick_info if primary else self.tester.get_data_info(symbol, context.tick_timeframe)
+        # The primary cursor disambiguates ticks with identical timestamps. For a
+        # foreign feed with no shared sequence, conservatively use earlier quotes.
+        end = context.tick_current_index + 1 if primary else int(np.searchsorted(source['t'], self.tester.current_time()))
+        visible = source[:end]
+        seconds = timeframe_to_seconds(timeframe)
+        static_source = primary and not self.tester.scenario_engine.enabled
+        aggregation = None
+        if static_source:
+            source.setflags(write=False)
+        if timeframe == context.tick_timeframe:
+            data = visible.view()
+        elif static_source and self._use_higher_timeframe_cache and seconds > timeframe_to_seconds(context.tick_timeframe):
+            key = (id(source), symbol, context.tick_timeframe, timeframe, seconds, 'utc_fixed')
+            aggregation = self._higher_timeframes.get(key)
+            if aggregation is None:
+                aggregation = HigherTimeframeCache(source, seconds)
+                self._higher_timeframes[key] = aggregation
+                if len(self._higher_timeframes) > 32:
+                    self._higher_timeframes.popitem(last=False)
+            self._higher_timeframes.move_to_end(key)
+            aggregation.advance(end)
+            data = aggregation.snapshot()
+        else:
+            # Aggregate only observations that have actually arrived, including
+            # the forming bar. Whole-period resampling leaks future sub-bars.
+            labels = np.floor(visible['t'] / seconds) * seconds
+            starts = np.flatnonzero(np.r_[True, labels[1:] != labels[:-1]]) if len(visible) else np.array([], dtype=int)
+            ends = np.r_[starts[1:] - 1, len(visible) - 1] if len(starts) else starts
+            data = visible[starts].copy()
+            if len(starts):
+                data['t'] = labels[starts]
+                data['h'] = np.maximum.reduceat(visible['h'], starts)
+                data['l'] = np.minimum.reduceat(visible['l'], starts)
+                data['v'] = np.add.reduceat(visible['v'], starts)
+                for field in ('c', 'a', 'b'):
+                    data[field] = visible[field][ends]
+        data.setflags(write=False)
+        result = SymbolData(data, timeframe, getitem_callback=self.tester.symbol_datagetitem_callback,
+                            getitem_index=self.tester.symbol_datagetitem_index)
+        if static_source and self._use_scalar_index_cache:
+            result._tester_scalar_index = self._get_scalar_index(source, symbol, timeframe, seconds, data)
+        batch_static = static_source and timeframe == context.tick_timeframe
+        if static_source:
+            # The primary input array cannot change during an ordinary replay.
+            # Mark it read-only for every requested timeframe so retained H1/D1
+            # views can use the cursor as their revision instead of hashing the
+            # growing M1 prefix on every property access.
+            source.setflags(write=False)
+        if batch_static:
+            # Static base-timeframe input can be computed internally in batches
+            # for whitelisted causal indicators; the public output stays clipped.
+            result._tester_batch_source = source
+            for field in ('open', 'high', 'low', 'close', 'ask', 'bid', 'volume'):
+                price = getattr(result, field)
+                price._tester_batch_source = source
+                price._tester_batch_field = dict(open='o', high='h', low='l', close='c', ask='a', bid='b', volume='v')[field]
+        if aggregation is not None:
+            result._tester_shared_revision = (aggregation, aggregation.revision, None)
+            for field in ('open', 'high', 'low', 'close', 'ask', 'bid', 'volume'):
+                getattr(result, field)._tester_shared_revision = (aggregation, aggregation.revision, field)
+        def cursor_stamp():
+            current_source = context.tick_info if primary else self.tester.get_data_info(symbol, context.tick_timeframe)
+            policy = (context.tick_timeframe, self.tester.scenario_engine.enabled, self._use_scalar_index_cache)
+            if static_source and not policy[1]:
+                return (self._market_run_revision, id(current_source), context.tick_current_index, policy)
+            return (self._market_run_revision, id(current_source), context.tick_current_index,
+                    (current_source[:context.tick_current_index + 1].tobytes() if current_source.flags.writeable else None)
+                    if primary else current_source.tobytes(),
+                    context.spread_point, policy)
+        stamp = cursor_stamp()
+        def refresh():
+            nonlocal stamp
+            current = cursor_stamp()
+            if current == stamp:
+                return None
+            fresh = self.GetSymbolData(symbol, timeframe, size)
+            stamp = current
+            return fresh
+        result._tester_refresh = refresh
+        return result
 
     def GetAccount(self):
         return Account(self.tester.get_account())
@@ -185,8 +310,10 @@ class TesterAPI_V1(API_V1_Base):
     def DeleteData(self, name, scope: int = DataScope.EA):
         return self.tester.delete_data(name, scope)
 
-    def LoadData(self, name, scope: int = DataScope.EA, format='json'):
-        return self.tester.load_data(name, scope, format)
+    def LoadData(self, name, scope: int = DataScope.EA, format='json', path=None):
+        if path is None:
+            return self.tester.load_data(name, scope, format)
+        return self.tester.load_data(name, scope, format, path=path)
 
     def SaveData(self, name, data, scope: int = DataScope.EA, format='json'):
         return self.tester.save_data(name, data, scope, format)
@@ -383,16 +510,61 @@ class TesterAPI_V1(API_V1_Base):
         return ret
 
     def __get_indicator__(self, cache_name, shift, indicator_id, price_data, *args, **kwargs):
+        refresh = getattr(price_data, '_refresh', None)
+        if refresh:
+            refresh()
         ret = price_data.indicators.get(cache_name, None)
         if ret is None:
+            source = getattr(price_data, '_tester_batch_source', None)
+            causal = indicator_id == IndicatiorID.ATR or (indicator_id == IndicatiorID.MA and args[1] == 0)
+            values = None
+            shared = getattr(price_data, '_tester_shared_revision', None) if self._use_shared_indicators else None
+            if shared is not None:
+                aggregation, revision, field = shared
+                shared_key = (aggregation, field, indicator_id, cache_name, repr(args), repr(sorted(kwargs.items())))
+                entry = self._shared_indicators.get(shared_key)
+                if entry is not None and entry[0] == revision:
+                    values = entry[1].copy()
+                    self._shared_indicators.move_to_end(shared_key)
+                    self._shared_indicator_hits += 1
+            if source is not None and causal:
+                field = getattr(price_data, '_tester_batch_field', None)
+                key = (id(source), field, price_data.timeframe, cache_name)
+                cached = self._batch_indicators.get(key)
+                if cached is None:
+                    full = SymbolData(source, price_data.timeframe,
+                                      getitem_callback=price_data.__getitem_callback__,
+                                      getitem_index=price_data.__getitem_index__)
+                    fields = dict(o='open', h='high', l='low', c='close', a='ask', b='bid', v='volume')
+                    input_data = getattr(full, fields[field]) if field else full
+                    cached = (source, self.__calculate_indicator__(indicator_id, input_data, *args, **kwargs))
+                    self._batch_indicators[key] = cached
+                    if len(self._batch_indicators) > 128:
+                        self._batch_indicators.popitem(last=False)
+                self._batch_indicators.move_to_end(key)
+                values = cached[1][:len(price_data.ts_index)].copy()
+            if values is None:
+                values = self.__calculate_indicator__(indicator_id, price_data, *args, **kwargs)
+                if shared is not None and values is not None:
+                    # Keep only the latest version per logical indicator, not
+                    # one full-history array for every M1 cursor ever visited.
+                    self._shared_indicators[shared_key] = (revision, values.copy())
+                    self._shared_indicators.move_to_end(shared_key)
+                    if len(self._shared_indicators) > 128:
+                        self._shared_indicators.popitem(last=False)
             #data, ts_index, timeframe, getitem_callback
-            ret = SymbolIndicator(self.__calculate_indicator__(indicator_id, price_data, *args, **kwargs),
+            ret = SymbolIndicator(values,
                                   price_data.ts_index,
                                   price_data.timeframe,
                                   getitem_callback=price_data.__getitem_callback__,
                                   getitem_index=price_data.__getitem_index__,
                                   )
             price_data.indicators[cache_name] = ret
+            def refresh_indicator():
+                fresh = self.__get_indicator__(cache_name, None, indicator_id, price_data, *args, **kwargs)
+                ret.__ts_index__ = fresh.__ts_index__
+                return fresh._values
+            ret._tester_refresh = refresh_indicator
         if ret is not None and shift is not None:
             return ret[shift]
         return ret

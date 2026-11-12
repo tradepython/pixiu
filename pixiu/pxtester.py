@@ -451,6 +451,9 @@ class PXTester(EATester):
     def on_end_execute(self, *args, **kwargs):
         self.__update_execuate_log__(self.ticket, None, force=True)
         report_str = "\n-- Result --\n"
+        liquidation = self.context.ctx.get('liquidation')
+        if liquidation is not None and not liquidation['success']:
+            report_str += 'ERROR: Final liquidation failed: ' + json.dumps(liquidation) + '\n'
         idx = 1
         for key in self.context.report:
             item = self.context.report[key]
@@ -473,7 +476,9 @@ class PXTester(EATester):
         self.__send_graph_report__(force=True, message=report_str)
         if self.test_result is not None:
             # self.test_result.value = json5.dumps(dict(report=self.context.report), quote_keys=True)
-            self.test_result.value = json.dumps(dict(report=self.context.report))
+            errid, errmsg = self.context.get_error()
+            self.test_result.value = json.dumps(dict(report=self.context.report, errid=errid, errmsg=errmsg,
+                                                     liquidation=self.context.ctx.get('liquidation')))
         if self.test_graph_data is not None:
             # self.test_graph_data.value = json5.dumps(dict(graph_data=self.graph_data), quote_keys=True)
             graph_data = self.graph_data if self.__should_collect_graph_data__() else dict(
@@ -669,8 +674,12 @@ class PXTester(EATester):
         return raw_data, data
 
     def symbol_datagetitem_index(self, data_index_ts, timeframe, timeframe_seconds, shift):
+        if not isinstance(shift, (int, np.integer)) or shift < 0:
+            raise ValueError('shift must be a non-negative integer')
         t = int(self.tick_info[self.context.tick_current_index]['t']/ timeframe_seconds)*timeframe_seconds
-        cidx = np.where(data_index_ts == t)[0][0]
+        cidx = int(np.searchsorted(data_index_ts, t, side='right')) - 1
+        if cidx < 0 or data_index_ts[cidx] != t:
+            return -1
         idx = cidx - shift
         return idx
 

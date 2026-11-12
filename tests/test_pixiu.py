@@ -330,6 +330,32 @@ class PiXiuTests(TestCase):
         tester.context.tick_current_index = 0
         return tester
 
+    def make_accounting_tester(self, orders, commission=0):
+        ticks = self.make_tick_data(self.symbol, [{'close': 1.0, 'bid': 1.0, 'ask': 1.0002}])
+        params = dict(self.eat_params, script='', balance=3000, currency='CHF',
+                      commission=commission, spread_point=0, tick_max_index=1)
+        tester = CrossCurrencyEATTester(params, {self.symbol: ticks})
+        tester.init_data()
+        tester.context.tick_info = ticks
+        tester.context.tick_current_index = 0
+        for order in orders:
+            tester.seed_order(order, affect_report=True)
+        return tester
+
+    def assert_accounting_snapshot(self, tester):
+        tester._EATester__update_account_log('accounting')
+        account = tester.context.account
+        orders = tester.get_order_dict(tester.context.symbol)
+        floating = sum(tester.calc_profit(order['cmd'], order['symbol'], order['volume'],
+                                         order['open_price'], tester.Bid() if order['cmd'] == OrderCommand.BUY
+                                         else tester.Ask()) for order in orders.values())
+        self.assertAlmostEqual(account['profit'], floating)
+        self.assertAlmostEqual(account['equity'], round(account['balance'] + floating, 2))
+        self.assertAlmostEqual(account['margin'], round(sum(order['margin'] for order in orders.values()), 2))
+        self.assertAlmostEqual(account['free_margin'], round(account['equity'] - account['margin'], 2))
+        self.assertEqual(tester.context.account_logs[-1]['equity'], account['equity'])
+        return account['equity']
+
     def set_test_result(self, result):
         self.test_result = result
 
@@ -517,6 +543,186 @@ class PiXiuTests(TestCase):
         eatt.execute("123456", sync=True)
         self.assertEqual(self.test_result, "OK")
 
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_requires_pixiu_header_metadata(self):
+        from pixiu.base import EABase, EACompatibilityError
+
+        metadata = EABase.parse_script_text('\r\n'.join([
+            '###[name]=Versioned EA',
+            '###[version]=1.2.0',
+            '###[requires_pixiu]= >=0.183.0,<0.184.0 ',
+            '###[lib]=["test_lib==1.0"]',
+            '',
+            '###[requires_pixiu]=>=999.0',
+        ]))
+        self.assertEqual(metadata['name'], 'Versioned EA')
+        self.assertEqual(metadata['version'], '1.2.0')
+        self.assertEqual(metadata['requires_pixiu'], '>=0.183.0,<0.184.0')
+        self.assertEqual(metadata['lib'], '["test_lib==1.0"]')
+        self.assertNotIn('requires_pixiu', EABase.parse_script_text('###[name]=Legacy EA\n'))
+        for script in ('###[requires_pixiu] >=0.183.0',
+                       '###[requires_pixiu]=>=0.183.0\n###[requires_pixiu]=>=0.1'):
+            with self.subTest(script=script), self.assertRaises(EACompatibilityError):
+                EABase.parse_script_text(script)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_requires_pixiu_version_specifiers(self):
+        from unittest.mock import patch
+        from pixiu.base import EABase, EACompatibilityError
+
+        cases = [
+            ('>=0.183.0', '0.183.0', True),
+            ('>=0.183.0', '0.184.0', True),
+            ('>=0.183.0', '0.182.9', False),
+            ('>=0.183.0,<0.184.0', '0.184.0', False),
+            ('==0.183.0', '0.183.1', False),
+            ('==0.183.*', '0.183.10', True),
+            ('>=0.9', '0.10', True),
+            ('~=0.183.0', '0.183.2', True),
+            ('>=0.183.0,!=0.183.1', '0.183.1', False),
+            ('>=0.183.0', '0.184.0rc1', False),
+            ('>=0.184.0rc1', '0.184.0rc2', True),
+            ('==0.183.0', '0.183.0+local.1', True),
+            ('>=0.184,<0.183', '0.183.0', False),
+        ]
+        for required, current, accepted in cases:
+            with self.subTest(required=required, current=current), patch('pixiu.__version__', current):
+                metadata = dict(name='Versioned EA', requires_pixiu=required)
+                if accepted:
+                    EABase.validate_script_requirements(metadata)
+                else:
+                    with self.assertRaises(EACompatibilityError) as caught:
+                        EABase.validate_script_requirements(metadata)
+                    self.assertIn(required, str(caught.exception))
+                    self.assertIn(current, str(caught.exception))
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_requires_pixiu_invalid_and_unknown_versions(self):
+        from unittest.mock import patch
+        from pixiu.base import EABase, EACompatibilityError
+
+        for required in ('', '   ', '0.183.0', 'latest', '>=banana', None, 183):
+            with self.subTest(required=required), self.assertRaisesRegex(EACompatibilityError, 'Invalid requires_pixiu'):
+                EABase.validate_script_requirements(dict(requires_pixiu=required))
+        for current in ('unknown', '', 'not-a-version', None):
+            with self.subTest(current=current), patch('pixiu.__version__', current):
+                with self.assertRaisesRegex(EACompatibilityError, 'Cannot verify'):
+                    EABase.validate_script_requirements(dict(requires_pixiu='>=0.183.0'))
+                # Old scripts must not require a resolvable installed version.
+                EABase.validate_script_requirements(dict(name='Legacy EA'))
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_requires_pixiu_rejected_before_initialization(self):
+        from unittest.mock import patch
+        from pixiu.base import EABase, EACompatibilityError
+
+        executed = []
+        body = '\n'.join([
+            "record('top-level')",
+            'def PX_InitScriptSettings():',
+            "    record('settings')",
+            "    return {'charts': {}, 'params': {}}",
+            'def PX_ValidScriptSettings(script_settings=None):',
+            "    record('validation')",
+            "    return {'success': True, 'errmsg': ''}",
+        ])
+        for header, current in (('###[requires_pixiu]=>=0.184.0', '0.183.0'),
+                                ('###[requires_pixiu]=', '0.183.0'),
+                                ('###[requires_pixiu]=not-a-specifier', '0.183.0'),
+                                ('###[requires_pixiu]=>=0.183.0', 'unknown')):
+            script = header + '\n' + body
+            params = dict(self.eat_params, script=script,
+                          global_values=dict(self.eat_params['global_values'], record=executed.append))
+            with self.subTest(header=header, current=current), patch('pixiu.__version__', current):
+                with self.assertRaises(EACompatibilityError):
+                    EATTester(self, params)
+                self.assertEqual(executed, [])
+                # Direct shared entry points must not swallow the same failure.
+                loader = EABase(SimpleNamespace(), params)
+                for method in (loader.parse_script, loader.get_script_init_settings, loader.init_script_env):
+                    with self.assertRaises(EACompatibilityError):
+                        method(script)
+                    self.assertEqual(executed, [])
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_requires_pixiu_preserves_legacy_and_settings(self):
+        from unittest.mock import patch
+
+        body = '\n'.join([
+            'def PX_InitScriptSettings():',
+            "    return {'charts': {}, 'params': {'volume': {'value': 0.1, 'config': {'type': 'float'}}}}",
+            'def PX_ValidScriptSettings(script_settings=None):',
+            "    return {'success': True, 'errmsg': ''}",
+            "assertEqual(GetParam('volume'), 0.1)",
+            "set_test_result('OK')",
+        ])
+        for requirement, current in ((None, 'unknown'), ('>=0.183.0,<0.184.0', '0.183.0')):
+            header = '###[name]=Versioned EA\n###[version]=1.2.0\n'
+            if requirement is not None:
+                header += '###[requires_pixiu]=' + requirement + '\n'
+            with self.subTest(requirement=requirement), patch('pixiu.__version__', current):
+                params = dict(self.eat_params, script=header + body, tick_max_index=2)
+                tester = EATTester(self, params)
+                self.assertEqual(tester.context.script_metadata['version'], '1.2.0')
+                self.assertEqual(tester.context.script_metadata.get('requires_pixiu'), requirement)
+                self.assertEqual(set(tester.context.script_settings), {'charts', 'params'})
+                self.assertNotIn('requires_pixiu', tester.context.script_settings['params'])
+                self.test_result = ''
+                tester.execute('version-test', sync=True)
+                self.assertEqual(tester.context.get_error()[0], 0)
+                self.assertEqual(self.test_result, 'OK')
+                self.assertEqual(len(tester.context.account_logs), 3)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_requires_pixiu_preflights_injected_libraries(self):
+        from unittest.mock import patch, mock_open
+        from pixiu.base import EABase, EACompatibilityError
+
+        for incompatible_source in ('script', 'library'):
+            executed = []
+            script = "record('script')"
+            libraries = [dict(code="record('first-library')", path='first.py'),
+                         dict(code="record('second-library')", path='second.py')]
+            if incompatible_source == 'script':
+                script = '###[requires_pixiu]=>=0.184.0\n' + script
+            else:
+                libraries[1]['code'] = '###[requires_pixiu]=>=0.184.0\n' + libraries[1]['code']
+                # The caller's supplied metadata is not an authority over the source.
+                libraries[1]['metadata'] = dict(requires_pixiu='>=0.1')
+            context = SimpleNamespace(script=script, script_path=None, script_libs=libraries,
+                                      byte_code=None, safe_globals={'record': executed.append})
+            loader = EABase(context, {})
+            with self.subTest(source=incompatible_source), patch('pixiu.__version__', '0.183.0'):
+                with self.assertRaises(EACompatibilityError):
+                    loader.do_tick()
+                self.assertEqual(executed, [])
+                self.assertIsNone(context.byte_code)
+
+        source = "###[name]=Future Library\n###[requires_pixiu]=>=0.184.0\nrecord('must-not-run')"
+        with patch('pixiu.__version__', '0.183.0'), patch('builtins.open', mock_open(read_data=source)):
+            with self.assertRaises(EACompatibilityError):
+                loader.load_libs(['future==1.0'])
+        self.assertEqual(executed, [])
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_requires_pixiu_checks_only_during_load_not_every_tick(self):
+        from unittest.mock import patch
+        from pixiu.base import EABase
+
+        executed = []
+        context = SimpleNamespace(script="###[requires_pixiu]=>=0.183.0\nrecord('tick')", script_path=None,
+                                  script_libs=[dict(code="record('library')", path='library.py')],
+                                  byte_code=None, safe_globals={'record': executed.append})
+        loader = EABase(context, {})
+        with patch('pixiu.__version__', '0.183.0'), patch.object(
+                EABase, 'validate_script_requirements', wraps=EABase.validate_script_requirements) as check:
+            loader.do_tick()
+            self.assertEqual(check.call_count, 2)
+            for _ in range(3):
+                loader.do_tick()
+            self.assertEqual(check.call_count, 2)
+        self.assertEqual(executed, ['library', 'tick', 'tick', 'tick', 'tick'])
 
     @skipIf(debug_some_tests, "debug some tests")
     def test_ea_tester_ea_settings(self):
@@ -1448,6 +1654,737 @@ class PiXiuTests(TestCase):
         self.assertNotIn("NaN", html_with_nan)
 
     @skipIf(debug_some_tests, "debug some tests")
+    def test_scalar_reads_match_reference_at_every_cursor(self):
+        tester = self.make_accounting_tester([])
+        source = self.make_tick_data(self.symbol, 1 + np.sin(np.arange(185)) / 100,
+                                     start_ts=1615802400)
+        source['o'] -= 0.001
+        source['h'] += 0.002
+        source['l'] -= 0.003
+        source['a'] += 0.0002
+        source['v'] = np.arange(len(source)) + 1
+        source['t'][20] = source['t'][19]
+        source['t'][90:] += 3 * 86400
+        tester.context.tick_info = source
+        api = tester.current_api
+        views = {tf: api.GetSymbolData(self.symbol, tf, 80)
+                 for tf in (TimeFrame.M1, TimeFrame.M15, TimeFrame.H1, TimeFrame.H4, TimeFrame.D1)}
+        fields = dict(open='o', high='h', low='l', close='c', ask='a', bid='b', volume='v')
+        for cursor in list(range(len(source))) + [11, 0, 184]:
+            tester.context.tick_current_index = cursor
+            for tf, view in views.items():
+                view._refresh()
+                data = view.__data__
+                for shift in (0, 1, 2, 60, 1000):
+                    expected = [tester.symbol_datagetitem_callback(data[key], data['t'], tf,
+                                view.timeframe_seconds, shift, fail_value=np.nan) for key in fields.values()]
+                    np.testing.assert_equal([getattr(view, field)[shift] for field in fields], expected)
+                    timestamp = tester.symbol_datagetitem_callback(data['t'], data['t'], tf,
+                                  view.timeframe_seconds, shift, fail_value=None)
+                    self.assertEqual(view.time[shift], utc_from_timestamp(timestamp) if timestamp is not None else None)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_scalar_reads_reuse_index_without_public_time_copies(self):
+        from unittest.mock import patch, PropertyMock
+        tester = self.make_accounting_tester([])
+        tester.context.tick_info = self.make_tick_data(self.symbol, list(range(1, 182)), start_ts=1615802400)
+        tester.context.tick_current_index = 180
+        api = tester.current_api
+        with patch.object(tester, 'symbol_datagetitem_index', wraps=tester.symbol_datagetitem_index) as lookup:
+            first = api.GetSymbolData(self.symbol, TimeFrame.H1, 80)
+            second = api.GetSymbolData(self.symbol, TimeFrame.H1, 80)
+            self.assertEqual(lookup.call_count, 1)
+            self.assertEqual(api._scalar_index_hits, 1)
+            with patch.object(SymbolData, 'ts_index', new_callable=PropertyMock) as public_index:
+                public_index.side_effect = AssertionError('Scalar reads must not copy public timestamps')
+                with patch.object(first, '_refresh', wraps=first._refresh) as refresh:
+                    for view in (first, second):
+                        for shift in (0, 1, 2):
+                            for field in ('open', 'high', 'low', 'close', 'ask', 'bid', 'volume'):
+                                getattr(view, field)[shift]
+                            view.time[shift]
+                    self.assertEqual(refresh.call_count, 24)
+            self.assertEqual(lookup.call_count, 1)
+        times = first.ts_index
+        times[:] = -1
+        self.assertIsNone(times.base)
+        self.assertEqual(first.close[0], 181)
+        self.assertNotEqual(first.ts_index[-1], -1)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_scalar_index_reset_source_replacement_and_switch(self):
+        tester = self.make_accounting_tester([])
+        tester.context.tick_info = self.make_tick_data(self.symbol, [1, 2, 3], start_ts=1615802400)
+        api = tester.current_api
+        view = api.GetSymbolData(self.symbol, TimeFrame.H1, 80)
+        price = view.close
+        self.assertEqual(price[0], 1)
+        tester.context.tick_current_index = 2
+        self.assertEqual(price[0], 3)
+        tester.context.tick_info = self.make_tick_data(self.symbol, [4, 5, 6], start_ts=1615802400)
+        self.assertEqual(price[0], 6)
+        api.reset_performance_cache()
+        self.assertEqual(price[0], 6)
+        self.assertEqual(api._scalar_index_lookups, 1)
+        api._use_scalar_index_cache = False
+        self.assertEqual(price[0], 6)
+        self.assertFalse(hasattr(view, '_tester_scalar_index'))
+        api._use_scalar_index_cache = True
+        self.assertEqual(price[0], 6)
+        self.assertTrue(hasattr(view, '_tester_scalar_index'))
+        for invalid in (-1, 0.5, '0', None):
+            with self.assertRaises(ValueError):
+                price[invalid]
+            with self.assertRaises(ValueError):
+                view.time[invalid]
+        self.assertEqual(price[np.int64(0)], 6)
+        self.assertEqual(price[np.uint64(0)], 6)
+        self.assertTrue(np.isnan(price[np.uint64(2 ** 64 - 1)]))
+        self.assertIsNone(view.time[10 ** 30])
+        for value in range(130):
+            tester.context.tick_info = self.make_tick_data(self.symbol, [value + 1] * 3, start_ts=1615802400)
+            self.assertEqual(api.GetSymbolData(self.symbol, TimeFrame.H1, 80).close[0], value + 1)
+        self.assertEqual(len(api._scalar_indices), 128)
+        api.reset_performance_cache()
+        self.assertEqual(len(api._scalar_indices), 0)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_scalar_readers_without_tester_keep_custom_callbacks(self):
+        calls = []
+        source = self.make_tick_data(self.symbol, [1, 2, 3])
+
+        def callback(data, timestamps, timeframe, seconds, shift, fail_value):
+            calls.append((shift, fail_value))
+            self.assertIsNone(timestamps.base)
+            return 1000 + shift
+
+        view = SymbolData(source, TimeFrame.M1, callback, lambda *args: 0)
+        self.assertEqual(view.close[1], 1001)
+        self.assertEqual(view.time[2], utc_from_timestamp(1002))
+        self.assertEqual(len(calls), 2)
+        self.assertFalse(hasattr(view, '_tester_scalar_index'))
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_scalar_missing_bucket_and_empty_history(self):
+        tester = self.make_accounting_tester([])
+        source = self.make_tick_data(self.symbol, [1, 2, 3], start_ts=1615802400)
+        source['t'] = [1615802400, 1615802415, 1615802475]
+        tester.context.tick_info = source
+        tester.context.tick_current_index = 1
+        view = tester.current_api.GetSymbolData(self.symbol, TimeFrame.M1, 80)
+        self.assertEqual(view.close[0], 1)
+        tester.context.tick_current_index = 2
+        self.assertTrue(np.isnan(view.close[0]))
+        self.assertIsNone(view.time[0])
+        tester.context.tick_current_index = -1
+        self.assertTrue(np.isnan(view.close[0]))
+        self.assertIsNone(view.time[0])
+        self.assertEqual(view.size, 0)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_scalar_future_tail_and_fallback_isolation(self):
+        results = []
+        for prices in (list(range(1, 62)), list(range(1, 17)) + [100000] * 45, list(range(1, 17))):
+            tester = self.make_accounting_tester([])
+            tester.context.tick_info = self.make_tick_data(self.symbol, prices, start_ts=1615802400)
+            tester.context.tick_current_index = 15
+            view = tester.current_api.GetSymbolData(self.symbol, TimeFrame.H1, 80)
+            results.append((view.close[0], view.high[0], view.volume[0], view.time[0], view.size))
+            self.assertIsNone(view.__data__.base)
+            self.assertEqual(len(view.ts_index), 1)
+            ma = tester.current_api.iMA(view.close, 2, 0, shift=None)
+            self.assertEqual(len(ma.data), 1)
+            self.assertTrue(np.isnan(ma[0]))
+        self.assertEqual(results[0], results[1])
+        self.assertEqual(results[0], results[2])
+        tester = self.make_accounting_tester([])
+        tester.context.tick_info = self.make_tick_data(self.symbol, [1, 2, 3], start_ts=1615802400)
+        tester.context.tick_current_index = 2
+        api = tester.current_api
+        view = api.GetSymbolData(self.symbol, TimeFrame.H1, 80)
+        self.assertTrue(hasattr(view, '_tester_scalar_index'))
+        tester.scenario_engine.events = [dict(action='mutate_tick')]
+        tester.context.tick_info = tester.context.tick_info.copy()
+        tester.context.tick_info['h'][0] = 100
+        self.assertEqual(view.high[0], 100)
+        self.assertFalse(hasattr(view, '_tester_scalar_index'))
+        tester.context.tick_info['c'][2] = 20
+        self.assertEqual(view.close[0], 20)
+        tester.tick_data_by_symbol['EURUSD'] = self.make_tick_data('EURUSD', [4, 1000, 2000], start_ts=1615802400)
+        foreign = api.GetSymbolData('EURUSD', TimeFrame.H1, 80)
+        self.assertFalse(hasattr(foreign, '_tester_scalar_index'))
+        self.assertEqual(foreign.close[0], 1000)
+        tester.tick_data_by_symbol['EURUSD']['c'][1] = 5
+        self.assertEqual(foreign.close[0], 5)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_higher_timeframe_weekend_gap_and_duplicate_sequences(self):
+        tester = self.make_accounting_tester([])
+        source = self.make_tick_data(self.symbol, [1, 2, 3])
+        friday = datetime(2021, 3, 19, 23, 30, tzinfo=pytz.utc).timestamp()
+        monday = datetime(2021, 3, 22, tzinfo=pytz.utc).timestamp()
+        source['t'] = [friday, friday, monday]
+        tester.context.tick_info = source
+        tester.context.tick_current_index = 1
+        view = tester.current_api.GetSymbolData(self.symbol, TimeFrame.H1, 80)
+        self.assertEqual(view.close[0], 2)
+        self.assertEqual(view.volume[0], 2)
+        tester.context.tick_current_index = 2
+        self.assertEqual(view.size, 2)
+        self.assertEqual(view.close[0], 3)
+        self.assertEqual(view.close[1], 2)
+        self.assertEqual(view.volume[0], 1)
+        self.assertEqual(view.volume[1], 2)
+        self.assertIsNone(view.ts_index.base)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_higher_timeframe_foreign_feed_remains_conservative(self):
+        tester = self.make_accounting_tester([])
+        primary = self.make_tick_data(self.symbol, [1, 2, 3], start_ts=1615802400)
+        foreign = self.make_tick_data('EURUSD', [4, 10000, 20000], start_ts=1615802400)
+        tester.context.tick_info = primary
+        tester.tick_data_by_symbol['EURUSD'] = foreign
+        tester.context.tick_current_index = 1
+        api = tester.current_api
+        view = api.GetSymbolData('EURUSD', TimeFrame.H1, 80)
+        self.assertEqual(view.close[0], 4)
+        foreign['c'][0] = 8
+        self.assertEqual(view.close[0], 8)
+        self.assertEqual(len(api._higher_timeframes), 0)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_higher_timeframe_cached_reference_normal_fast_financial_events(self):
+        class TradingTester(CrossCurrencyEATTester):
+            def on_begin_execute(self, *args, **kwargs):
+                self.current_api._use_higher_timeframe_cache = self.cached
+                self.current_api._use_shared_indicators = self.cached
+                self.current_api._use_scalar_index_cache = self.scalar_cached
+                self.retained = self.current_api.GetSymbolData(self.context.symbol, TimeFrame.H1, 80)
+
+            def do_tick(self):
+                index = self.context.tick_current_index
+                api = self.current_api
+                api.iMA(self.retained.close, 2, 0)
+                api.iATR(self.retained, 2)
+                if index in (30, 100, 220, 300):
+                    side = OrderCommand.BUY if self.retained.close[0] >= self.retained.open[0] else OrderCommand.SELL
+                    quote = self.Ask() if side == OrderCommand.BUY else self.Bid()
+                    errid, _ = self.open_order(self.context.symbol, side, quote, 0.01, 0, 0)
+                    if errid:
+                        raise AssertionError(errid)
+                if index in (90, 200, 290, 350):
+                    errid, _ = self.close_all_orders(0, 'scheduled')
+                    if errid:
+                        raise AssertionError(errid)
+
+        fingerprints = []
+        for cached, scalar_cached in ((False, False), (True, False), (True, True)):
+            for fast in (False, True):
+                ticks = self.make_tick_data(self.symbol, 1 + np.sin(np.arange(400) / 30) / 100,
+                                           start_ts=1615802400)
+                params = dict(self.eat_params, script='', currency='CHF', tick_max_index=len(ticks),
+                              collect_graph_data=not fast, collect_chart_replay=not fast, explain_enabled=not fast)
+                tester = TradingTester(params, {self.symbol: ticks})
+                tester.cached = cached
+                tester.scalar_cached = scalar_cached
+                tester.execute('financial-parity', sync=True)
+                self.assertEqual(tester.context.get_error()[0], 0)
+                self.assertGreater(tester.context.report['total_trades']['value'], 0)
+                fingerprints.append(json.dumps(dict(report=tester.context.report,
+                                                     orders=tester.context.order_logs,
+                                                     accounts=tester.context.account_logs), sort_keys=True))
+        self.assertTrue(all(value == fingerprints[0] for value in fingerprints))
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_higher_timeframe_incremental_matches_reference_at_every_cursor(self):
+        tester = self.make_accounting_tester([])
+        prices = 1 + np.sin(np.arange(400)) / 100
+        source = self.make_tick_data(self.symbol, prices, start_ts=1615802400)
+        source['t'][120] = source['t'][119]
+        source['t'][240:] += 2 * 86400
+        tester.context.tick_info = source
+        api = tester.current_api
+        for cursor in range(len(source)):
+            tester.context.tick_current_index = cursor
+            for timeframe in (TimeFrame.H1, TimeFrame.D1):
+                actual = api.GetSymbolData(self.symbol, timeframe, 80)
+                api._use_higher_timeframe_cache = False
+                try:
+                    expected = api.GetSymbolData(self.symbol, timeframe, 80)
+                finally:
+                    api._use_higher_timeframe_cache = True
+                for field in source.dtype.names:
+                    np.testing.assert_array_equal(actual.__data__[field], expected.__data__[field])
+                # Repeated calls and retained reads may not consume volume twice.
+                self.assertEqual(actual.volume[0], expected.volume[0])
+                api.GetSymbolData(self.symbol, timeframe, 80)
+        for cache in api._higher_timeframes.values():
+            self.assertEqual(cache.rows_consumed, len(source))
+            self.assertEqual(cache.rebuilds, 0)
+            self.assertEqual(cache.snapshots_built, len(source))
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_higher_timeframe_retained_rollover_jump_rewind_and_reset(self):
+        tester = self.make_accounting_tester([])
+        source = self.make_tick_data(self.symbol, list(range(1, 182)), start_ts=1615802400)
+        tester.context.tick_info = source
+        tester.context.tick_current_index = 15
+        api = tester.current_api
+        retained = api.GetSymbolData(self.symbol, TimeFrame.H1, 80)
+        self.assertEqual(retained.close[0], 16)
+        self.assertEqual(retained.high[0], 16)
+        tester.context.tick_current_index = 60
+        self.assertEqual(retained.close[1], 60)
+        self.assertEqual(retained.open[0], 61)
+        self.assertEqual(retained.volume[0], 1)
+        tester.context.tick_current_index = 180
+        self.assertEqual(retained.close[0], 181)
+        tester.context.tick_current_index = 10
+        self.assertEqual(retained.close[0], 11)
+        self.assertEqual(len(retained.ts_index), 1)
+        self.assertIsNone(retained.ts_index.base)
+        self.assertIsNone(retained.__data__.base)
+        cache = next(iter(api._higher_timeframes.values()))
+        self.assertEqual(cache.rebuilds, 1)
+        api.reset_performance_cache()
+        self.assertEqual(retained.close[0], 11)
+        self.assertIsNot(next(iter(api._higher_timeframes.values())), cache)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_higher_timeframe_shared_indicators_match_visible_reference(self):
+        from unittest.mock import patch
+        tester = self.make_accounting_tester([])
+        source = self.make_tick_data(self.symbol, 1 + np.sin(np.arange(400)) / 100,
+                                     start_ts=1615802400)
+        tester.context.tick_info = source
+        tester.context.tick_current_index = 300
+        api = tester.current_api
+        retained = api.GetSymbolData(self.symbol, TimeFrame.H1, 80)
+        with patch.object(api, '__calculate_indicator__', wraps=api.__calculate_indicator__) as calc:
+            for cursor in (300, 301, 350, 120):
+                tester.context.tick_current_index = cursor
+                for repeat in range(3):
+                    view = retained if repeat == 0 else api.GetSymbolData(self.symbol, TimeFrame.H1, 80)
+                    ma = api.iMA(view.close, 3, 0, shift=None)
+                    atr = api.iATR(view, 3, shift=None)
+                    bands = api.iBands(view.close, 3, 2, 2, 0, shift=None)
+                    close = view.close.__price__
+                    np.testing.assert_allclose(ma.data, talib.MA(close, 3, 0), equal_nan=True)
+                    np.testing.assert_allclose(atr.data, talib.ATR(view.high.__price__, view.low.__price__, close, 3), equal_nan=True)
+                    np.testing.assert_allclose(bands.data, np.array(talib.BBANDS(close, 3, 2, 2, 0)).T, equal_nan=True)
+                self.assertEqual(calc.call_count, (1 + (300, 301, 350, 120).index(cursor)) * 3)
+        self.assertGreater(api._shared_indicator_hits, 0)
+        self.assertLessEqual(len(api._shared_indicators), 3)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_higher_timeframe_future_tail_and_scenario_fallback(self):
+        snapshots = []
+        for prices in (list(range(1, 62)), list(range(1, 17)) + [100000] * 45, list(range(1, 17))):
+            tester = self.make_accounting_tester([])
+            tester.context.tick_info = self.make_tick_data(self.symbol, prices, start_ts=1615802400)
+            tester.context.tick_current_index = 15
+            api = tester.current_api
+            view = api.GetSymbolData(self.symbol, TimeFrame.H1, 80)
+            snapshots.append(view.__data__.copy())
+        np.testing.assert_array_equal(snapshots[0], snapshots[1])
+        np.testing.assert_array_equal(snapshots[0], snapshots[2])
+        tester = self.make_accounting_tester([])
+        tester.context.tick_info = self.make_tick_data(self.symbol, [1, 2, 3, 4], start_ts=1615802400)
+        tester.context.tick_current_index = 2
+        tester.scenario_engine.events = [dict(action='mutate_tick')]
+        api = tester.current_api
+        view = api.GetSymbolData(self.symbol, TimeFrame.H1, 80)
+        self.assertEqual(view.high[0], 3)
+        tester.context.tick_info['h'][0] = 100
+        self.assertEqual(view.high[0], 100)
+        tester.context.tick_info['c'][2] = 20
+        self.assertEqual(view.close[0], 20)
+        self.assertEqual(len(api._higher_timeframes), 0)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_performance_indicator_cache_is_prefix_safe(self):
+        from unittest.mock import patch
+        outputs = []
+        for prices in ([1, 2, 3, 4, 5, 6, 7], [1, 2, 3, 4, 5, 10000, 0.01], [1, 2, 3, 4, 5]):
+            tester = self.make_accounting_tester([])
+            tester.context.tick_info = self.make_tick_data(self.symbol, prices)
+            tester.context.tick_current_index = 4
+            api = tester.current_api
+            with patch.object(api, '__calculate_indicator__', wraps=api.__calculate_indicator__) as calc:
+                values = []
+                for _ in range(2):
+                    view = api.GetSymbolData(self.symbol, TimeFrame.M1, 80)
+                    self.assertEqual(len(view.ts_index), 5)
+                    np.testing.assert_equal(view.close + view.open, np.array(prices[:5]) * 2)
+                    ma = api.iMA(view.close, 3, 0, shift=None)
+                    atr = api.iATR(view, 3, shift=None)
+                    self.assertEqual(len(ma.data), 5)
+                    np.testing.assert_allclose(ma.data, talib.MA(np.array(prices[:5], dtype=float), 3, 0), equal_nan=True)
+                    values.append((ma[0], atr[0]))
+                    with self.assertRaises(ValueError):
+                        view.close[-1]
+                    with self.assertRaises(ValueError):
+                        ma[-1]
+                self.assertEqual(calc.call_count, 2)
+                self.assertEqual(values[0], values[1])
+            outputs.append(values[0])
+        self.assertEqual(outputs[0], outputs[1])
+        self.assertEqual(outputs[0], outputs[2])
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_performance_forming_bars_and_scenario_recalculation(self):
+        tester = self.make_accounting_tester([])
+        tester.scenario_engine.raw_config = {'enabled': True}
+        tester.scenario_engine.events = [dict(action='mutate_tick')]
+        ticks = self.make_tick_data(self.symbol, [1, 2, 3, 10000])
+        tester.context.tick_info = ticks
+        tester.context.tick_current_index = 2
+        api = tester.current_api
+        hourly = api.GetSymbolData(self.symbol, TimeFrame.H1, 80)
+        self.assertEqual(hourly.close[0], 3)
+        self.assertEqual(hourly.high[0], 3)
+        self.assertEqual(hourly.volume[0], 3)
+        a = api.GetSymbolData(self.symbol, TimeFrame.M1, 80)
+        self.assertEqual(api.iMA(a.close, 2, 0), 2.5)
+        ticks['c'][2] = 30
+        b = api.GetSymbolData(self.symbol, TimeFrame.M1, 80)
+        self.assertEqual(api.iMA(b.close, 2, 0), 16)
+        self.assertEqual(a.close[0], 30)  # Retained views follow the visible cursor.
+        ticks['c'][1] = 20
+        self.assertEqual(api.iMA(a.close, 2, 0), 25)
+        self.assertEqual(len(api._batch_indicators), 0)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_performance_static_higher_timeframe_uses_cursor_revision(self):
+        tester = self.make_accounting_tester([])
+        ticks = self.make_tick_data(self.symbol, [1, 2, 3, 4, 10000])
+        tester.context.tick_info = ticks
+        tester.context.tick_current_index = 2
+        view = tester.current_api.GetSymbolData(self.symbol, TimeFrame.H1, 80)
+        self.assertFalse(ticks.flags.writeable)
+        self.assertFalse(hasattr(view, '_tester_batch_source'))
+        self.assertEqual(view.close[0], 3)
+        tester.context.tick_current_index = 3
+        self.assertEqual(view.close[0], 4)
+        self.assertEqual(view.high[0], 4)
+        self.assertEqual(view.volume[0], 4)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_performance_same_timestamp_does_not_expose_later_tick(self):
+        tester = self.make_accounting_tester([])
+        data = self.make_tick_data(self.symbol, [1, 2, 10000])
+        data['t'][1:] = data['t'][0]
+        tester.context.tick_info = data
+        tester.context.tick_current_index = 1
+        view = tester.current_api.GetSymbolData(self.symbol, TimeFrame.M1, 80)
+        self.assertEqual(view.close[0], 2)
+        self.assertEqual(len(view.ts_index), 2)
+        self.assertEqual(tester.current_api.iMA(view.close, 2, 0), 1.5)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_performance_valuation_cache_handles_direct_changes(self):
+        from unittest.mock import patch
+        tester = self.make_accounting_tester([dict(side='buy', volume=0.1, open_price=1.01)])
+        with patch.object(tester, '__calculate_profit__', wraps=tester.__calculate_profit__) as calc:
+            tester.__revalue_account__()
+            tester.__revalue_account__()
+            self.assertEqual(calc.call_count, 2)
+            tester.context.account['balance'] += 100
+            tester.__revalue_account__()
+            self.assertEqual(calc.call_count, 4)
+            tester.context.tick_info['b'][0] = 0.99
+            tester.__revalue_account__()
+            self.assertEqual(calc.call_count, 6)
+            self.assertEqual(tester.context.account['equity'], 2900)
+            tester.context.account['profit'] = -9999
+            tester.__revalue_account__()
+            self.assertEqual(calc.call_count, 8)
+            self.assertAlmostEqual(tester.context.account['profit'], -200)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_performance_vector_returns_preserve_nonpositive_samples(self):
+        import math
+        tester = self.make_accounting_tester([])
+        tester.context.account_logs = [{'equity': x} for x in (3000, 3100, 0, -5, 3200, 3200, 2900)]
+        samples = tester.__build_return_samples__(tester.context.account_logs)
+        expected = [0.0]
+        for previous, current in zip(samples, samples[1:]):
+            p, c = previous['equity'], current['equity']
+            expected.append(math.log(c / p) if c > 0 and p > 0 else 0)
+        actual = tester.calculate_returns()
+        np.testing.assert_allclose(actual['return'], expected, rtol=1e-12, atol=1e-15)
+        np.testing.assert_allclose(actual['downside_return'], np.minimum(expected, 0), rtol=1e-12, atol=1e-15)
+        self.assertTrue(np.isnan(tester.Close(1)))
+        self.assertIsNone(tester.Time(1))
+        with self.assertRaises(ValueError):
+            tester.Close(-1)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_performance_retained_views_follow_cursor_and_account_history(self):
+        tester = self.make_accounting_tester([])
+        tester.context.tick_info = self.make_tick_data(self.symbol, [1, 2, 3, 4, 10000])
+        tester.context.tick_current_index = 2
+        api = tester.current_api
+        view = api.GetSymbolData(self.symbol, TimeFrame.M1, 80)
+        price = view.close
+        indicator = api.iMA(price, 2, 0, shift=None)
+        self.assertEqual(indicator[0], 2.5)
+        tester.context.tick_current_index = 3
+        self.assertEqual(price[0], 4)
+        self.assertEqual(len(view.ts_index), 4)
+        self.assertEqual(indicator[0], 3.5)
+        self.assertEqual(len(indicator.data), 4)
+        self.assertIsNone(view.ts_index.base)
+        self.assertEqual(view[0].base.ndim, 0)
+        self.assertIsNone(view[0].base.base)
+        tester.context.tick_current_index = 1
+        self.assertEqual(price[0], 2)
+        self.assertEqual(len(indicator.data), 2)
+        self.assertEqual(indicator[0], 1.5)
+        tester.set_account(tester.context.account)
+        tester.context.account['balance'] += 12
+        tester.__revalue_account__()
+        history = tester.context.account_info['__ds__'][TimeFrame.M1]
+        self.assertEqual(history['equity'][1], 3012)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_accounting_revalues_remaining_hedge_after_batch_close(self):
+        losses = [100, 150, 200, 250, 300, 100.60]
+        orders = [dict(ticket=7001 + index, side='buy', volume=0.01, open_price=1 + loss / 1000)
+                  for index, loss in enumerate(losses)]
+        orders.append(dict(ticket=7007, side='sell', volume=0.06, open_price=1.0002 + 718.67 / 6000))
+        tester = self.make_accounting_tester(orders)
+        tester.context.account['balance'] = 3825.02
+        before = self.assert_accounting_snapshot(tester)
+        self.assertEqual(before, 3443.09)
+        max_dd = tester.context.report['max_drawdown']['value']
+        for batch in (['7001', '7002', '7003'], ['7004', '7005', '7006']):
+            errid, result = tester.close_multi_orders(batch)
+            self.assertEqual(errid, 0)
+            self.assertTrue(all(item['errid'] == 0 for item in result['result'].values()))
+            self.assertEqual(self.assert_accounting_snapshot(tester), before)
+        self.assertAlmostEqual(tester.context.account['balance'], 2724.42)
+        self.assertAlmostEqual(tester.context.account['profit'], 718.67)
+        self.assertEqual(tester.context.report['max_drawdown']['value'], max_dd)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_accounting_hedge_close_order_does_not_change_equity_or_dd(self):
+        results = []
+        for close_order in (['7001', '7002'], ['7002', '7001']):
+            tester = self.make_accounting_tester([
+                dict(ticket=7001, side='buy', volume=0.1, open_price=1.01),
+                dict(ticket=7002, side='sell', volume=0.1, open_price=1.01),
+            ])
+            before = self.assert_accounting_snapshot(tester)
+            for uid in close_order:
+                errid, _ = tester.close_order(uid, None, None)
+                self.assertEqual(errid, 0)
+                self.assertEqual(tester.context.account['equity'], before)
+                self.assertEqual(self.assert_accounting_snapshot(tester), before)
+            self.assertEqual(tester.context.account['margin'], 0)
+            self.assertEqual(tester.context.account['profit'], 0)
+            results.append((tester.context.account['balance'], tester.context.report['max_drawdown']['value']))
+        self.assertEqual(results[0], results[1])
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_accounting_partial_close_preserves_costs_and_margin(self):
+        tester = self.make_accounting_tester([
+            dict(ticket=7001, side='buy', volume=0.1, open_price=1.01, tags={'group': 'test'}),
+        ], commission=5)
+        order = tester.get_order('7001')
+        order['swap'] = -1.25
+        before = self.assert_accounting_snapshot(tester)
+        original_margin = order['margin']
+        original_commission = tester.context.account['commission']
+        errid, _ = tester.close_order('7001', 0.04, None)
+        self.assertEqual(errid, 0)
+        self.assertEqual(self.assert_accounting_snapshot(tester), before)
+        remaining = list(tester.get_order_dict(tester.context.symbol).values())
+        self.assertEqual(len(remaining), 1)
+        self.assertNotEqual(remaining[0]['uid'], '7001')
+        self.assertEqual(remaining[0]['volume'], 0.06)
+        self.assertAlmostEqual(order['margin'] + remaining[0]['margin'], original_margin)
+        self.assertAlmostEqual(order['commission'] + remaining[0]['commission'], original_commission)
+        self.assertAlmostEqual(order['swap'] + remaining[0]['swap'], -1.25)
+        self.assertEqual(remaining[0]['tags'], {'group': 'test'})
+        self.assertEqual(tester.context.account['commission'], original_commission)
+        for _ in range(3):
+            self.assertEqual(self.assert_accounting_snapshot(tester), before)
+        self.assertEqual(tester.context.account['commission'], original_commission)
+        errid, _ = tester.close_all_orders(0, 'stop')
+        self.assertEqual(errid, 0)
+        self.assertEqual(self.assert_accounting_snapshot(tester), before)
+        self.assertEqual(tester.context.account['margin_level'], 0)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_accounting_same_tick_open_and_close_uses_execution_price(self):
+        tester = self.make_accounting_tester([])
+        errid, result = tester.open_order(self.symbol, OrderCommand.BUY, tester.Ask(), 0.1, 0, 0)
+        self.assertEqual(errid, 0)
+        # No order-processing pass occurs between this open and close.
+        errid, _ = tester.close_order(result['order_uid'], None, tester.Bid() - 0.0001)
+        self.assertEqual(errid, 0)
+        self.assertEqual(self.assert_accounting_snapshot(tester), 2997)
+        self.assertAlmostEqual(tester.context.account['balance'], 2997)
+        self.assertEqual(tester.context.account['profit'], 0)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_accounting_close_all_follows_partial_close_uid(self):
+        tester = self.make_accounting_tester([dict(ticket=7001, side='buy', volume=0.1, open_price=1.01)])
+        original_close = tester.close_order
+        attempted_uids = []
+
+        def partial_first(uid, volume, price, **kwargs):
+            attempted_uids.append(uid)
+            if len(attempted_uids) == 1:
+                volume /= 2
+            return original_close(uid, volume, price, **kwargs)
+
+        tester.close_order = partial_first
+        errid, result = tester.close_all_orders(0, 'stop')
+        self.assertEqual(errid, 0)
+        self.assertEqual(result['remaining_orders'], [])
+        self.assertEqual(len(attempted_uids), 2)
+        self.assertNotEqual(attempted_uids[0], attempted_uids[1])
+        self.assertEqual(tester.context.account['profit'], 0)
+        self.assertEqual(tester.context.account['margin'], 0)
+        self.assertAlmostEqual(tester.context.account['balance'], 2900)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_accounting_final_liquidation_uses_bid_ask_and_reports_failures(self):
+        from pixiu.api.errors import EID_EAT_INVALID_ORDER_CLOSE_PRICE
+        from pixiu.pxtester import PXTester
+
+        class LiquidationTester(CrossCurrencyEATTester):
+            fail_close = False
+
+            def close_order(self, uid, volume, price, **kwargs):
+                if self.fail_close and self.get_order(uid)['cmd'] == OrderCommand.SELL:
+                    return EID_EAT_INVALID_ORDER_CLOSE_PRICE, {}
+                return super().close_order(uid, volume, price, **kwargs)
+
+            def on_execute_status(self, ticket, status, *args, **kwargs):
+                self.last_status = status
+
+        for fail_close in (False, True):
+            with self.subTest(fail_close=fail_close):
+                ticks = self.make_tick_data(self.symbol, [{'close': 1, 'bid': 1, 'ask': 1.0002}])
+                params = dict(self.eat_params, script='', balance=3000, currency='CHF', tick_max_index=1,
+                              scenario={'initial_state': {'orders': [
+                                  dict(ticket=7001, side='buy', volume=0.1, open_price=1.01),
+                                  dict(ticket=7002, side='sell', volume=0.1, open_price=1.01),
+                              ]}})
+                tester = LiquidationTester(params, {self.symbol: ticks})
+                tester.fail_close = fail_close
+                tester.execute('liquidation', sync=True)
+                self.assertEqual(self.assert_accounting_snapshot(tester), 2998)
+                if fail_close:
+                    self.assertNotEqual(tester.last_status['errid'], 0)
+                    self.assertNotEqual(tester.context.get_error()[0], 0)
+                    result = tester.last_status['liquidation']
+                    self.assertEqual([item['uid'] for item in result['remaining_orders']], ['7002'])
+                    self.assertEqual(result['errors'][-1]['errid'], EID_EAT_INVALID_ORDER_CLOSE_PRICE)
+                else:
+                    self.assertEqual(tester.last_status['errid'], 0)
+                    self.assertEqual(tester.get_order_dict(self.symbol), {})
+                    self.assertEqual(tester.context.account['margin'], 0)
+                    self.assertEqual(tester.context.account['profit'], 0)
+                    self.assertEqual(tester.context.account['equity'], tester.context.account['balance'])
+
+                class ResultPXTester(PXTester):
+                    def __init__(self, context):
+                        self.context = context
+                        self.test_result = SimpleNamespace(value='')
+                        self.test_graph_data = None
+                        self.tester_graph_server = None
+
+                    def __update_execuate_log__(self, *args, **kwargs):
+                        pass
+
+                    def write_log(self, *args, **kwargs):
+                        pass
+
+                exporter = ResultPXTester(tester.context)
+                exporter.on_end_execute()
+                exported = json.loads(exporter.test_result.value)
+                self.assertEqual(exported['errid'], tester.context.get_error()[0])
+                self.assertEqual(exported['liquidation']['success'], not fail_close)
+                self.assertEqual(exported['liquidation']['remaining_orders'],
+                                 tester.last_status['liquidation']['remaining_orders'])
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_accounting_dynamic_conversion_is_not_applied_twice(self):
+        symbols = {
+            'EURGBP': dict(symbol='EURGBP', spread=2, digits=5, stop_level=0, volume_min=0.01,
+                           trade_contract_size=100000, point=0.00001,
+                           currency_profit='GBP', currency_base='EUR', currency_margin='GBP'),
+            'GBPUSD': dict(symbol='GBPUSD', spread=2, digits=5, stop_level=0, volume_min=0.01,
+                           trade_contract_size=100000, point=0.00001,
+                           currency_profit='USD', currency_base='GBP', currency_margin='GBP'),
+        }
+        ticks = {
+            'EURGBP': self.make_tick_data('EURGBP', [0.85, {'close': 0.84, 'bid': 0.84, 'ask': 0.8402}]),
+            'GBPUSD': self.make_tick_data('GBPUSD', [1.25, {'close': 1.3, 'bid': 1.3, 'ask': 1.3003}]),
+        }
+        tester = self.make_cross_currency_tester('USD', symbols, ticks)
+        tester.context.ctx['commission'] = 5
+        uid = tester.seed_order(dict(side='buy', volume=0.1, open_price=0.85))
+        original_commission = tester.context.account['commission']
+        tester.context.tick_current_index = 1
+        for _ in range(3):
+            self.assertEqual(self.assert_accounting_snapshot(tester), 9870)
+            self.assertAlmostEqual(tester.context.account['profit'], -100 * 1.3)
+        errid, _ = tester.close_order(uid, 0.04, None)
+        self.assertEqual(errid, 0)
+        self.assertEqual(self.assert_accounting_snapshot(tester), 9870)
+        self.assertAlmostEqual(tester.context.account['profit'], -60 * 1.3)
+        errid, _ = tester.close_all_orders(0, 'stop')
+        self.assertEqual(errid, 0)
+        self.assertAlmostEqual(tester.context.account['balance'], 9870)
+        self.assertEqual(tester.context.account['commission'], original_commission)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_accounting_sl_tp_close_uses_remaining_positions(self):
+        tester = self.make_accounting_tester([
+            dict(ticket=7001, side='buy', volume=0.1, open_price=1.01, stop_loss=1.001),
+            dict(ticket=7002, side='buy', volume=0.1, open_price=1.01, stop_loss=1.001),
+            dict(ticket=7003, side='sell', volume=0.2, open_price=1.01),
+        ])
+        before = self.assert_accounting_snapshot(tester)
+        exit_code = tester.__process_order__(tester.Close(), tester.Close(), tester.Ask(), tester.Ask(),
+                                              tester.Bid(), tester.Bid())
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(list(tester.get_order_dict(self.symbol)), ['7003'])
+        self.assertEqual(self.assert_accounting_snapshot(tester), before)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_accounting_final_liquidation_uses_last_executed_tick(self):
+        ticks = self.make_tick_data(self.symbol, [1, 0.99, 0.50])
+        params = dict(self.eat_params, script='', balance=3000, currency='CHF', tick_max_index=2,
+                      scenario={'initial_state': {'orders': [dict(side='buy', volume=0.1, open_price=1)]}})
+        tester = CrossCurrencyEATTester(params, {self.symbol: ticks})
+        tester.execute('last-tick', sync=True)
+        self.assertEqual(tester.context.get_error()[0], 0)
+        self.assertAlmostEqual(tester.context.account['balance'], 2900)
+        self.assertEqual(tester.context.report['max_drawdown']['value'], -100)
+        logged_equities = np.array([3000] + [item['equity'] for item in tester.context.account_logs])
+        self.assertEqual(tester.context.report['max_drawdown']['value'],
+                         (logged_equities - np.maximum.accumulate(logged_equities)).min())
+        self.assertEqual(tester.context.temp['max_drawdown_trough_equity'], 2900)
+        self.assertEqual(tester.context.temp['max_drawdown_trough_time'], ticks[1]['t'])
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_accounting_close_all_detects_no_progress(self):
+        tester = self.make_accounting_tester([dict(ticket=7001, side='buy', volume=0.1, open_price=1.01)])
+        tester.close_order = lambda *args, **kwargs: (0, {})
+        errid, result = tester.close_all_orders(0, 'stop')
+        self.assertNotEqual(errid, 0)
+        self.assertFalse(result['success'])
+        self.assertEqual(result['attempts'], 1)
+        self.assertEqual([order['uid'] for order in result['remaining_orders']], ['7001'])
+        self.assertEqual(self.assert_accounting_snapshot(tester), 2900)
+
+    @skipIf(debug_some_tests, "debug some tests")
     def test_ea_tester_drawdown_uses_every_account_equity_sample(self):
         cases = [
             ([3000, 4000, 3500], -500, -500 / 4000, 1, 2),
@@ -1461,16 +2398,17 @@ class PiXiuTests(TestCase):
         ]
         for equities, expected_dd, expected_rate, peak_index, trough_index in cases:
             with self.subTest(equities=equities):
-                params = dict(self.eat_params, script='', balance=3000)
+                params = dict(self.eat_params, script='', balance=3000, currency='CHF', spread_point=0)
                 tester = EATTester(self, params)
                 tester.init_data()
-                tester.context.tick_info = self.make_tick_data(self.symbol, [1.0] * len(equities))
+                tester.context.tick_info = self.make_tick_data(self.symbol,
+                                                               [1 + (equity - 3000) / 10000 for equity in equities])
+                tester.seed_order(dict(side='buy', volume=0.1, open_price=1.0))
                 peak = 3000
                 max_dd = max_dd_rate = 0
                 for index, equity in enumerate(equities):
                     tester.context.tick_current_index = index
                     tester.context.reset_flags()
-                    tester.context.account['profit'] = equity - 3000
                     tester._EATester__update_account_log('drawdown')
                     peak = max(peak, equity)
                     drawdown = equity - peak
@@ -1627,6 +2565,296 @@ class PiXiuTests(TestCase):
                 content = f.read()
             self.assertIn("<title>Saved Chart</title>", content)
             self.assertIn('"frames":[', content)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_load_data_path_selection_and_errors(self):
+        tester = self.make_accounting_tester([])
+        api = tester.current_api
+        bucket = tester.context.persistent_data[DataScope.EA]
+        bucket['state'] = '{/* JSON5 */ controls: {enabled: true}, orders: [{price: 1.25}], "a.b": {"/": 7}, nil: null,}'
+        self.assertEqual(api.LoadData('state', path=['orders', 0, 'price']), 1.25)
+        self.assertEqual(api.LoadData('state', path=('controls',)), {'enabled': True})
+        self.assertEqual(api.LoadData('state', path=['a.b', '/']), 7)
+        self.assertIsNone(api.LoadData('state', path=['nil']))
+        self.assertEqual(api.LoadData('state', path=[]), api.LoadData('state'))
+        self.assertIsNone(api.LoadData('missing', path=['controls']))
+        self.assertIsNone(api.LoadData('state', format='unsupported', path='invalid'))
+        api.SaveData('empty', None)
+        self.assertIsNone(api.LoadData('empty', path=['controls']))
+        bucket['null'] = 'null'
+        self.assertIsNone(api.LoadData('null', path=[]))
+        cases = [(['missing'], KeyError), (['orders', 1], IndexError),
+                 (['orders', -1], ValueError), (['orders', '0'], TypeError),
+                 ([0], TypeError), (['nil', 'value'], TypeError),
+                 (['orders', 0, 'price', 'value'], TypeError),
+                 ('controls', TypeError), ({}, TypeError), (1, TypeError),
+                 ([True], TypeError), ([1.0], TypeError), ([None], TypeError), ([[]], TypeError)]
+        for path, error in cases:
+            with self.subTest(path=path):
+                with self.assertRaises(error):
+                    api.LoadData('state', path=path)
+        with self.assertRaises(TypeError):
+            api.LoadData('missing', path='controls')
+        with self.assertRaises(TypeError):
+            api.LoadData('null', path=['value'])
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_load_data_path_cache_and_independent_copies(self):
+        import copy
+        from unittest.mock import patch
+        tester = self.make_accounting_tester([])
+        api = tester.current_api
+        payload = {'controls': {'levels': [1, {'price': 2}]}, 'history': list(range(100))}
+        self.assertEqual(api.SaveData('state', payload), 0)
+        payload['controls']['levels'][1]['price'] = 999
+        with patch('pixiu.tester.ea_tester.json5.loads', wraps=json5.loads) as decoder:
+            with patch('pixiu.base.data_projection.copy.deepcopy', wraps=copy.deepcopy) as clone:
+                first = api.LoadData('state', path=['controls'])
+                self.assertEqual(clone.call_args.args[0], {'levels': [1, {'price': 2}]})
+            child = api.LoadData('state', path=['controls', 'levels', 1])
+            root = api.LoadData('state', path=[])
+            self.assertEqual(decoder.call_count, 1)
+            first['levels'][1]['price'] = 10
+            child['price'] = 20
+            root['controls']['levels'].clear()
+            self.assertEqual(api.LoadData('state', path=['controls', 'levels', 1]), {'price': 2})
+            self.assertEqual(decoder.call_count, 1)
+            legacy = api.LoadData('state')
+            legacy['controls']['levels'].clear()
+            self.assertEqual(api.LoadData('state', DataScope.EA, 'json', None)['controls']['levels'][1]['price'], 2)
+            self.assertEqual(decoder.call_count, 3)
+            self.assertEqual(api.LoadData('state', path=['controls', 'levels', 1]), {'price': 2})
+            self.assertEqual(decoder.call_count, 3)
+        with patch.object(tester, 'load_data', side_effect=lambda name, scope, format: (name, scope, format)):
+            self.assertEqual(api.LoadData('legacy', DataScope.EA, 'json'), ('legacy', DataScope.EA, 'json'))
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_load_data_path_sandbox_api(self):
+        ticks = self.make_tick_data(self.symbol, [1, 1.1, 1.2])
+        script = "\n".join([
+            "state = LoadData('state', scope=DataScope.ACCOUNT_EA)",
+            "if state is None:",
+            "    state = {'controls': {'prices': [1.25]}, 'count': 0}",
+            "    assertEqual(SaveData('state', state, scope=DataScope.ACCOUNT_EA), 0)",
+            "controls = LoadData('state', scope=DataScope.ACCOUNT_EA, path=['controls'])",
+            "assertEqual(controls, {'prices': [1.25]})",
+            "controls['prices'][0] = 999",
+            "assertEqual(LoadData('state', DataScope.ACCOUNT_EA, 'json', ('controls', 'prices', 0)), 1.25)",
+            "state['count'] = state['count'] + 1",
+            "assertEqual(SaveData('state', state, scope=DataScope.ACCOUNT_EA), 0)",
+            "assertEqual(LoadData('state', scope=DataScope.ACCOUNT_EA, path=['count']), state['count'])",
+        ])
+        params = dict(self.eat_params, script=script, script_path=None, tick_max_index=len(ticks))
+        tester = CrossCurrencyEATTester(params, {self.symbol: ticks})
+        tester.execute('load-data-sandbox', sync=True)
+        self.assertEqual(tester.context.get_error()[0], 0)
+        self.assertEqual(tester.current_api.LoadData('state', scope=DataScope.ACCOUNT_EA, path=['count']), 3)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_load_data_path_invalidation_errors_and_reset(self):
+        from unittest.mock import patch
+        from pixiu.tester.ea_tester import MAX_DATA_LENGTH
+        tester = self.make_accounting_tester([])
+        api = tester.current_api
+        scope = DataScope.EA
+        api.SaveData('state', {'value': 1})
+        self.assertEqual(api.LoadData('state', path=['value']), 1)
+        api.SaveData('state', {'value': 2})
+        self.assertEqual(api.LoadData('state', path=['value']), 2)
+        bucket = tester.context.persistent_data[scope]
+        bucket['state'] = '{value: 3}'
+        self.assertEqual(api.LoadData('state', path=['value']), 3)
+        self.assertNotEqual(api.SaveData('state', {'value': 4}, format='bad'), 0)
+        self.assertNotEqual(api.SaveData('state', 'x' * MAX_DATA_LENGTH), 0)
+        self.assertEqual(api.LoadData('state', path=['value']), 3)
+        with patch('pixiu.tester.ea_tester.json5.dumps', side_effect=RuntimeError('encoder failure')):
+            with self.assertRaises(RuntimeError):
+                api.SaveData('state', {'value': 4})
+        self.assertEqual(api.LoadData('state', path=['value']), 3)
+        bucket['state'] = '@invalid'
+        for _ in range(2):
+            with self.assertRaises(json5.Json5IllegalCharacter):
+                api.LoadData('state', path=['value'])
+        self.assertEqual(tester._data_projection_cache.entry_count, 0)
+        bucket['state'] = '{value: 4}'
+        self.assertEqual(api.LoadData('state', path=['value']), 4)
+        bucket.pop('state')
+        self.assertIsNone(api.LoadData('state', path=['value']))
+        self.assertEqual(tester._data_projection_cache.entry_count, 0)
+        api.SaveData('state', {'value': 5})
+        self.assertEqual(api.LoadData('state', path=['value']), 5)
+        bucket['state'] = None
+        self.assertIsNone(api.LoadData('state', path=['value']))
+        api.SaveData('state', {'value': 6})
+        self.assertEqual(api.LoadData('state', path=['value']), 6)
+        api.DeleteData('state')
+        self.assertIsNone(api.LoadData('state', path=['value']))
+        api.SaveData('state', {'value': 7})
+        self.assertEqual(api.LoadData('state', path=['value']), 7)
+        tester.context.persistent_data[scope] = {'state': '{value: 8}'}
+        self.assertEqual(api.LoadData('state', path=['value']), 8)
+        tester.init_data()
+        self.assertEqual(tester._data_projection_cache.entry_count, 0)
+        self.assertEqual(api.LoadData('state', path=['value']), 8)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_load_data_path_scope_and_shared_writer_isolation(self):
+        tester = self.make_accounting_tester([])
+        api = tester.current_api
+        scopes = (DataScope.EA_SETTINGS, DataScope.EA_VERSION, DataScope.EA,
+                  DataScope.ACCOUNT, DataScope.ACCOUNT_EA)
+        for scope in scopes:
+            api.SaveData('same-name', {'value': scope}, scope=scope)
+            api.SaveData('other-name', {'value': -1}, scope=scope)
+        for scope in scopes:
+            self.assertEqual(api.LoadData('same-name', scope=scope, path=['value']), scope)
+            self.assertEqual(api.LoadData('other-name', scope=scope, path=['value']), -1)
+
+        writer = self.make_accounting_tester([])
+        writer.context.persistent_data = tester.context.persistent_data
+        writer.context.account = dict(tester.context.account)
+        writer.context.script_metadata = dict(tester.context.script_metadata)
+        for scope in scopes:
+            writer.current_api.SaveData('same-name', {'value': 'new'}, scope=scope)
+            self.assertEqual(api.LoadData('same-name', scope=scope, path=['value']), 'new')
+            writer.current_api.DeleteData('same-name', scope=scope)
+            self.assertIsNone(api.LoadData('same-name', scope=scope, path=['value']))
+
+        account = dict(tester.context.account)
+        metadata = dict(tester.context.script_metadata)
+        for server, number, ea in [('one', '1', 'a'), ('one', '2', 'a'),
+                                   ('one', '1', 'b'), ('two', '1', 'a')]:
+            tester.context.account.update(server=server, number=number)
+            tester.context.script_metadata['name'] = ea
+            self.assertIsNone(api.LoadData('state', scope=DataScope.ACCOUNT_EA, path=['value']))
+            api.SaveData('state', {'value': [server, number, ea]}, scope=DataScope.ACCOUNT_EA)
+        for server, number, ea in [('one', '1', 'a'), ('one', '2', 'a'),
+                                   ('one', '1', 'b'), ('two', '1', 'a')]:
+            tester.context.account.update(server=server, number=number)
+            tester.context.script_metadata['name'] = ea
+            self.assertEqual(api.LoadData('state', scope=DataScope.ACCOUNT_EA, path=['value']), [server, number, ea])
+        tester.context.account = account
+        tester.context.script_metadata = metadata
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_load_data_path_scenario_phase_visibility(self):
+        from pixiu.tester.scenario import ScenarioEngine
+        tester = self.make_accounting_tester([])
+        tester.context.tick_info = self.make_tick_data(self.symbol, [1, 2, 3])
+        engine = ScenarioEngine({
+            'initial_state': {'runtime_data': {'ACCOUNT_EA': {'state': {'value': 0}}}},
+            'events': [dict(action='save_data', at_tick=1, phase=phase,
+                            params=dict(name='state', scope='ACCOUNT_EA', data={'value': value}))
+                       for phase, value in [('pre_tick', 1), ('post_tick', 2)]]})
+        engine.reset(tester)
+        engine.apply_initial_state(tester)
+        api = tester.current_api
+        for _ in range(2):
+            engine.before_tick(tester)
+            engine.after_tick(tester)
+            self.assertEqual(api.LoadData('state', scope=DataScope.ACCOUNT_EA, path=['value']), 0)
+        tester.context.tick_current_index = 1
+        self.assertEqual(api.LoadData('state', scope=DataScope.ACCOUNT_EA, path=['value']), 0)
+        engine.before_tick(tester)
+        self.assertEqual(api.LoadData('state', scope=DataScope.ACCOUNT_EA, path=['value']), 1)
+        engine.after_tick(tester)
+        self.assertEqual(api.LoadData('state', scope=DataScope.ACCOUNT_EA, path=['value']), 2)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_load_data_path_cache_limits_and_mutable_raw(self):
+        from pixiu.base.data_projection import DataProjectionCache
+        from unittest.mock import Mock
+        decoder = Mock(wraps=json.loads)
+        cache = DataProjectionCache(max_entries=2)
+        raws = [json.dumps({'value': value}) for value in range(3)]
+        for index, raw in enumerate(raws):
+            self.assertEqual(cache.load(index, raw, ['value'], decoder), index)
+        self.assertEqual(cache.entry_count, 2)
+        cache.load(1, raws[1], ['value'], decoder)
+        cache.load(0, raws[0], ['value'], decoder)
+        self.assertEqual(decoder.call_count, 4)
+        self.assertNotIn(2, cache._entries)
+        cache.clear()
+        cache.load(0, raws[0], [], decoder)
+        one_entry_bytes = cache.estimated_bytes
+        bounded = DataProjectionCache(max_bytes=one_entry_bytes)
+        for index, raw in enumerate(raws):
+            self.assertEqual(bounded.load(index, raw, ['value'], decoder), index)
+            self.assertLessEqual(bounded.estimated_bytes, one_entry_bytes)
+        self.assertEqual(bounded.entry_count, 1)
+        for disabled in (DataProjectionCache(max_bytes=1), DataProjectionCache(max_entries=0)):
+            self.assertEqual(disabled.load(0, raws[0], [], decoder), {'value': 0})
+            self.assertEqual(disabled.entry_count, 0)
+        mutable = bytearray(b'{"value":1}')
+        self.assertEqual(cache.load('mutable', mutable, ['value'], decoder), 1)
+        mutable[-2] = ord('2')
+        self.assertEqual(cache.load('mutable', mutable, ['value'], decoder), 2)
+        replacement_decoder = Mock(return_value={'value': 99})
+        self.assertEqual(cache.load(0, raws[0], ['value'], replacement_decoder), 99)
+        cache.clear()
+        self.assertEqual((cache.entry_count, cache.estimated_bytes, cache.hits, cache.misses), (0, 0, 0, 0))
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_load_data_path_normal_fast_financial_events(self):
+        from pixiu.base.data_projection import DataProjectionCache
+
+        class TradingTester(CrossCurrencyEATTester):
+            def on_begin_execute(self, *args, **kwargs):
+                self.current_api.SaveData('state', {'controls': {'side': OrderCommand.BUY}, 'history': list(range(100))})
+                if not self.cached:
+                    self._data_projection_cache = DataProjectionCache(max_entries=0)
+
+            def do_tick(self):
+                index = self.context.tick_current_index
+                api = self.current_api
+                if index == 100:
+                    api.SaveData('state', {'controls': {'side': OrderCommand.SELL}, 'history': []})
+                if self.projected:
+                    controls = api.LoadData('state', path=['controls'])
+                else:
+                    controls = api.LoadData('state')['controls']
+                side = controls['side']
+                controls['side'] = 'local-mutation'
+                if index in (30, 100, 220, 300):
+                    quote = self.Ask() if side == OrderCommand.BUY else self.Bid()
+                    errid, _ = self.open_order(self.context.symbol, side, quote, 0.01, 0, 0)
+                    if errid:
+                        raise AssertionError(errid)
+                if index in (90, 200, 290, 350):
+                    errid, _ = self.close_all_orders(0, 'scheduled')
+                    if errid:
+                        raise AssertionError(errid)
+
+        fingerprints = []
+        for projected, cached in ((False, False), (True, False), (True, True)):
+            for fast in (False, True):
+                ticks = self.make_tick_data(self.symbol, 1 + np.sin(np.arange(400) / 30) / 100,
+                                           start_ts=1615802400)
+                params = dict(self.eat_params, script='', currency='CHF', tick_max_index=len(ticks),
+                              collect_graph_data=not fast, collect_chart_replay=not fast, explain_enabled=not fast)
+                tester = TradingTester(params, {self.symbol: ticks})
+                tester.projected, tester.cached = projected, cached
+                tester.execute('load-data-parity', sync=True)
+                self.assertEqual(tester.context.get_error()[0], 0)
+                self.assertGreater(tester.context.report['total_trades']['value'], 0)
+                self.assertEqual(len(tester.context.account_logs), len(ticks) + 1)
+                peak, max_dd, max_dd_rate = params['balance'], 0, 0
+                for snapshot in tester.context.account_logs:
+                    equity = snapshot['equity']
+                    self.assertAlmostEqual(equity, round(snapshot['balance'] + snapshot['profit'], 2))
+                    self.assertAlmostEqual(snapshot['free_margin'], round(equity - snapshot['margin'], 2))
+                    peak = max(peak, equity)
+                    if equity - peak < max_dd:
+                        max_dd = equity - peak
+                        max_dd_rate = max_dd / peak
+                self.assertAlmostEqual(tester.context.report['max_drawdown']['value'], max_dd)
+                self.assertAlmostEqual(tester.context.report['max_drawdown_rate']['value'], max_dd_rate)
+                self.assertEqual(tester.context.account['equity'], tester.context.account['balance'])
+                self.assertEqual(tester.context.account['profit'], 0)
+                self.assertEqual(tester.context.account['margin'], 0)
+                fingerprints.append(json.dumps(dict(report=tester.context.report, orders=tester.context.order_logs,
+                                                     accounts=tester.context.account_logs), sort_keys=True))
+        self.assertTrue(all(value == fingerprints[0] for value in fingerprints))
 
     @skipIf(debug_some_tests, "debug some tests")
     def test_ea_tester_account_ea_scope(self):
@@ -1793,28 +3021,18 @@ class PiXiuTests(TestCase):
 
 
     def get_timeframe_value_by_time(self, timeframe, v_time, item_name):
-        tfd = self.timeframe_data.get(timeframe, None)
-        seconds = tfd['seconds']
-        # print(f"{v_time}, {v_time.replace(tzinfo=pytz.utc).timestamp()}")
-        # print(f"{datetime.utcfromtimestamp(tfd['data']['t'][0])}, {tfd['data']['t'][0]}")
-        # ts = int(v_time.timestamp() / seconds) * seconds
-        ts = int(v_time.replace(tzinfo=pytz.utc).timestamp() / seconds) * seconds
-        a = tfd['data'][tfd['data']['t'] == ts][0]
-        close = a['c']
-        ask = a['a']
-        bid = a['b']
-        # if bid == 0:
-        #     bid = close
-        # if ask == 0:
-        #     ask = bid + (self.spread_point * self.symbol_properties[self.symbol]['point'])
-        v = dict(open=a['o'], close=close,
-                            high=a['h'], low=a['l'],
-                   ask=ask, bid=bid,
-                   volume=a['v'],
-                   # time=datetime.utcfromtimestamp(a['t'])
-                   time=utc_from_timestamp(a['t'])
-                   )
-        return v[item_name]
+        # Independent reference: a forming bucket contains no future sub-bars.
+        event_time = v_time.replace(tzinfo=pytz.utc).timestamp()
+        seconds = self.timeframe_data[timeframe]['seconds']
+        bucket = int(event_time / seconds) * seconds
+        cache = self.__dict__.setdefault('_forming_reference', {})
+        key = (timeframe, event_time)
+        if key not in cache:
+            rows = new_a[(new_a['t'] >= bucket) & (new_a['t'] <= event_time)]
+            cache[key] = dict(time=utc_from_timestamp(bucket), open=rows['o'][0], close=rows['c'][-1],
+                              high=rows['h'].max(), low=rows['l'].min(), volume=rows['v'].sum(),
+                              ask=rows['a'][-1], bid=rows['b'][-1])
+        return cache[key][item_name]
 
     def init_values(self):
         self.values = {}
@@ -1873,6 +3091,8 @@ class PiXiuTests(TestCase):
         """Test EA Tester"""
         #
         self.eat_params['script_path'] = os.path.abspath("scripts/v1/ts_order_market.py")
+        # Fund the API exercise independently of same-tick spread losses.
+        self.eat_params['balance'] = 20000
         # self.eat_params['global_values']['valid_buylimit_price'] = buylimit_price
         # self.eat_params['global_values']['valid_buylimit_time'] = buylimit_time
         eatt = EATTester(self, self.eat_params)
@@ -1997,12 +3217,14 @@ class PiXiuTests(TestCase):
                 ]
             }
         }
+        initial_equity = round(8000 + (float(new_a[0]['b']) - float(new_a[0]['a'])) * 0.2 * 100000
+                               / float(new_a[0]['b']), 2)
         self.eat_params['global_values'].update(dict(
             scenario_case='initial_state',
             valid_initial_time=utc_from_timestamp(new_a[0]['t']),
             valid_initial_balance=8000.0,
-            valid_initial_equity=8000.0,
-            valid_initial_free_margin=8000.0,
+            valid_initial_equity=initial_equity,
+            valid_initial_free_margin=round(initial_equity - 200, 2),
             valid_opened_ticket=7001,
             valid_pending_ticket=7002,
             valid_opened_volume=0.2,

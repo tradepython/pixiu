@@ -11,7 +11,8 @@ import copy
 from datetime import datetime, timezone
 import numpy as np
 from RestrictedPython import (compile_restricted, safe_globals, utility_builtins,)
-from ..base.ea_base import (EABase, )
+from ..base.ea_base import (EABase, EACompatibilityError)
+from ..base.data_projection import DataProjectionCache, normalize_data_path
 from .ea_tester_context import (EATesterContext, )
 from .tester_api_v1 import (TesterAPI_V1, )
 import pandas as pd
@@ -79,6 +80,7 @@ class EATester(EABase):
 
     def __init__(self, params):
         super(EATester, self).__init__(EATesterContext(params), params)
+        self._data_projection_cache = DataProjectionCache()
         self.context.safe_globals = self.copy_globals()
         self.print_collection = None
         self.scenario_engine = ScenarioEngine(params.get("scenario", None))
@@ -148,6 +150,8 @@ class EATester(EABase):
                     self.context.script_metadata.pop('valid_script_settings', None)
                 else:
                     self.context.script_metadata['valid_script_settings'] = valid_ret
+        except EACompatibilityError:
+            raise
         except:
             traceback.print_exc()
         #
@@ -245,6 +249,8 @@ class EATester(EABase):
             if env is None:
                 return None
             return self.valid_script_settings(self.context.script_settings, env)
+        except EACompatibilityError:
+            raise
         except:
             traceback.print_exc()
         return None
@@ -483,20 +489,29 @@ class EATester(EABase):
             bucket = self._get_account_ea_bucket(create=False)
             if bucket is not None:
                 bucket.pop(name, None)
+                self._data_projection_cache.discard((scope, id(bucket), name))
         else:
             scope_data.pop(name)
+            self._data_projection_cache.discard((scope, id(scope_data), name))
         return 0
 
-    def load_data(self, name, scope, format='json'):
+    def load_data(self, name, scope, format='json', path=None):
         if format != 'json':
             return None
+        if path is not None:
+            path = normalize_data_path(path)
         if scope == DataScope.ACCOUNT_EA:
             bucket = self._get_account_ea_bucket(create=False)
             data = bucket.get(name, None) if bucket is not None else None
         else:
-            data = self.context.persistent_data[scope].get(name, None)
+            bucket = self.context.persistent_data[scope]
+            data = bucket.get(name, None)
         if data is None:
+            if path is not None and bucket is not None:
+                self._data_projection_cache.discard((scope, id(bucket), name))
             return None
+        if path is not None:
+            return self._data_projection_cache.load((scope, id(bucket), name), data, path, json5.loads)
         return json5.loads(data)
 
     def save_data(self, name, data, scope, format='json'):
@@ -510,7 +525,9 @@ class EATester(EABase):
             bucket = self._get_account_ea_bucket(create=True)
             bucket[name] = data
         else:
-            self.context.persistent_data[scope][name] = data
+            bucket = self.context.persistent_data[scope]
+            bucket[name] = data
+        self._data_projection_cache.discard((scope, id(bucket), name))
         return EID_OK
 
     def init_report_data(self):
@@ -1125,18 +1142,20 @@ class EATester(EABase):
         #
         return EID_OK, new_order['uid']
 
-    def __add_market_order__(self, new_order):
+    def __add_market_order__(self, new_order, continuation=False):
         """add a new market order"""
         if not order_is_market(new_order['cmd']):
             return EID_EAT_INVALID_ORDER_TYPE, -1
         #
         sp = self.get_symbol_properties(new_order['symbol'])
-        if self.is_currency_conversion_enabled():
+        if continuation:
+            margin = new_order['margin']
+        elif self.is_currency_conversion_enabled():
             margin = self.calculate_order_margin(new_order, sp)
         else:
             margin = new_order['open_price'] * self.__calculate_pip__(new_order['open_price']) * new_order['volume'] * sp['trade_contract_size'] / self.context.account['leverage']
         margin = round(margin, self.context.default_digits)
-        if margin > self.context.account['balance'] - self.context.account['margin']:
+        if not continuation and margin > self.context.account['balance'] - self.context.account['margin']:
             return EID_EAT_NOT_ENOUGH_MONEY, -1
         new_order['uid'] = str(new_order['ticket'])
         if not new_order.get('comment', None):
@@ -1144,13 +1163,13 @@ class EATester(EABase):
         new_order['margin'] = margin
         new_order['status'] = OrderStatus.OPENED
 
-        commission = 0.0
+        commission = new_order.get('commission', 0.0) if continuation else 0.0
         #commissions
-        if self.context.commission > 0:
+        if not continuation and self.context.commission > 0:
             # see: https://www.houseofborse.com/commission-calculation
             # all commission charged and debited on the opening of the trade
             commission = new_order['volume'] * self.context.commission * self.__calculate_pip__(new_order['open_price']) * 2
-        if commission > self.context.account['balance'] - self.context.account['margin']:
+        if not continuation and commission > self.context.account['balance'] - self.context.account['margin']:
             return EID_EAT_NOT_ENOUGH_MONEY, -1
         new_order['commission'] = commission
         #
@@ -1172,7 +1191,8 @@ class EATester(EABase):
             self.context.orders['opened']['__ds__'] = new_a
         #update account
         self.context.account['margin'] = round(self.context.account['margin'] + new_order['margin'], self.context.default_digits)
-        self.context.account['commission'] = round(self.context.account['commission'] + new_order['commission'], self.context.default_digits)
+        if not continuation:
+            self.context.account['commission'] = round(self.context.account['commission'] + new_order['commission'], self.context.default_digits)
 
         #report
         self.context.report['total_trades']['value'] += 1
@@ -1483,6 +1503,7 @@ class EATester(EABase):
         if errid != EID_OK:
             return errid, dict(order_uid=order_uid, command_uid=None, sync=True)
         #add order log
+        self.__revalue_account__()
         self.add_order_log(dict(uid=order_uid, ticket=order_dict['ticket'],
                                  # time=str(datetime.utcfromtimestamp(order_dict['open_time'])),
                                  time=str(utc_from_timestamp(order_dict['open_time'])),
@@ -1628,6 +1649,8 @@ class EATester(EABase):
             volume = float(order_dict['volume'])
         else:
             volume = round(volume, self.context.volume_precision)
+        if volume <= 0:
+            return EID_EAT_INVALID_ORDER_VOLUME, dict(order_uid=order_uid)
         if price is None or price <= 0:
             price = self.__order_close_price__(order_dict)
         #
@@ -1645,45 +1668,46 @@ class EATester(EABase):
             #     order_dict['tags'] = tags
             closed_ratio = volume / order_dict['volume']
             original_volume = order_dict['volume']
+            original_margin = order_dict['margin']
+            original_commission = order_dict.get('commission', 0.0)
+            original_swap = order_dict.get('swap', 0.0)
+            remaining_order = order_dict.copy()
+            # Realize this fill, not a cached profit from before the EA's operations.
+            closed_profit = round(self.calc_profit(order_dict['cmd'], symbol, volume,
+                                                  order_dict['open_price'], price), self.context.default_digits)
+            closed_margin = round(original_margin * closed_ratio, self.context.default_digits)
             order_dict['volume'] = volume
+            order_dict['margin'] = closed_margin
+            order_dict['commission'] = original_commission * closed_ratio
+            order_dict['swap'] = original_swap * closed_ratio
             order_dict['dirty'] = False
             order_dict['comment'] = comment
             order_dict['close_time'] = close_time
             order_dict['close_price'] = price
             order_dict['status'] = OrderStatus.CLOSED
             order_uid = self.__remove_order__(order_dict)
-            # close_profit = round(order_dict['profit'] * closed_ratio, self.context.default_digits)
-            closed_profit = order_dict['profit'] * closed_ratio
             order_dict['profit'] = closed_profit
             #
-            self.context.account["balance"] = self.context.account["balance"] + closed_profit
-            # closed_margin = round(order_dict['margin'] * closed_ratio, self.context.default_digits)
-            closed_margin = round(order_dict['margin'], self.context.default_digits)
-            self.context.account["margin"] = round(self.context.account["margin"] - closed_margin, self.context.default_digits)
-            # self.context.account["margin"] = self.context.account["margin"] - closed_margin
-            # new_margin = order_dict['margin'] - closed_margin
+            self.context.account["balance"] = round(self.context.account["balance"] + closed_profit,
+                                                      self.context.default_digits)
+            # Remove the old UID's reservation; the continuation restores only its remainder.
+            self.context.account["margin"] = round(self.context.account["margin"] - original_margin,
+                                                     self.context.default_digits)
             new_volume = round(original_volume - volume, self.context.volume_precision)
         #
-            #report
-            if update_report_func:
-                update_report_func(order_is_long(order_dict['cmd']), closed_profit, 1)
-            else:
-                self.__update_report__(order_is_long(order_dict['cmd']), closed_profit)
-
-            #
             if new_volume > 0:
                 original_order_uid = order_uid
-                new_order_dict = dict(ticket=self.__new_ticket__(), symbol=symbol, cmd=order_dict['cmd'],
-                                  open_price=order_dict['open_price'],
-                                  volume=new_volume, stop_loss=order_dict['stop_loss'],
-                                  # take_profit=order_dict['take_profit'], margin=new_margin,
-                                  take_profit=order_dict['take_profit'],
+                new_order_dict = remaining_order
+                new_order_dict.update(ticket=self.__new_ticket__(), volume=new_volume,
+                                  margin=round(original_margin - closed_margin, self.context.default_digits),
+                                  commission=original_commission - order_dict['commission'],
+                                  swap=original_swap - order_dict['swap'],
                                   comment=f"from #{order_dict['ticket']}",
-                                  open_time=order_dict['open_time'],
+                                  close_time=None, close_price=np.nan, profit=0.0,
                                   from_uid=order_dict['uid'], to_uid=None)
                 if tags is not None:
                     new_order_dict['tags'] = tags
-                errid, order_uid = self.__add_market_order__(new_order_dict)
+                errid, order_uid = self.__add_market_order__(new_order_dict, continuation=True)
                 if errid != EID_OK:
                     return errid, dict(order_uid=order_uid, order_dict=order_dict, close_price=price,
                                        close_time=close_time)
@@ -1691,6 +1715,11 @@ class EATester(EABase):
                 order_dict = self.get_order(order_uid=original_order_uid)
                 order_dict['comment'] = f"to #{new_order_dict['ticket']}"
                 order_dict['to_uid'] = order_uid
+            self.__revalue_account__()
+            if update_report_func:
+                update_report_func(order_is_long(order_dict['cmd']), closed_profit, 1)
+            else:
+                self.__update_report__(order_is_long(order_dict['cmd']), closed_profit)
         else:
             order_dict['status'] = OrderStatus.CANCELLED
             order_uid = self.__remove_pending_order__(order_dict)
@@ -1812,10 +1841,18 @@ class EATester(EABase):
         self.context.print_logs.append(f"<Notification>: {message}\n")
 
     #
+    def _tick_value(self, field, shift):
+        if not isinstance(shift, (int, np.integer)) or shift < 0:
+            raise ValueError('shift must be a non-negative integer')
+        index = self.context.tick_current_index - shift
+        if index < 0:
+            return np.nan
+        return self.context.tick_info[field][index]
+
     def Ask(self, shift=0, symbol=None):
         if symbol is not None and symbol != self.context.symbol:
             return None
-        ask = self.context.tick_info['a'][self.context.tick_current_index - shift]
+        ask = self._tick_value('a', shift)
         if ask == 0:
             ask = self.Bid(shift) + self.context.spread_calculated
         return ask
@@ -1823,7 +1860,7 @@ class EATester(EABase):
     def Bid(self, shift=0, symbol=None):
         if symbol is not None and symbol != self.context.symbol:
             return None
-        bid = self.context.tick_info['b'][self.context.tick_current_index - shift]
+        bid = self._tick_value('b', shift)
         if bid == 0:
             bid = self.Close(shift)
         return bid
@@ -1831,33 +1868,34 @@ class EATester(EABase):
     def Close(self, shift=0, symbol=None):
         if symbol is not None and symbol != self.context.symbol:
             return None
-        return self.context.tick_info['c'][self.context.tick_current_index - shift]
+        return self._tick_value('c', shift)
 
     def Open(self, shift=0, symbol=None):
         if symbol is not None and symbol != self.context.symbol:
             return None
-        return self.context.tick_info['o'][self.context.tick_current_index - shift]
+        return self._tick_value('o', shift)
 
     def High(self, shift=0, symbol=None):
         if symbol is not None and symbol != self.context.symbol:
             return None
-        return self.context.tick_info['h'][self.context.tick_current_index - shift]
+        return self._tick_value('h', shift)
 
     def Low(self, shift=0, symbol=None):
         if symbol is not None and symbol != self.context.symbol:
             return None
-        return self.context.tick_info['l'][self.context.tick_current_index - shift]
+        return self._tick_value('l', shift)
 
     def Time(self, shift=0, symbol=None) -> datetime:
         if symbol is not None and symbol != self.context.symbol:
             return None
         # return datetime.utcfromtimestamp(self.context.tick_info['t'][self.context.tick_current_index - shift])
-        return utc_from_timestamp(self.context.tick_info['t'][self.context.tick_current_index - shift])
+        value = self._tick_value('t', shift)
+        return None if np.isnan(value) else utc_from_timestamp(value)
 
     def Volume(self, shift=0, symbol=None) -> float:
         if symbol is not None and symbol != self.context.symbol:
             return None
-        return self.context.tick_info['v'][self.context.tick_current_index - shift]
+        return self._tick_value('v', shift)
     #
     def __update_equity_drawdown__(self, equity, time):
         """Track peak-to-current equity drawdown after each account valuation."""
@@ -2366,6 +2404,9 @@ class EATester(EABase):
 
     def init_data(self):
         """EATester"""
+        self._valuation_cache_key = None
+        self._data_projection_cache.clear()
+        self.current_api.reset_performance_cache()
         # self.loc = {}
         self.import_module('pixiu.api.errors', self.context.safe_globals)
         self.current_api.set_fun(self.context.safe_globals)
@@ -2391,6 +2432,7 @@ class EATester(EABase):
         self.context.order_logs = []
         self.context.account_logs = []
         self.context.return_logs.clear()
+        self.context.ctx['liquidation'] = None
         self.context.print_logs = []
         self.context.ctx["explain_status"] = None
         self.context.ctx["explain_events"] = []
@@ -2505,10 +2547,7 @@ class EATester(EABase):
         comment = None
         dead = 0
         # equity
-        profit_buy = self.__calculate_profit__(100, bid)
-        profit_sell = self.__calculate_profit__(200, ask)
-        profit = profit_buy + profit_sell
-        self.context.account['profit'] = profit
+        self.__revalue_account__()
         # account
         check_next = True
         while check_next:
@@ -2529,7 +2568,7 @@ class EATester(EABase):
         if self.context.account['balance'] <= self.context.balance_dead_line:
             dead = 1
             comment = "dead"
-        elif self.context.account['balance'] + profit - self.context.account['margin'] <= self.context.balance_dead_line:
+        elif self.context.account['free_margin'] <= self.context.balance_dead_line:
             dead = 2
             comment = "margin"
 
@@ -2582,14 +2621,38 @@ class EATester(EABase):
         return dead
 
     def close_all_orders(self, price, comment):
-        ''''''
-        symbol_orders = self.get_order_dict(self.context.symbol).copy()
-        for order_uid in symbol_orders:
-            order_dict = self.get_order(order_uid=order_uid)
-            self.close_order(order_uid, order_dict['volume'], price, comment=comment)
-        if not self.get_order_dict(self.context.symbol):
-            self.context.account['profit'] = 0.0
-            self.context.account['margin'] = 0.0
+        """Close current-symbol positions, following residual UIDs until no progress."""
+        errors = []
+        attempts = 0
+        for _ in range(100):
+            orders = list(self.get_order_dict(self.context.symbol).values())
+            if not orders:
+                break
+            before_volume = sum(order['volume'] for order in orders)
+            for order in orders:
+                uid = order['uid']
+                attempts += 1
+                try:
+                    errid, _ = self.close_order(uid, order['volume'], price, comment=comment)
+                    if errid != EID_OK:
+                        errors.append(dict(uid=uid, errid=errid))
+                except Exception as exc:
+                    if isinstance(exc, AssertionError):
+                        raise
+                    errors.append(dict(uid=uid, errid=EID_EAT_ERROR, message=str(exc)))
+            remaining = list(self.get_order_dict(self.context.symbol).values())
+            if len(remaining) >= len(orders) and sum(order['volume'] for order in remaining) >= before_volume:
+                break
+
+        self.__revalue_account__()
+        remaining_orders = [dict(uid=order['uid'], symbol=order['symbol'], volume=order['volume'])
+                            for order in self.get_order_dict('*').values()]
+        result = dict(success=not remaining_orders, attempts=attempts, errors=errors,
+                      remaining_orders=remaining_orders)
+        if remaining_orders and not errors:
+            result['errors'].append(dict(errid=EID_EAT_ERROR,
+                                         message='Orders remain after closing: no progress or retry limit reached'))
+        return (EID_EAT_ERROR if remaining_orders else EID_OK), result
     #
     def calculate_returns(self, ):
         source_logs = self.context.account_logs if len(self.context.account_logs) >= 2 else self.context.return_logs
@@ -2599,18 +2662,13 @@ class EATester(EABase):
             return None
         column = 'equity'
         ret = pd.DataFrame(samples, columns=[column, ])
-        ret['return'] = 0.0
-        ret['downside_return'] = 0.0
-        prev_return = 0.0
-        for i, row in ret.iterrows():
-            value = row[column]
-            if prev_return > 0 and value > 0:
-                r = math.log(value / prev_return)
-            else:
-                r = 0.0
-            ret.at[i, 'return'] = r
-            ret.at[i, 'downside_return'] = min(r, 0.0)
-            prev_return = value
+        values = ret[column].to_numpy(dtype=float)
+        returns = np.zeros(len(values), dtype=float)
+        valid = (values[:-1] > 0) & (values[1:] > 0)
+        # Mask before evaluating log, preserving the legacy zero/nonpositive rule.
+        returns[1:][valid] = np.log(values[1:][valid] / values[:-1][valid])
+        ret['return'] = returns
+        ret['downside_return'] = np.minimum(returns, 0.0)
         return ret
 
     def __build_return_samples__(self, source_logs):
@@ -2685,24 +2743,59 @@ class EATester(EABase):
         self.context.report['sharpe_ratio']['value'] = ratio['sharpe_ratio']
         self.context.report['sortino_ratio']['value'] = ratio['sortino_ratio']
 
-    def __update_account_log(self, ticket):
-        ''''''
-        price = self.Close()
+    def _sync_account_series(self):
+        series = self.context.account_info.get('__ds__')
+        data = series.get(self.context.tick_timeframe) if series else None
+        index = self.context.tick_current_index
+        if data is not None and 0 <= index < len(data):
+            for field in ('balance', 'equity', 'profit', 'margin', 'free_margin', 'margin_level', 'commission'):
+                data[field][index] = self.context.account[field]
 
-        time = self.current_time()
-        balance = round(self.context.account['balance'], self.context.default_digits)
-        margin = round(self.context.account['margin'], self.context.default_digits)
-        profit = self.context.account['profit']
+    def __revalue_account__(self):
+        """Value the current remaining portfolio without realizing or charging costs."""
+        account = self.context.account
+        orders = self.context.orders['opened'].get('__ds__')
+        def cache_key():
+            # Conservative content validation handles legacy direct writes too.
+            # Dynamic FX remains on the complete recalculation path until every
+            # conversion-leg availability/revision dependency is versioned.
+            if self.is_currency_conversion_enabled():
+                return None
+            quote = (self.current_time(), float(self.Bid()), float(self.Ask())) if orders is not None and len(orders) else None
+            return (quote, orders.tobytes() if orders is not None else None,
+                    tuple(account.get(key) for key in ('balance', 'equity', 'profit', 'margin', 'free_margin',
+                          'margin_level', 'commission', 'credit', 'leverage', 'currency')),
+                    self.context.default_digits, repr(self.context.default_symbol_properties))
+        token = cache_key()
+        if token is not None and token == getattr(self, '_valuation_cache_key', None):
+            self._sync_account_series()
+            return account
+        if orders is None or len(orders) == 0:
+            profit = 0.0
+            margin = 0.0
+        else:
+            profit = self.__calculate_profit__(100, self.Bid()) + self.__calculate_profit__(200, self.Ask())
+            margin = round(float(orders['mar'].sum()), self.context.default_digits)
+        balance = round(account['balance'], self.context.default_digits)
         equity = round(balance + profit, self.context.default_digits)
-        self.context.account['equity'] = equity
+        account['profit'] = profit
+        account['margin'] = margin
+        account['equity'] = equity
+        account['free_margin'] = round(equity - margin, self.context.default_digits)
+        account['margin_level'] = round((equity - margin) / margin * 100, self.context.default_digits) if margin else 0
+        self._valuation_cache_key = cache_key()
+        self._sync_account_series()
+        return account
+
+    def __update_account_log(self, ticket):
+        account = self.__revalue_account__()
+        time = self.current_time()
+        balance = round(account['balance'], self.context.default_digits)
+        margin = account['margin']
+        profit = account['profit']
+        equity = account['equity']
+        free_margin = account['free_margin']
         self.__update_equity_drawdown__(equity, time)
-        free_margin = round(equity - margin, self.context.default_digits)
-        self.context.account['free_margin'] = free_margin
-        # see: https://www.mql5.com/en/forum/46654
-        # Margin level percentage = Equity/Margin * 100 %
-        if margin != 0:
-            # self.context.account['margin_level'] = round(equity / margin * 100, self.context.default_digits)
-            self.context.account['margin_level'] = round((equity - margin) / margin * 100, self.context.default_digits)
 
         # self.add_account_log(dict(time=str(datetime.utcfromtimestamp(time)), balance=balance, margin=margin,
         self.add_account_log(dict(time=str(utc_from_timestamp(time)), balance=balance, margin=margin,
@@ -2727,6 +2820,19 @@ class EATester(EABase):
 
     def current_time(self):
         return self.context.tick_info['t'][self.context.tick_current_index]
+
+    def symbol_datagetitem_index(self, data_index_ts, timeframe, timeframe_seconds, shift):
+        if not isinstance(shift, (int, np.integer)) or shift < 0:
+            raise ValueError('shift must be a non-negative integer')
+        timestamp = int(self.current_time() / timeframe_seconds) * timeframe_seconds
+        index = int(np.searchsorted(data_index_ts, timestamp, side='right')) - 1
+        if index < 0 or data_index_ts[index] != timestamp:
+            return -1
+        return index - shift
+
+    def symbol_datagetitem_callback(self, data, data_index_ts, timeframe, timeframe_seconds, shift, fail_value):
+        index = self.symbol_datagetitem_index(data_index_ts, timeframe, timeframe_seconds, shift)
+        return fail_value if index < 0 or index >= len(data) else data[index]
 
     #
     def on_before_execute(self, sync=False):
@@ -2832,6 +2938,7 @@ class EATester(EABase):
             self.on_execute_status(ticket, status)
             self.on_begin_execute()
             last_call_status_time = 0
+            last_account_tick_index = None
             # for i in range(count):
             for i in range(self.context.tick_start_index, count):
                 try:
@@ -2862,6 +2969,7 @@ class EATester(EABase):
                         self.do_tick()
                     self.scenario_engine.after_tick(self)
                     self.__update_account_log(ticket)
+                    last_account_tick_index = self.context.tick_current_index
                     # #
                     if exit != 0:
                         if exit == 2:
@@ -2886,14 +2994,27 @@ class EATester(EABase):
             #
             self.context.flags |= EATester.FM_END
             try:
-                if self.context.tick_current_index >= count:
+                if last_account_tick_index is not None:
+                    self.context.tick_current_index = last_account_tick_index
+                elif self.context.tick_current_index >= count:
                     self.context.tick_current_index = count - 1
-                self.close_all_orders(self.Close(), comment="stop")
+                # Each side must close at its executable quote, not a shared Close().
+                liquidation_errid, liquidation = self.close_all_orders(0, comment="stop")
+                self.context.ctx['liquidation'] = liquidation
                 self.__update_account_log(ticket)
                 # update return
                 self.update_return_ratio()
-            except:
+                if liquidation_errid != EID_OK:
+                    errid = liquidation_errid
+                    exception_msg = 'Final liquidation failed: ' + json.dumps(liquidation)
+                    self.context.set_error(errid, exception_msg)
+            except Exception as exc:
+                if isinstance(exc, AssertionError):
+                    raise
                 traceback.print_exc()
+                errid = EID_EAT_ERROR
+                exception_msg = f'Final liquidation failed: {exc}'
+                self.context.set_error(errid, exception_msg)
             self.on_end_execute()
 
             # self.write_log(f"\n\n == Execute PiXiu backtesting end: {datetime.now()}, ticket: {ticket} == \n\n")
@@ -2906,6 +3027,7 @@ class EATester(EABase):
             else:
                 status["exception"] = "Test end. \n"
             status["errid"] = errid
+            status["liquidation"] = self.context.ctx.get('liquidation')
             status["stop"] = 1
             self.on_execute_status(ticket, status)
         except Exception as exc:
@@ -2916,7 +3038,8 @@ class EATester(EABase):
             if exception_message is None:
                 exception_message = "Unknown errors, terminated. \n"
             status["exception"] = exception_message
-            status["errid"] = 0
+            status["errid"] = EID_EAT_ERROR
+            self.context.set_error(EID_EAT_ERROR, exception_message)
             status["stop"] = 1
             self.on_execute_status(ticket, status)
 

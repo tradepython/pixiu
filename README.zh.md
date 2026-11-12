@@ -80,6 +80,32 @@ pip install pixiu
     ...
 
 
+EA 运行库版本要求
+===============================
+EA 可以通过现有源码头部声明所需的 Pixiu 版本，未声明的旧 EA 保持原有行为：
+
+```python
+###[name]=ExampleEA
+###[version]=1.2.0
+###[requires_pixiu]=>=0.183.0,<0.184.0
+
+def PX_InitScriptSettings():
+    return {"params": {}, "charts": {}}
+```
+
+元数据声明应连续放在文件最前面。共用加载器在执行 EA 初始化代码前校验版本，
+无需在 `PX_InitScriptSettings()` 重复维护。格式错误、版本不满足或无法确认当前
+版本时，显式声明会触发 `EACompatibilityError`。不支持此功能的旧运行库仍可能
+忽略该注释。版本范围、脚本库检查、预发布规则及宿主接入方式见
+[EA 运行库版本要求](docs/ea-runtime-requirements.zh.md)。
+
+人工干预协议草案
+===============================
+[人工干预与操作重放协议](docs/manual-intervention-protocol.zh.md) 定义本地与服务端共用的
+控制指令、接管与确认、旧 EA 兼容和可重放日志，并包含多空锁仓的分步处理案例。
+协议还定义可选的 EA 声明式交互 UI，以及独立于 Explain/Fast 开关的执行审计要求。
+这是待实现设计，不代表当前命令行、图表服务或 EA 已支持这些控制接口。
+
 测试配置文件格式
 =======
 json 格式:
@@ -1118,15 +1144,20 @@ WaitCommand(self, uid, timeout=120)
              Returns:
                      The errorid.
 
- LoadData(self, name, scope: int = DataScope.EA, format='json'):
+ LoadData(self, name, scope: int = DataScope.EA, format='json', path=None):
      Load data
 
              Parameters:
                      name : The data name
                      scope : The data scope (current EA settings `EA_SETTINGS`, current account + current EA `ACCOUNT_EA`, EA version, EA, Account)
-                     format: Only support JSON.
+                     format: 仅支持 'json'；保留现有 JSON5 解码行为。
+                     path: None 保持完整读取；列表/元组按字符串键和非负整数数组下标逐级读取。
              Returns:
-                     data.
+                     完整数据或所选子树的独立副本；整条存储数据不存在时返回 None。
+             Raises (path reads):
+                     KeyError / IndexError：键不存在 / 数组越界。
+                     TypeError：路径或容器类型不匹配；ValueError：负数下标。
+                     原 JSON5 解码异常继续向调用者抛出。
 
  SaveData(self, name, data, scope: int = DataScope.EA, format='json') -> ErrorID:
      Save data
@@ -1148,3 +1179,44 @@ WaitCommand(self, uid, timeout=120)
 
 
 ```
+
+### LoadData 路径读取
+
+`path` 是追加在原三个参数之后的可选参数。不传或传 `None` 时，仍然每次完整解码
+存储数据，返回值、异常和副本行为保持不变。
+
+```python
+scope = DataScope.ACCOUNT_EA
+SaveData("strategy_state", {
+    "controls": {"enabled": True, "volume": 0.01},
+    "orders": [{"price": 1.25}],
+    "history": []
+}, scope=scope)
+
+state = LoadData("strategy_state", scope=scope)  # 原来的完整读取。
+controls = LoadData("strategy_state", scope=scope, path=["controls"])
+price = LoadData("strategy_state", scope, "json", ("orders", 0, "price"))
+controls["volume"] = 0.02  # 不修改存储，也不影响后续读取。
+```
+
+路径只遍历 JSON 对象和数组。字符串表示字面键（`"a.b"` 是一个键，不会按点号拆分），
+非负整数表示数组下标。不支持布尔值下标、负数、切片、JSONPath、通配符展开或属性访问。
+空列表/元组选择根节点。选中的 JSON `null` 返回 `None`；整条记录不存在或保存为 `None`
+也返回 `None`。选中的键不存在抛 `KeyError`，数组越界抛 `IndexError`，路径/容器类型不匹配
+或继续遍历标量/null 抛 `TypeError`，负下标抛 `ValueError`。JSON 读取会先验证路径，即使整条
+记录不存在，非法路径也会报错。不支持的 `format` 仍按原行为返回 `None`。
+
+tester 中，显式路径读取复用私有、有界的 JSON5 解码树 LRU 缓存。缓存属于各 tester 实例，
+每次运行初始化时清空，最多保留 32 条记录和估算 16 MiB 的保留数据载荷；这不是进程 RSS
+硬上限。缓存键包含原有作用域解析后的实际存储命名空间及记录名，每次读取都会核对当前存储
+原文版本。`SaveData`/`DeleteData` 立即失效对应缓存；其他实例修改共享存储、直接替换存储桶，
+也会在下一次读取时被识别。新原文存在 JSON5 错误时，原解码异常直接抛出，绝不回退旧值。
+非字符串原文不缓存；超预算记录照常解码并取值，但不留存在缓存中。
+
+返回的字典/列表是**所选子树**的深副本，不是共享缓存对象。修改副本不会持久化，需要自行
+构造完整更新记录后调用 `SaveData`。现有 `DataScope` 语义不变；`ACCOUNT_EA` 继续按服务器、
+账户和 EA 隔离，其他作用域不会因为新增参数而获得额外隔离规则。
+
+旧调用不会自动提速。此功能主要适合从“大记录、少写入”中反复读取小块数据；首次读取仍需
+完整解码，频繁写入或读取大子树可能抵消收益。`path=[]` 会深复制整棵树，可能比原完整读取
+更慢。自定义 API 实现/runner 需先支持新参数，EA 才能使用；不支持时不会静默返回另一种结果。

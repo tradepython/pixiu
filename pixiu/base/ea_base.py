@@ -2,6 +2,9 @@
 import re
 import time
 import traceback
+import pixiu
+from packaging.specifiers import InvalidSpecifier, SpecifierSet
+from packaging.version import InvalidVersion, Version
 from RestrictedPython import (compile_restricted, safe_globals, utility_builtins,)
 from RestrictedPython.PrintCollector import PrintCollector
 #
@@ -13,6 +16,10 @@ log = logging.getLogger(__name__)
 
 
 from ..base.api_base import (API_V1_Base)
+
+
+class EACompatibilityError(ValueError):
+    """An explicit EA runtime requirement is invalid or cannot be satisfied."""
 
 
 class EABaseContext:
@@ -162,22 +169,54 @@ class EABase:
         try:
             if not script_text or not isinstance(script_text, str):
                 return ret
-            keywords = ['author', 'copyright', 'name', 'version', 'label', 'script_settings', 'lib', 'library']
+            keywords = ['author', 'copyright', 'name', 'version', 'label', 'script_settings', 'lib', 'library',
+                        'requires_pixiu']
             array_of_lines = script_text.splitlines()
             for line in array_of_lines:
                 if not line:
                     break
+                if line.startswith('###[requires_pixiu]') and not line.startswith('###[requires_pixiu]='):
+                    raise EACompatibilityError('Invalid requires_pixiu header: expected ###[requires_pixiu]=<specifier>')
                 tags = re.findall(r"^###\[\w+]=", line)
                 if len(tags) == 0:
                     break
                 for kw in keywords:
                     lh = f"###[{kw}]="
                     if tags[0] == lh:
+                        if kw == 'requires_pixiu' and kw in ret:
+                            raise EACompatibilityError('Duplicate requires_pixiu header')
                         ret[kw] = line[len(tags[0]):].strip()
                         break
+        except EACompatibilityError:
+            raise
         except:
             traceback.print_exc()
         return ret
+
+    @staticmethod
+    def validate_script_requirements(metadata):
+        if 'requires_pixiu' not in metadata:
+            return
+        required = metadata['requires_pixiu']
+        name = metadata.get('name', '<unnamed script>')
+        if not isinstance(required, str) or not required.strip():
+            raise EACompatibilityError(f'Invalid requires_pixiu for {name!r}: expected a non-empty version specifier')
+        try:
+            specifier = SpecifierSet(required)
+        except InvalidSpecifier as exc:
+            raise EACompatibilityError(f'Invalid requires_pixiu for {name!r}: {required!r}') from exc
+
+        current = pixiu.__version__
+        try:
+            current_version = Version(current)
+        except (InvalidVersion, TypeError) as exc:
+            raise EACompatibilityError(
+                f'Cannot verify requires_pixiu {required!r} for {name!r}: current Pixiu version is {current!r}'
+            ) from exc
+        if not specifier.contains(current_version, prereleases=bool(specifier.prereleases)):
+            raise EACompatibilityError(
+                f'{name!r} requires Pixiu {required}, but the current version is {current}'
+            )
 
 
     def add_chart(self, name, **kwargs):
@@ -232,6 +271,7 @@ class EABase:
         return True
 
     def init_script_env(self, script_text):
+        self.validate_script_requirements(EABase.parse_script_text(script_text))
         ret = {}
         org_context = self.context
         try:
@@ -370,19 +410,22 @@ class EABase:
                     print(f"PX_ValidScriptSettings: errmsg={valid_ret.get('errmsg', None)}")
                     ret['valid_script_settings'] = valid_ret
             ret['script_settings'] = env['script_settings']
+        except EACompatibilityError:
+            raise
         except:
             traceback.print_exc()
         return ret
 
     def parse_script(self, script_text):
-        ret = {}
+        ret = EABase.parse_script_text(script_text)
+        self.validate_script_requirements(ret)
         try:
-            ret = EABase.parse_script_text(script_text)
-            script_init_settings = {}
             r = self.get_script_init_settings(script_text)
             for name in ('script_settings', 'valid_script_settings'):
                 if name in r:
                     ret[name] = r[name]
+        except EACompatibilityError:
+            raise
         except:
             traceback.print_exc()
         return ret
@@ -424,6 +467,10 @@ class EABase:
 
     def do_tick(self,):
         if not self.context.byte_code:
+            # Preflight all sources before executing any injected library code.
+            self.validate_script_requirements(EABase.parse_script_text(self.context.script))
+            for lib in self.context.script_libs:
+                self.validate_script_requirements(EABase.parse_script_text(lib['code']))
             #load libs
             for lib in self.context.script_libs:
                 lib_bc = EABase.compile(lib['code'], lib['path'])

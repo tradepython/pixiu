@@ -102,6 +102,35 @@ Parameters :
     ...
 
 
+EA runtime version requirements
+===============================
+An EA can optionally declare its required Pixiu version in the existing source header:
+
+```python
+###[name]=ExampleEA
+###[version]=1.2.0
+###[requires_pixiu]=>=0.183.0,<0.184.0
+
+def PX_InitScriptSettings():
+    return {"params": {}, "charts": {}}
+```
+
+Keep metadata lines consecutive at the very beginning of the file. The shared loader checks
+the requirement before executing EA initialization code; undeclared legacy EAs retain their
+existing behavior. No duplicate field is needed in `PX_InitScriptSettings()`. Invalid,
+unsatisfied, or unverifiable explicit requirements raise `EACompatibilityError`.
+Older runtimes without this feature may ignore the header. See
+[EA runtime requirements](docs/ea-runtime-requirements.md) for version ranges, library checks,
+prerelease rules, and host integration.
+
+Manual intervention protocol draft
+=================================
+The [manual intervention and replay protocol (Chinese)](docs/manual-intervention-protocol.zh.md)
+specifies shared local/server controls, guarded takeover and approval, legacy EA compatibility,
+and replayable operations, including a hedged-position walkthrough. It also defines optional
+declarative EA UI and execution auditing independent of Explain/Fast settings. These are proposed interfaces,
+not currently implemented CLI, chart-server, or EA capabilities.
+
 Test configuration file format
 =======
 JSON format:
@@ -1155,15 +1184,20 @@ WaitCommand(self, uid, timeout=120)
              Returns:
                      The errorid.
 
- LoadData(self, name, scope: int = DataScope.EA, format='json'):
+ LoadData(self, name, scope: int = DataScope.EA, format='json', path=None):
      Load data
 
              Parameters:
                      name : The data name
                      scope : The data scope (current EA settings `EA_SETTINGS`, current account + current EA `ACCOUNT_EA`, EA version, EA, Account)
-                     format: Only support JSON.
+                     format: Only 'json'; existing JSON5 decoding is retained.
+                     path: None (legacy full read), or a list/tuple of exact string keys and non-negative integer array indexes.
              Returns:
-                     data.
+                     Full data or an independent copy of the selected subtree; None if stored data is absent.
+             Raises (path reads):
+                     KeyError / IndexError for missing keys / out-of-range indexes.
+                     TypeError for invalid path/container types; ValueError for negative indexes.
+                     Original JSON5 decoder errors propagate.
  
  SaveData(self, name, data, scope: int = DataScope.EA, format='json') -> ErrorID:
      Save data
@@ -1185,3 +1219,55 @@ WaitCommand(self, uid, timeout=120)
                   
                    
 ```
+
+### LoadData Path Reads
+
+`path` is optional and appended after the existing three arguments. Existing calls,
+including `path=None`, still decode the entire stored value on every call and retain
+their existing return values, exceptions and copy behavior.
+
+```python
+scope = DataScope.ACCOUNT_EA
+SaveData("strategy_state", {
+    "controls": {"enabled": True, "volume": 0.01},
+    "orders": [{"price": 1.25}],
+    "history": []
+}, scope=scope)
+
+state = LoadData("strategy_state", scope=scope)  # Unchanged full read.
+controls = LoadData("strategy_state", scope=scope, path=["controls"])
+price = LoadData("strategy_state", scope, "json", ("orders", 0, "price"))
+controls["volume"] = 0.02  # Does not modify storage or any later read.
+```
+
+Paths traverse JSON objects and arrays only. Keys are literal strings (`"a.b"` is
+one key, not two); array indexes are non-negative integers. Booleans, negative indexes,
+slices, JSONPath expressions, wildcard expansion and attribute access are not supported.
+An empty list/tuple selects the root. A selected JSON `null` returns `None`; so does an
+absent stored record or a record saved as `None`. Missing selected keys raise `KeyError`,
+out-of-range indexes raise `IndexError`, and traversing a scalar/null or using an invalid
+path/container type raises `TypeError`. Negative indexes raise `ValueError`. For JSON
+reads the path is validated even if the record is absent. Unsupported formats retain
+the previous `None` result.
+
+In the tester, opt-in path reads reuse a private, bounded LRU of decoded JSON5 trees.
+Each tester has its own cache, cleared on run initialization, with at most 32 entries
+and a 16 MiB estimated retained-payload budget (not a process RSS limit). Entries are
+keyed by the existing resolved storage namespace and record name; each read checks
+the current raw stored value before reuse. `SaveData`/`DeleteData` invalidate affected
+entries immediately, and writes by another tester sharing storage or direct bucket
+replacement are detected on the next read. Invalid replacement JSON5 raises the original
+decoder error instead of returning an older cached value. Non-string raw inputs are not
+cached. Oversized entries are decoded and projected normally without being retained.
+
+Returned dictionaries/lists are deep copies of **only the selected subtree**; editing
+them does not persist changes. Use `SaveData` to persist a complete updated record.
+All existing `DataScope` rules remain unchanged, including account/server/EA isolation
+for `ACCOUNT_EA`; this option does not add new isolation rules to other scopes.
+
+There is no automatic speedup for existing calls. Path reads are useful for repeated
+small selections from a large, infrequently changed record. A first read still decodes
+the full record; frequent writes and large selections can outweigh cache savings.
+`path=[]` clones the whole decoded tree and can be slower than a legacy full read.
+Custom API implementations/runners must support the optional argument before an EA
+uses it; a runner without that support does not silently fall back to a different result.

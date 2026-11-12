@@ -62,13 +62,20 @@ class SymbolIndicator(object):
     def __init__(self, data, ts_index, timeframe, getitem_callback, getitem_index):
         self.__timeframe__ = timeframe
         self.__timeframe_seconds__ = timeframe_to_seconds(timeframe)
-        self.data = data
+        self._values = data
         self.__ts_index__ = ts_index
         self.__getitem_callback__ = getitem_callback
         self.__getitem_index__ = getitem_index
 
     @property
+    def data(self):
+        refresh = getattr(self, '_tester_refresh', None)
+        return refresh() if refresh else self._values
+
+    @property
     def ts_index(self):
+        if getattr(self, '_tester_refresh', None):
+            self.data
         return self.__ts_index__
 
     @property
@@ -81,6 +88,8 @@ class SymbolIndicator(object):
 
     def __getitem__(self, key):
         # return self.__getitem_callback__(self.data, self.__timeframe__, key)
+        if not isinstance(key, (int, np.integer)) or key < 0:
+            raise ValueError('shift must be a non-negative integer')
         return self.__getitem_callback__(self.data, self.__ts_index__,
                                        self.__timeframe__,
                                        self.__timeframe_seconds__,
@@ -91,11 +100,19 @@ class SymbolPrice(object):
     def __init__(self, symbol_data, price, getitem_callback, getitem_index):
         # self.__timeframe__ = timeframe
         # self.__timeframe_seconds__ = timeframe_to_seconds(timeframe)
-        self.__price__ = price
+        self._price = price
         self.__symbol_data__ = symbol_data
         self.indicators = {}
         self.__getitem_callback__ = getitem_callback
         self.__getitem_index__ = getitem_index
+
+    def _refresh(self):
+        self.__symbol_data__._refresh()
+
+    @property
+    def __price__(self):
+        self._refresh()
+        return self._price
 
     @property
     def ts_index(self):
@@ -110,9 +127,17 @@ class SymbolPrice(object):
         return self.__symbol_data__.timeframe_seconds
 
     def __getitem__(self, key):
-        ret = self.__getitem_callback__(self.__price__, self.__symbol_data__.ts_index,
-                                       self.__symbol_data__.timeframe,
-                                       self.__symbol_data__.timeframe_seconds,
+        if not isinstance(key, (int, np.integer)) or key < 0:
+            raise ValueError('shift must be a non-negative integer')
+        parent = self.__symbol_data__
+        parent._refresh()
+        current_index = getattr(parent, '_tester_scalar_index', None)
+        if current_index is not None:
+            index = current_index - int(key)
+            return self._price[index] if 0 <= index < len(self._price) else np.nan
+        ret = self.__getitem_callback__(self._price, parent.ts_index,
+                                       parent.timeframe,
+                                       parent.timeframe_seconds,
                                        key, fail_value=np.nan)
         return ret
 
@@ -177,10 +202,18 @@ class SymbolTime(object):
         return self.__symbol_data__.timeframe_seconds
 
     def __getitem__(self, key):
-        ts = self.__getitem_callback__(self.__time__, self.__symbol_data__.ts_index,
-                                       self.__symbol_data__.timeframe,
-                                       self.__symbol_data__.timeframe_seconds,
-                                       key, fail_value=None)
+        if not isinstance(key, (int, np.integer)) or key < 0:
+            raise ValueError('shift must be a non-negative integer')
+        self.__symbol_data__._refresh()
+        current_index = getattr(self.__symbol_data__, '_tester_scalar_index', None)
+        if current_index is not None:
+            index = current_index - int(key)
+            ts = self.__time__[index] if 0 <= index < len(self.__time__) else None
+        else:
+            ts = self.__getitem_callback__(self.__time__, self.__symbol_data__.ts_index,
+                                           self.__symbol_data__.timeframe,
+                                           self.__symbol_data__.timeframe_seconds,
+                                           key, fail_value=None)
         if ts is None:
             return None
         # return datetime.utcfromtimestamp(ts)
@@ -212,14 +245,58 @@ class SymbolData(object):
         self.__getitem_callback__ = getitem_callback
         self.__getitem_index__ = getitem_index
 
+    def _refresh(self):
+        provider = getattr(self, '_tester_refresh', None)
+        if provider is None or getattr(self, '_refreshing', False):
+            return
+        self._refreshing = True
+        try:
+            fresh = provider()
+            if fresh is None:
+                return
+            self.__data__ = fresh.__data__
+            self.__ts_index__ = fresh.__ts_index__
+            self.__size__ = fresh.__size__
+            self.__time__.__time__ = fresh.__time__.__time__
+            if hasattr(fresh, '_tester_scalar_index'):
+                self._tester_scalar_index = fresh._tester_scalar_index
+            else:
+                self.__dict__.pop('_tester_scalar_index', None)
+            if hasattr(fresh, '_tester_batch_source'):
+                self._tester_batch_source = fresh._tester_batch_source
+            else:
+                self.__dict__.pop('_tester_batch_source', None)
+            if hasattr(fresh, '_tester_shared_revision'):
+                self._tester_shared_revision = fresh._tester_shared_revision
+            else:
+                self.__dict__.pop('_tester_shared_revision', None)
+            for field in ('close', 'open', 'high', 'low', 'ask', 'bid', 'volume'):
+                old_price = getattr(self, field)
+                new_price = getattr(fresh, field)
+                old_price._price = new_price._price
+                old_price.indicators.clear()
+                for attr in ('_tester_batch_source', '_tester_batch_field', '_tester_shared_revision'):
+                    if hasattr(new_price, attr):
+                        setattr(old_price, attr, getattr(new_price, attr))
+                    else:
+                        old_price.__dict__.pop(attr, None)
+            self.indicators.clear()
+        finally:
+            self._refreshing = False
+
     def __getitem__(self, key):
+        self._refresh()
         # return self.__getitem_callback__(self.__data__, key)
-        return self.__getitem_callback__(self.__data__, self.__data__['t'],
+        if not isinstance(key, (int, np.integer)) or key < 0:
+            raise ValueError('shift must be a non-negative integer')
+        value = self.__getitem_callback__(self.__data__, self.__data__['t'],
                                        self.timeframe,
                                        self.timeframe_seconds,
-                                       key)
+                                       key, fail_value=None)
+        return value.copy() if value is not None else None
 
     def to_dataframe(self, index=0, size=None):
+        self._refresh()
         if index < 0:
             return None
         if size is None or size > self.__size__:
@@ -236,7 +313,7 @@ class SymbolData(object):
         a = a[::-1]
         ret = pandas.DataFrame({'time': a['t'], 'symbol': a['s'],
                                 'open': a['o'], 'high': a['h'], 'low': a['l'], 'close': a['c'],
-                                'volume': a['v'], 'ask': a['a'], 'bid': a['b']})
+                                'volume': a['v'], 'ask': a['a'], 'bid': a['b']}, copy=True)
         return ret
 
     @property
@@ -245,7 +322,8 @@ class SymbolData(object):
 
     @property
     def ts_index(self):
-        return self.__ts_index__
+        self._refresh()
+        return self.__ts_index__.copy()
 
     @property
     def timeframe_seconds(self):
@@ -253,6 +331,7 @@ class SymbolData(object):
 
     @property
     def size(self):
+        self._refresh()
         return self.__size__
 
     @property

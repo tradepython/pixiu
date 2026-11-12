@@ -1086,16 +1086,24 @@ class APIStub(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def LoadData(self, name, scope: int = DataScope.EA, format='json'):
+    def LoadData(self, name, scope: int = DataScope.EA, format='json', path=None):
         '''
         Load data
 
                 Parameters:
                         name : The data name
                         scope : The data scope (current EA settings, EA version, EA, Account)
-                        format: Only support JSON.
+                        format: Only 'json'; existing JSON5 decoding is retained.
+                        path: None reads the entire value (legacy behavior).
+                              A list/tuple selects exact string keys and non-negative integer array indexes.
+                              An empty path selects the root. No dotted paths or wildcard expressions.
                 Returns:
-                        data.
+                        The full value or an independently mutable selected subtree.
+                        Missing stored data returns None, including when path is supplied.
+                Raises (path reads):
+                        KeyError for missing keys; IndexError for out-of-range indexes.
+                        TypeError for invalid path/container types; ValueError for negative indexes.
+                        Existing JSON5 decoder errors propagate without stale-value fallback.
         '''
         raise NotImplementedError
 
