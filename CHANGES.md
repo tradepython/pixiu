@@ -1,3 +1,17 @@
+### [2026-11-13]
+#### **Descriptions：**
+    1.docs / README:
+        1) Add the standalone pixiu-ai-analysis-v1 design draft for local/server analysis scheduling, structured features, optional EA subscription, and legacy compatibility
+        2) Define point-in-time input snapshots, generation/publication delays, expiry and revocation, consumer view watermarks, model-knowledge leakage limits, and archived versus reconstructed history
+        3) Specify immutable archives, notification boundaries, shared strict execution auditing, evidence-linked manual plans, privacy, and phased acceptance requirements
+        4) Keep AI data separate from control permissions; cross-link the manual intervention and market event protocols without adding runtime functionality or changing the package version
+        5) Extend the AI draft with proposed RequestAIAnalysis/GetAIAnalysisRequest APIs, asynchronous requester-only results, durable idempotency, context permissions, deadlines, frozen consumer views, and exact request replay/audit requirements
+    2.Validation:
+        1) Strictly parse all 9 AI and 8 control JSON examples; check identifiers, feature contracts/ranges, UTC chronology, TTL, evidence and consumer-view references
+        2) Verify 22 local document links and generic AI examples; confirm existing MarketEventStore payload preservation/publication filtering and its documented lack of AI expiry enforcement
+        3) Documentation-only validation; no runtime functionality is added and the full application test suite is not rerun
+        4) Recheck request/job/result links, context bounds, submission-to-deadline chronology, publication/consumer ordering, requester-only policy, and completed-but-expired response examples
+
 ### [2026-11-12]
 #### Version:
 #####   Package:

@@ -131,6 +131,14 @@ and replayable operations, including a hedged-position walkthrough. It also defi
 declarative EA UI and execution auditing independent of Explain/Fast settings. These are proposed interfaces,
 not currently implemented CLI, chart-server, or EA capabilities.
 
+AI analysis protocol draft
+=================================
+The [AI market analysis protocol (Chinese)](docs/ai-analysis-protocol.zh.md) describes local/server
+report scheduling, asynchronous EA-initiated requests, structured EA inputs, point-in-time visibility,
+archived replay, and audit evidence.
+It separates analysis data from manual control permissions while sharing audit and replay infrastructure.
+This is a design draft, not an implemented scheduler, provider integration, or EA query API.
+
 Test configuration file format
 =======
 JSON format:
