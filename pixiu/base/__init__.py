@@ -1,1 +1,1 @@
-from .ea_base import (EABase, EACompatibilityError)
+from .ea_base import (EABase, EACompatibilityError, EAInitializationError)

@@ -13,16 +13,9 @@ AddChart(name="price", chart={"series":[{"name":"top_signal","color":"#89F3DAFF"
 AddParam("debug", value=True, type="bool", required=True)
 AddParam("notify", param={"value": False, "config": {"type": "bool", "required": True}})
 #
-def PX_ValidScriptSettings():
-    success = True
-    if success:
-        cmd_exec = GetParam("cmd_exec", None)
-        if cmd_exec is None:
-            success = False
-            errmsg = ''
-    if success:
-        pass
-    return dict(success=success, errmsg=errmsg)
+def PX_ValidScriptSettings(script_settings):
+    success = script_settings['params'].get('cmd_exec') is not None
+    return dict(success=success, errmsg='')
 
 def PX_InitScriptSettings():
     return {"charts":{"price":{"series":[{"name":"top_signal","color":"#89F3DAFF"},{"name":"bottom_signal","color":"#e7dc48"}]}},

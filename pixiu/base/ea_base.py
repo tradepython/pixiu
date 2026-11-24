@@ -22,6 +22,15 @@ class EACompatibilityError(ValueError):
     """An explicit EA runtime requirement is invalid or cannot be satisfied."""
 
 
+class EAInitializationError(ValueError):
+    """A declared settings hook failed, rather than speculative market code."""
+
+    def __init__(self, hook, script_name):
+        self.hook = hook
+        self.script_name = script_name
+        super().__init__(f'{script_name}: {hook} failed')
+
+
 class EABaseContext:
 
     def __init__(self):
@@ -270,8 +279,11 @@ class EABase:
             return False
         return True
 
-    def init_script_env(self, script_text):
-        self.validate_script_requirements(EABase.parse_script_text(script_text))
+    def init_script_env(self, script_text, script_libs=None):
+        metadata = EABase.parse_script_text(script_text)
+        self.validate_script_requirements(metadata)
+        for library in script_libs or []:
+            self.validate_script_requirements(EABase.parse_script_text(library['code']))
         ret = {}
         org_context = self.context
         try:
@@ -285,6 +297,7 @@ class EABase:
             api.set_fun(sg)
             for k in self.global_values:
                 sg[k] = self.global_values[k]
+            sg['__pixiu_settings_script_name__'] = metadata.get('name', 'script')
             #
             self.context.tick_current_index = 0
             # self.context.tick_info = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0]],
@@ -295,6 +308,9 @@ class EABase:
             self.context.account_info = None
             self.context.add_ea_settings = dict(charts={}, params={})
 
+            for library in script_libs or []:
+                exec(EABase.compile(library['code'], library['path']), sg)
+
             #
             # for k in sg:
             #     sg[k] = self.global_values[k]
@@ -304,17 +320,15 @@ class EABase:
             # ret = eval(lib_bc, "InitConfig()")
             try:
                 exec(lib_bc, sg)
-            except:
-                # traceback.print_exc()
-                pass
+            except Exception:
+                # Preview has no real ticks/account. Runtime code is executed again
+                # by do_tick; only this speculative execution may be incomplete.
+                log.debug('Settings preview stopped before runtime initialization', exc_info=True)
             # self.context.tick_info = temp_ti
             script_settings = {}
-            try:
-                settings = eval("PX_InitScriptSettings()", sg)
-                if isinstance(settings, dict):
-                    script_settings = settings.copy()
-            except:
-                traceback.print_exc()
+            settings = self.call_settings_hook('PX_InitScriptSettings', sg)
+            if isinstance(settings, dict):
+                script_settings = settings.copy()
 
             #copy add ea settings
             for cn in self.context.add_ea_settings['charts']:
@@ -324,10 +338,18 @@ class EABase:
             ret['script_settings'] = script_settings
             ret['globals'] = sg
             ret['locals'] = loc
-        except:
-            traceback.print_exc()
-        self.context = org_context
+        finally:
+            self.context = org_context
         return ret
+
+    def call_settings_hook(self, name, script_globals, *args):
+        if name not in script_globals:
+            return None  # Hooks remain optional for engine-only scripts.
+        script_name = script_globals.get('__pixiu_settings_script_name__', 'script')
+        try:
+            return script_globals[name](*args)
+        except Exception as exc:
+            raise EAInitializationError(name, script_name) from exc
 
 
     # def init_script_env(self, script_text):
@@ -387,47 +409,28 @@ class EABase:
     #     return ret
 
     def valid_script_settings(self, script_settings, script_env):
-        try:
-            valid_ret = eval(f"PX_ValidScriptSettings", script_env['globals'])(script_settings)
-            return valid_ret
-            # if valid_ret is not None:
-            #     if not valid_ret['success']:
-            #         print(f"PX_ValidScriptSettings: errmsg={valid_ret.get('errmsg', None)}")
-            #         return None
-        except:
-            traceback.print_exc()
-        return None
+        return self.call_settings_hook('PX_ValidScriptSettings', script_env['globals'], script_settings)
 
-    def get_script_init_settings(self, script_text):
+    def get_script_init_settings(self, script_text, script_libs=None):
         ret = {}
-        try:
-            env = self.init_script_env(script_text)
-            if env is None:
-                return ret
-            valid_ret = self.valid_script_settings(env['script_settings'], env)
-            if valid_ret is not None:
-                if not valid_ret['success']:
-                    print(f"PX_ValidScriptSettings: errmsg={valid_ret.get('errmsg', None)}")
-                    ret['valid_script_settings'] = valid_ret
-            ret['script_settings'] = env['script_settings']
-        except EACompatibilityError:
-            raise
-        except:
-            traceback.print_exc()
+        env = self.init_script_env(script_text, script_libs)
+        if env is None:
+            return ret
+        valid_ret = self.valid_script_settings(env['script_settings'], env)
+        if valid_ret is not None:
+            if not valid_ret['success']:
+                print(f"PX_ValidScriptSettings: errmsg={valid_ret.get('errmsg', None)}")
+                ret['valid_script_settings'] = valid_ret
+        ret['script_settings'] = env['script_settings']
         return ret
 
-    def parse_script(self, script_text):
+    def parse_script(self, script_text, script_libs=None):
         ret = EABase.parse_script_text(script_text)
         self.validate_script_requirements(ret)
-        try:
-            r = self.get_script_init_settings(script_text)
-            for name in ('script_settings', 'valid_script_settings'):
-                if name in r:
-                    ret[name] = r[name]
-        except EACompatibilityError:
-            raise
-        except:
-            traceback.print_exc()
+        r = self.get_script_init_settings(script_text, script_libs)
+        for name in ('script_settings', 'valid_script_settings'):
+            if name in r:
+                ret[name] = r[name]
         return ret
 
 

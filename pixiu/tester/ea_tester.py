@@ -132,28 +132,23 @@ class EATester(EABase):
         # else:
         #     self.script = open(self.script_path).read()
         #
-        self.context.script_metadata = self.parse_script(self.context.script)
+        self.context.script_metadata = self.parse_script(self.context.script, self.context.script_libs)
         if self.context.script_libs is None:
             self.context.script_libs = self.load_libs(json5.loads(self.context.script_metadata.get('lib', self.context.script_metadata.get('library', '[]'))))
         #
         self.context.script_settings = None
-        try:
-            ss = self.merge_script_settings(self.context.script_metadata.get('script_settings', None),
-                                            params.get("script_settings", None))
-            if isinstance(ss, str):
-                self.context.script_settings = json5.loads(ss)
+        ss = self.merge_script_settings(self.context.script_metadata.get('script_settings', None),
+                                        params.get("script_settings", None))
+        if isinstance(ss, str):
+            self.context.script_settings = json5.loads(ss)
+        else:
+            self.context.script_settings = ss
+        valid_ret = self.valid_final_script_settings()
+        if valid_ret is not None:
+            if valid_ret.get('success', True):
+                self.context.script_metadata.pop('valid_script_settings', None)
             else:
-                self.context.script_settings = ss
-            valid_ret = self.valid_final_script_settings()
-            if valid_ret is not None:
-                if valid_ret.get('success', True):
-                    self.context.script_metadata.pop('valid_script_settings', None)
-                else:
-                    self.context.script_metadata['valid_script_settings'] = valid_ret
-        except EACompatibilityError:
-            raise
-        except:
-            traceback.print_exc()
+                self.context.script_metadata['valid_script_settings'] = valid_ret
         #
         # self.byte_code = None
         # self.context.orders = None
@@ -244,16 +239,10 @@ class EATester(EABase):
         return ret
 
     def valid_final_script_settings(self):
-        try:
-            env = self.init_script_env(self.context.script)
-            if env is None:
-                return None
-            return self.valid_script_settings(self.context.script_settings, env)
-        except EACompatibilityError:
-            raise
-        except:
-            traceback.print_exc()
-        return None
+        env = self.init_script_env(self.context.script, self.context.script_libs)
+        if env is None:
+            return None
+        return self.valid_script_settings(self.context.script_settings, env)
 
     def get_init_data(self, name, values):
         ret = None
@@ -297,7 +286,7 @@ class EATester(EABase):
                 #
                 'margin_so_so': {'value': values['margin_so_so'], 'desc': 'Stop Out Level', 'type': '%'},  #
                 'ticks': {'value': values.get('ticks', 0), 'desc': 'Ticks', 'precision': 0},  #
-                'balance': {'value': 0, 'desc': 'Balance'},  #
+                'balance': {'value': values['balance'], 'desc': 'Balance'},  #
                 'total_net_profit': {'value': 0, 'desc': 'Total Net Profit'},  #
                 'total_net_profit_rate': {'value': 0, 'desc': 'Total Net Profit Rate', 'type': '%'},  #
                 'sharpe_ratio': {'value': 0, 'desc': 'Sharpe Ratio', 'precision': 2},  #
@@ -2791,6 +2780,8 @@ class EATester(EABase):
         account = self.__revalue_account__()
         time = self.current_time()
         balance = round(account['balance'], self.context.default_digits)
+        # Balance is an account snapshot, even without a nonzero realized trade.
+        self.context.report['balance']['value'] = balance
         margin = account['margin']
         profit = account['profit']
         equity = account['equity']

@@ -251,8 +251,8 @@ class PiXiuTests(TestCase):
                                      'currency_base': 'USD',
                                      'currency_margin': 'USD', })
         self.eat_params = dict(symbol=self.symbol,
-             start_time="2021-03-15",
-             end_time="2021-04-16",
+             start_time=datetime.fromtimestamp(float(new_a['t'][0]), tz=pytz.utc).isoformat(),
+             end_time=datetime.fromtimestamp(float(new_a['t'][-1]) + 60, tz=pytz.utc).isoformat(),
              tick_max_index=100,
              balance=self.balance,
              leverage=100,
@@ -2168,6 +2168,104 @@ class PiXiuTests(TestCase):
         self.assertEqual(tester.context.report['max_drawdown']['value'], max_dd)
 
     @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_report_balance_initializes_from_actual_account(self):
+        for balance in (0, 10000, 12345.67):
+            with self.subTest(balance=balance):
+                params = dict(self.eat_params, script='', balance=999,
+                              account=dict(self.account, balance=balance, equity=balance, free_margin=balance))
+                tester = CrossCurrencyEATTester(params, {})
+                tester.init_data()
+                self.assertEqual(tester.context.report['init_balance']['value'], balance)
+                self.assertEqual(tester.context.report['balance']['value'], balance)
+                self.assertEqual(tester.context.report['total_net_profit']['value'], 0)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_report_balance_zero_trades_normal_fast_and_stop(self):
+        import copy
+        from pixiu.api.errors import EID_EAT_ERROR, EID_EAT_TEST_STOP
+
+        class ObserveTester(CrossCurrencyEATTester):
+            def on_end_tick(self):
+                if self.stop_early:
+                    self.stop_tester()
+
+            def on_end_execute(self):
+                self.published_report = copy.deepcopy(self.context.report)
+
+            def on_execute_status(self, ticket, status):
+                self.last_status = status
+
+        for fast in (False, True):
+            for stop_early in (False, True):
+                with self.subTest(fast=fast, stop_early=stop_early):
+                    ticks = self.make_tick_data(self.symbol, [1, 1.01, 0.99])
+                    params = dict(self.eat_params, script='pass', balance=10000, currency='CHF',
+                                  tick_max_index=len(ticks), collect_graph_data=not fast,
+                                  collect_chart_replay=not fast, explain_enabled=not fast)
+                    tester = ObserveTester(params, {self.symbol: ticks})
+                    tester.stop_early = stop_early
+                    tester.execute('zero-trade-report', sync=True)
+                    expected_error = EID_EAT_TEST_STOP if stop_early else 0
+                    self.assertEqual(tester.context.get_error()[0], expected_error)
+                    self.assertEqual(tester.last_status['errid'], EID_EAT_ERROR if stop_early else 0)
+                    self.assertEqual(tester.last_status['stop'], 1)
+                    self.assertEqual(tester.context.order_logs, [])
+                    self.assertEqual(tester.last_status['liquidation']['attempts'], 0)
+                    self.assertEqual(tester.published_report['balance']['value'], 10000)
+                    self.assertEqual(tester.context.account_logs[-1]['balance'], 10000)
+                    for name in ('total_trades', 'total_net_profit', 'total_net_profit_rate',
+                                 'max_drawdown', 'max_drawdown_rate', 'sharpe_ratio', 'sortino_ratio'):
+                        self.assertEqual(tester.published_report[name]['value'], 0, name)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_report_balance_follows_account_samples_without_inventing_profit(self):
+        tester = self.make_accounting_tester([])
+        for balance in (3125.25, 3000, 0, -5):
+            with self.subTest(balance=balance):
+                tester.context.account['balance'] = balance
+                tester._EATester__update_account_log('balance-sample')
+                self.assertEqual(tester.context.report['balance']['value'], balance)
+                self.assertEqual(tester.context.account_logs[-1]['balance'], balance)
+                self.assertEqual(tester.context.account['balance'], balance)
+                self.assertEqual(tester.context.report['init_balance']['value'], 3000)
+                self.assertEqual(tester.context.report['total_trades']['value'], 0)
+                self.assertEqual(tester.context.report['total_net_profit']['value'], 0)
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_report_balance_final_callback_uses_scenario_account_not_initial_balance(self):
+        class BalanceTester(CrossCurrencyEATTester):
+            def on_end_execute(self):
+                self.published_balance = self.context.report['balance']['value']
+
+        ticks = self.make_tick_data(self.symbol, [1, 1])
+        params = dict(self.eat_params, script='pass', balance=3000, tick_max_index=len(ticks),
+                      scenario={'initial_state': {'account_overrides': {'balance': 3250}}})
+        tester = BalanceTester(params, {self.symbol: ticks})
+        tester.execute('scenario-balance-report', sync=True)
+        self.assertEqual(tester.context.get_error()[0], 0)
+        self.assertEqual(tester.published_balance, 3250)
+        self.assertEqual(tester.context.report['init_balance']['value'], 3000)
+        self.assertEqual(tester.context.report['total_net_profit']['value'], 0)
+        self.assertEqual(tester.context.order_logs, [])
+
+    @skipIf(debug_some_tests, "debug some tests")
+    def test_ea_tester_report_balance_breakeven_final_liquidation(self):
+        ticks = self.make_tick_data(self.symbol, [1, 1])
+        params = dict(self.eat_params, script='pass', balance=3000, currency='CHF', spread_point=0,
+                      tick_max_index=len(ticks), scenario={'initial_state': {'orders': [
+                          dict(ticket=7001, side='buy', volume=0.1, open_price=1, count_in_report=True),
+                      ]}})
+        tester = CrossCurrencyEATTester(params, {self.symbol: ticks})
+        tester.execute('breakeven-balance-report', sync=True)
+        self.assertEqual(tester.context.get_error()[0], 0)
+        self.assertEqual(tester.context.report['total_trades']['value'], 1)
+        self.assertEqual(tester.context.report['total_net_profit']['value'], 0)
+        self.assertEqual(tester.context.report['balance']['value'], 3000)
+        self.assertEqual(tester.context.account['balance'], 3000)
+        self.assertEqual(tester.context.ctx['liquidation']['attempts'], 1)
+        self.assertEqual(tester.context.ctx['liquidation']['remaining_orders'], [])
+
+    @skipIf(debug_some_tests, "debug some tests")
     def test_ea_tester_accounting_hedge_close_order_does_not_change_equity_or_dd(self):
         results = []
         for close_order in (['7001', '7002'], ['7002', '7001']):
@@ -2277,6 +2375,7 @@ class PiXiuTests(TestCase):
                 tester = LiquidationTester(params, {self.symbol: ticks})
                 tester.fail_close = fail_close
                 tester.execute('liquidation', sync=True)
+                self.assertEqual(tester.context.report['balance']['value'], tester.context.account['balance'])
                 self.assertEqual(self.assert_accounting_snapshot(tester), 2998)
                 if fail_close:
                     self.assertNotEqual(tester.last_status['errid'], 0)
@@ -2497,6 +2596,9 @@ class PiXiuTests(TestCase):
         equity_values = [10000.0, 10100.0, 10050.0, 10200.0]
         tester.context.account_logs = [{"equity": value} for value in equity_values]
         tester.context.return_logs.extend([{"equity": 10000.0}, {"equity": 10200.0}])
+        # The report represents the settled endpoint, not an unexecuted initial account.
+        tester.context.account['balance'] = equity_values[-1]
+        tester.context.report['balance']['value'] = equity_values[-1]
 
         ratio = tester.calculate_return_ratio()
         returns = np.array([np.log(equity_values[i] / equity_values[i - 1]) for i in range(1, len(equity_values))])

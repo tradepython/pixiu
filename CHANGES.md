@@ -1,3 +1,72 @@
+### [2026-11-24]
+#### **Descriptions：**
+    1.Publication hygiene:
+        1) Remove private strategy/project names, external implementation-log references and internal tracking identifiers from release notes and performance documentation
+        2) Replace machine-specific benchmark result paths with generic examples while preserving engine test results and performance limitations
+        3) Ignore local runtime state, profiler output, environment credentials and private key files without deleting local data or changing engine behavior
+        4) Keep Git history unchanged; historical personal paths require a separately approved history-cleanup procedure
+    2.Validation:
+        1) Rescan 120 publishable text files for identified private names/paths and high-confidence credential patterns; no matches remain for those checks
+        2) Verify 19 sensitive-file ignore cases and 12 public/template exceptions; preserve all 35 local runtime files outside the submission candidate list
+        3) Initialization and UTC fixture tests pass: 18 passed, 5 subtests passed; document links and whitespace checks pass
+
+### [2026-11-22]
+#### Version:
+#####   Package:
+#####    pixiu: 0.190.0.20261122
+#####
+#### **Descriptions：**
+    1.Frozen dependencies:
+        1) Accept optional preauthorized script_libs for settings initialization and parsing; validate runtime requirements before execution and load code with its compile identity before EA hooks
+        2) Use the same frozen libraries for Tester preview, effective-settings validation and native execution without filesystem lookup or source concatenation
+        3) Preserve explicit library/hook failures, temporary context restoration and existing financial/execution logic
+    2.Tests:
+        1) Add five initialization regressions for late parameter registration, compile identities, no filesystem resolution, compatibility rejection and final override validation
+        2) Full local engine verification: 117 tests and 76 subtests pass
+        3) Local verification only; no package publishing, production, database or broker operations
+
+### [2026-11-20]
+#### **Descriptions：**
+    1.Tests / UTC fixture:
+        1) Derive the reference CSV test window from its first/last epoch with explicit UTC offsets instead of parsing host-local date-only strings
+        2) Preserve every original CSV row, indicator/order/scenario/financial assertion and engine runtime byte; add two boundary/row-selection regressions
+        3) Isolated Python3.13.18/RestrictedPython8.4 verification retains the original109/14-failure UTC result, then passes all109 after the two-line fixture fix in UTC/Asia-Shanghai/America-New_York
+    2.Scope:
+        1) Test-only correction; package version and fixed engine wheel unchanged, no publish/production/database/broker/Git operations
+
+### [2026-11-16]
+#### Version:
+#####   Package:
+#####    pixiu: 0.189.0.20261116
+#####
+#### **Descriptions：**
+    1.Initialization errors:
+        1) Propagate declared initialization/validation hook exceptions as EAInitializationError with hook/script identity and original cause; restore temporary context in finally
+        2) Stop swallowing compilation, metadata/settings parsing and final effective-settings validation errors; constructor failures cannot later become native success
+        3) Preserve optional hooks for engine-only scripts and separately logged speculative preview failures without real market/account context; no zero-argument hook compatibility fallback
+    2.Tests:
+        1) Add 11 initialization regressions for shared loaders, context restoration, constructor/final settings and loaded-library hooks
+        2) Correct the old base test script to accept the actual settings argument instead of depending on swallowed TypeError/validation errors
+        3) Full 109 engine tests pass with optional test dependencies installed
+    3.Release:
+        1) Version and local wheel prepared only; no package upload, production deployment, broker/database operations or Git commit/push
+
+### [2026-11-15]
+#### Version:
+#####   Package:
+#####    pixiu: 0.188.*.20261115
+#####
+#### **Descriptions：**
+    1.ea_tester.py:
+        1) Initialize report.balance from the actual initial account instead of zero
+        2) Synchronize report.balance with existing account sampling, including final liquidation and early-stop finalization; zero-trade and breakeven runs no longer retain a zero or stale balance
+        3) Preserve account cash, order execution, profit/trade counters, drawdown sampling, return formulas, failure statuses and export schemas; do not infer profits from balance changes or recalculate trading statistics
+    2.tests:
+        1) Reproduce zero-trade, initialization, account-sample, scenario override and breakeven report failures before the fix
+        2) Cover normal/Fast execution, early stop, valid zero/negative balances, final callbacks and successful/failed liquidation without external services
+        3) Full engine suite: 99 tests and 71 subtests pass; correct the existing return-ratio fixture to explicitly set its intended settled endpoint instead of relying on the old invalid zero report value
+        4) Verification does not access production, databases, Redis, upstream APIs or brokers
+
 ### [2026-11-13]
 #### **Descriptions：**
     1.docs / README:
